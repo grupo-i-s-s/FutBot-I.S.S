@@ -2,11 +2,11 @@
 
 **I.S.S (Ingeniería del Software Survival)**
 Fecha: 21/08/2026
-Versión del documento: 0.3
+Versión del documento: 0.4
 
 FutBot es un videojuego en línea en el cual se pueden jugar partidos de fútbol en vivo entre clubes. 
 
-El usuario deberá registrarse con nombre, **username** (único), password y un email único, es decir, cada mail podrá tener un único usuario. Una vez registrado podrá crear su club, decidiendo el nombre y eligiendo su avatar.
+El usuario deberá registrarse con nombre, **username** (único), password y un email único, es decir, cada mail podrá tener un único usuario. Además deberá configurar su club decidiendo el nombre y eligiendo su avatar.
 Una vez dentro del club el usuario podrá comenzar a crear sus propios jugadores y comportamientos. 
 Al tener 6 o más jugadores y al menos 1 comportamiento, podrá crear partidos amistosos seleccionando rival entre sus amigos en línea.  Para hacer amigos deberá buscar a quien desee por username y enviar la solicitud de amistad. Además al usuario se le habilitan la participación en las ligas, donde podrá crear / unirse, iniciar (sólo si es el creador), cancelar (si es club creador) /  (si no es club creador) abandonar, sólo si la liga no ha iniciado. Existen ligas privadas y públicas, dentro de cada liga hay un ranking propio de la misma y cada partido de liga pública también suma puntos a un ranking global. 
 
@@ -28,9 +28,16 @@ Para comenzar a jugar partidos ya sea en ligas o amistosos deberá definir un **
 - 3 jugadores suplentes.
 - Cada jugador con su comportamiento.
 - Fromación. (Desde una biblioteca de formaciones).
+
 ---
 ## Jugadores 
-El usuario podrá crear tantos jugadores como desee. Para ello deberá asignarle un nombre y completar PACSS(Power, Agility, Control, Strength, Speed). Cada una de estas habilidades debe tener entre 20 y 100 puntos y la suma total de las 5 debe dar exactamente 300. 
+El usuario podrá crear tantos jugadores como desee. Para ello deberá asignarle un nombre y completar PACSS*. Cada una de estas habilidades debe tener entre 20 y 100 puntos y la suma total de las 5 debe dar exactamente 300. 
+* - **Power:** fuerza con la que patea.
+- **Agility:** cada cuánto puede volver a patear.
+- **Control:** desde qué distancia alcanza a tocar la pelota.
+- **Speed:** qué tan rápido corre y acelera.
+- **Strength:** cuánto se impone en los choques.
+
 Se pueden eliminar jugadores siempre y cuando no haya ningún partido en curso (la eliminación será lógica).
 
 ---
@@ -56,11 +63,11 @@ Podrá enviar una invitación a sus amigos en línea para jugar un partido amist
 
 ## Ranking 
 Cada partido ganado sumará 3 puntos, el empate 1 y la derrota 0. 
-En caso de empate, se decidirá en el siguiente orden: diferencia de goles, goles a favor por último, goles en contra. 
+En caso de empate, se decidirá en el siguiente orden: diferencia de goles, goles a favor, por último, goles en contra. 
 
 ---
 ## Ligas 
-Para poder participar en una liga, el club deberá tener al menos 6 jugadores y decidir por 3 titulares y 3 suplentes, cada uno con algún comportamiento. Si bien esto puede cambiar antes de cada partido, se exige decidir así para si el usuario está offline al comenzar el partido, se toma como equipo default. 
+Al participar en una liga el usuario se inscribirá con el equipo default definido en su club. Antes de cada partido podrá modificar las titularidades, suplencias y los comportamientos de sus jugadores. Si el usuario está offline al comenzar el partido, se jugará con el equipo default. 
 Cada liga tiene su propio ranking.
 Cualquier usuario que pertenezca  a una liga, podrá ver los partidos que se están jugando en la misma. 
 
@@ -84,6 +91,6 @@ Se ingresa con una invitación.
 Los puntos no sumarán en el ranking global. 
 ### Públicas 
 Los puntos acumulados suman al ranking global. 
-Los clubes se pueden unir a cualquier liga disponible. 
+Los clubes se pueden unir a cualquier liga disponible no iniciada. 
 
 --- 
