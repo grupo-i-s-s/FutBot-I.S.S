@@ -1,51 +1,70 @@
 # Casos de Uso - FutBot
  **Versión:** 0.1
 
-
-### Módulo: Autenticación y Cuenta
-* **CU01:** Registrar nuevo usuario
+## Módulo: Autenticación y Cuenta
+### CU01: Registrar nuevo usuario
 
 * **Actor:** Visitante
-* **Precondición:** El visitante no ha iniciado sesión en el sistema
-* **escenario exitoso Principal:**
-  1. El visitante accede a la vista de registro
-  2. El sistema presenta el formulario de registro solicitando: nombre completo, nombre de usuario (`username`), correo electrónico (`email`), contraseña (`password`) 
-  3. El visitante completa los campos y envía el formulario
+* **Precondición:** El visitante no se ha registrado en el sistema. 
+* **Escenario exitoso Principal:**
+  1. El visitante accede a la vista de registro.
+  2. El sistema presenta el formulario de registro solicitando: nombre completo, nombre de usuario (`username`), correo electrónico (`email`), contraseña (`password`).
+  3. El visitante completa los campos y envía el formulario.
   4. El sistema valida los datos:
-     * El formato del correo electrónico es válido y no está registrado previamente
-     * El nombre de usuario es único
-  5. El sistema crea la cuenta del `Usuario`
-  6. El sistema crea automáticamente la entidad `Club` asociada al nuevo usuario (con un nombre por defecto derivado del usuario o solicitado en el formulario)
-  7. El sistema redirige al usuario al panel principal de su club
-* **casos excepcionales:**
+     * El formato del correo electrónico es válido y no está registrado previamente.
+     * El nombre de usuario es único.
+  5. El sistema crea la cuenta del `Usuario`.
+  6. El sistema crea automáticamente la entidad `Club` asociada al nuevo usuario. *Deberá Configurarlo: CU01.1*.
+* **Casos excepcionales:**
   * **4a. Datos duplicados (Email o Username ya existentes):** El sistema notifica que el correo o nombre de usuario ya están en uso y solicita ingresar valores diferentes
-  * **4c. Campos obligatorios vacíos o inválidos:** El sistema resalta los campos con error y detiene el flujo
+  * **4c. Campos obligatorios vacíos o inválidos:** El sistema resalta los campos con error y vuelve a pedir que ingrese los datos.
+### CU01.1: Configurar club
 
+- **Actor**: Usuario.
+- **Precondición**: El usuario ya completó datos de registro. 
+- **Escenario exitoso principal:**
+    1. El usuario debe configurar su club. 
+    2. El sistema presenta un formulario solicitando:
+        - Nombre del club.
+        - Avatar, seleccionado desde la biblioteca de avatares brindada por el sistema.
+    3. El usuario ingresa el nombre de su club y selecciona un avatar.
+    4. El usuario confirma la configuración.
+    5. El sistema valida que los campos obligatorios hayan sido completados.
+    6. El sistema configura el club asociado al usuario con el nombre y avatar seleccionados.
+    7. El sistema le asigna al club un equipo default de 3 jugadores titulares, 3 suplentes y un comportamiento para todos. 
+    8. El sistema confirma la configuración y permite al usuario acceder al panel principal de su club.
+    9. El usuario pone "Continuar".
+    10. El sistema redirige al inicio de FutBot. 
+- **Casos excepcionales:**
+	 **5a. Campos obligatorios incompletos:** El sistema informa al usuario qué campos deben completarse antes de continuar.
 
-* **CU02:** Iniciar sesión 
+#### CU02: Iniciar sesión 
 
-* **Actor:** Usuario registrado 
-* **Precondición:** El usuario posee una cuenta registrada en el sistema y no tiene una sesión activa en el cliente
-* **escenario exitoso principal:**
-  1. El usuario accede a la pantalla de inicio de sesión
-  2. El sistema solicita: correo electrónico (`email`) y contraseña (`password`)
-  3. El usuario ingresa sus datos y presiona "Iniciar Sesión"
-  4. El sistema valida que el correo exista y que el hash de la contraseña coincida con el registrado en la base de datos
-  5. El sistema redirige al usuario a la vista principal de su club
+* **Actor:** Usuario registrado.
+* **Precondición:** El usuario posee una cuenta registrada en el sistema.
+* **Escenario exitoso principal:**
+  1. El usuario accede a la pantalla de inicio de sesión.
+  2. El sistema solicita: correo electrónico (`email`) y contraseña (`password`).
+  3. El usuario ingresa sus datos y presiona "Iniciar Sesión".
+  4. El sistema valida que el correo exista y que el hash de la contraseña coincida con el registrado en la base de datos.
+  5. El sistema redirige al usuario a la vista principal de su club.
 * **escenarios excepcionales:**
   * **4a. Credenciales inválidas:** El sistema muestra un mensaje de error genérico (*"Correo o contraseña incorrectos"*) por motivos de seguridad y permite reintentar el ingreso.
   * **4b. Cuenta inexistente:** Si el correo no figura en el sistema, se muestra el mismo mensaje de error genérico que en 4a
 
-* **CU03:** Configurar / Modificar avatar del club
-* **Actor:** Usuario autenticado
-* **Precondición:** El usuario ha iniciado sesión y administra su club
-* **Escenario exitoso principal:**
-  1. El usuario ingresa a la sección de configuración de su club
-  2. El usuario selecciona un nuevo avatar de la galería disponible y confirma el cambio.
-  3. El sistema valida la selección y actualiza el identificador del avatar 
-  4. El sistema actualiza la interfaz visual del usuario reflejando el nuevo avatar y confirma que los cambios fueron guardados exitosamente
-* **escenarios excepcionales:**
-  * **3a. Cancelar selección:** El usuario decide no modificar el avatar y cierra el selector; el sistema mantiene el avatar previo sin registrar cambios
+### CU03: Modificar club
+
+- **Actor:** Usuario autenticado.
+- **Precondición:** El usuario se ha registrado correctamente en el sistema.
+- **Escenario exitoso principal:**
+    1. El usuario accede a la configuración de su club.
+    2. El sistema muestra el avatar actual y la biblioteca de avatares disponibles.
+    3. El usuario selecciona un nuevo avatar.
+    4. El usuario confirma el cambio.
+    5. El sistema actualiza el avatar del club.
+    6. El sistema refleja el nuevo avatar en la interfaz y confirma que el cambio fue realizado correctamente.
+- **Escenarios excepcionales:**
+    - **4a. Cancelación de modificación:** Si el usuario cancela la modificación del avatar, el sistema conserva el avatar anterior sin realizar cambios.
 
 * **CU04:** Cerrar sesión 
 * **Actor:** Usuario autenticado
@@ -57,27 +76,60 @@
 * **escenarios excepcionales:**
   * No presenta(el cierre de sesión local es inmediato)
 
-* **CU05:** Consultar perfil de club rival
-* **Actor:** Usuario autenticado
-* **Precondición:** El usuario tiene una sesión activa y visualiza un listado público (ranking, fixture de liga)
-* **escenario exitoso principal:**
-  1. El usuario selecciona el nombre o avatar de un club rival
+### **CU05:** Consultar perfil de club rival
+
+* **Actor:** Usuario autenticado.
+* **Precondición:** El usuario tiene una sesión activa y visualiza un listado público.
+* **Escenario exitoso principal:**
+  1. El usuario selecciona el nombre o avatar de un club rival.
   2. El sistema recupera y muestra la información pública del club:
-     * Nombre del club y avatar actual
-     * Estadísticas generales (partidos jugados, victorias, empates, derrotas, posición en el ranking global)
-     * Plantilla de jugadores del club con sus respectivos nombres y atributos PACSS
-  3. El usuario visualiza la ficha técnica del rival sin acceso a su código fuente ni tácticas privadas
-* **escenarios excepcioanales:**
-  * **2a. Club no encontrado:** El sistema muestra una notificación informando que el club solicitado no se encuentra disponible y regresa a la vista anterior
+     * Nombre del club y avatar actual.
+     * Estadísticas generales (partidos jugados, victorias, empates, derrotas, posición en el ranking global).
+     * Plantilla de jugadores del club con sus respectivos nombres.
+  3. El usuario visualiza la ficha técnica del rival sin acceso a su código fuente ni tácticas privadas.
+* **Escenarios excepcionales:**
+  * **2a. Finaliza el partido:** El sistema no muestra información sobre el rival y redirige al inicio. 
 
-### Módulo: Sistema de Amigos ?? nose si esta confirmado esto
+### Módulo: Sistema de Amigos 
 * **CU06:** Buscar usuario por username
-* **CU07:** Enviar solicitud de amistad
+* **Actor:** Usuario autenticado 
+* **Precondición:** El usuario ha iniciado sesión y administra su club
+* **Escenario exitoso principal:** 
+	1. El usuario accede a la sección "Amigos".
+	2. El usuario ingresa el username del usuario que desea buscar. 
+	3. EL sistema busca el usuario cuyo username coincida con el ingresado.
+	4. El sistema muestra el usuario encontrado junto con la información pública necesaria para identificarlo. 
+	5. El usuario puede seleccionar al usuario encontrado para enviarle una solicitud de amistad. 
+- **Escenarios excepcionales:**
+	- 2a.  Búsqueda vacía:** El sistema solicita ingresar un `username` antes de realizar la búsqueda.
+	- 3a. Usuario no encontrado:** El sistema informa que no existe ningún usuario con el `username` ingresado.
+
+#  CU07 ELIMINADO
+
+
 * **CU08:** Aceptar / Rechazar solicitud de amistad
-* **CU09:** Listar amigos y solicitudes pendientes 
+* **Actor:** Usuario autenticado
+- **Precondición:** El usuario ha iniciado sesión y posee al menos una solicitud de amistad pendiente.
+- **Escenario exitoso principal – Aceptar:**
+    1. El usuario accede a la sección de solicitudes de amistad pendientes.
+    2. El sistema muestra las solicitudes recibidas.
+    3. El usuario selecciona una solicitud y presiona "Aceptar".
+    4. El sistema cambia el estado de la solicitud a `ACEPTADA`.
+    5. El sistema registra la relación de amistad entre ambos usuarios.
+    6. El sistema actualiza la lista de amigos del usuario.
+    7. El sistema informa que la solicitud fue aceptada correctamente.
+- **Escenario alternativo – Rechazar:**
+    - **3a. Rechazar solicitud:**
+        1. El usuario selecciona una solicitud pendiente y presiona "Rechazar".
+        2. El sistema cambia el estado de la solicitud a `RECHAZADA` o elimina la solicitud pendiente.
+        3. El sistema confirma que la solicitud fue rechazada.
+        4. Los usuarios no son agregados a sus respectivas listas de amigos.
+- **Escenarios excepcionales:**
+    - **3b. Solicitud ya procesada:** Si la solicitud ya fue aceptada o rechazada previamente, el sistema informa que ya no se encuentra pendiente y actualiza el listado.
 
+# CU09 ELIMINADO 
 
-### Módulo: Gestión de Plantel y Comportamientos
+## Módulo: Gestión de Plantel y Comportamientos
 * **CU10:** Crear jugador (Validación PACSS: suma 300, rango 20-100)
 
 * **Actor:** Usuario autenticado.
@@ -101,19 +153,18 @@
   * **5c. Nombre no provisto:** El sistema solicita completar el campo obligatorio del nombre
 
 
-* **CU11:** Listar jugadores del club
+### CU11: Listar jugadores del club
 
-* **Actor:** Usuario autenticado
-* **Precondición:** El usuario tiene una sesión activa
-* **escenario exitoso principal:**
-  1. El usuario navega al apartado del plantel
-  2. El sistema consulta la base de datos y recupera todos los jugadores activos (no eliminados lógicamente) pertenecientes al club del usuario
+* **Actor:** Usuario autenticado.
+* **Precondición:** El usuario tiene una sesión activa.
+* **Escenario exitoso principal:**
+  1. El usuario navega al apartado de plantel.
+  2. El sistema consulta la base de datos y recupera todos los jugadores activos (no eliminados) pertenecientes al club del usuario.
   3. El sistema muestra una vista con las tarjetas o tabla de cada jugador, mostrando:
      * Nombre del jugador.
-     * Desglose de sus 5 atributos PACSS (Power, Agility, Control, Speed, Strength)
-     * Indicador de estado (disponible / inscripto en liga)
-* **escenarios excepcionales:**
-  * **2a. El club no posee jugadores creados:** El sistema muestra una vista vacía y un botón de acceso directo a "Crear Jugador"
+     * Desglose de sus 5 atributos PACSS (Power, Agility, Control, Speed, Strength.
+* **Escenarios excepcionales:**
+  * **2a. El club no posee jugadores creados:** El sistema muestra una vista de los jugadores default brindados por el sistema y un botón de acceso directo a "Crear Jugador"
 
 * **CU12:** Eliminar jugador del club 
 
@@ -132,24 +183,24 @@
   * **4a. Cancelación:** El usuario cancela el diálogo de confirmación; el sistema no realiza cambios y mantiene al jugador activo
 
 
-* **CU13:** Crear comportamiento 
+### CU13: Crear comportamiento 
 
-* **Actor:** Usuario autenticado
-* **Precondición:** El usuario tiene una sesión activa
+* **Actor:** Usuario autenticado.
+* **Precondición:** El usuario tiene una sesión activa.
 * **escenario exitoso principal:**
   1. El usuario accede a la sección "Comportamientos" y presiona "Nuevo Comportamiento"
-  2. El sistema comprueba que el club **no tenga partidos en curso**
+  2. El sistema comprueba que el club **no tenga partidos en curso**.
   3. El sistema presenta la interfaz con:
-     * Campo para el nombre del comportamiento
-     * Entorno de edición lógica
-  4. El usuario ingresa un nombre y diseña la secuencia lógica
-  5. El usuario presiona "Guardar Comportamiento"
-  6. El sistema valida que el nombre no esté vacío y compila/valida la estructura lógica 
+     * Campo para el nombre del comportamiento.
+     * Entorno de edición lógica.
+  4. El usuario ingresa un nombre y diseña la secuencia lógica.
+  5. El usuario presiona "Guardar Comportamiento".
+  6. El sistema valida que el nombre no esté vacío y sea único, compila/valida la estructura lógica.
   7. El sistema almacena el nuevo `Comportamiento` asociado al club.
   8. El sistema notifica el guardado exitoso y añade el script al listado de tácticas disponibles.
-* **escenarios alternativos:**
+* **Escenarios excepcional:**
   * **2a. Club con partido en curso:** El sistema bloquea el acceso a la creación de comportamientos hasta que finalice el encuentro.
-  * **6a. Estructura de bloques incompleta o errónea:** El sistema resalta los bloques desconectados o inválidos e impide el guardado hasta su corrección
+  * **6a. Estructura de bloques incompleta o errónea:** El sistema resalta los bloques desconectados o inválidos e impide el guardado hasta su corrección.
 
 * **CU14:** Editar comportamiento (solo si no hay partido en curso)
 * **Actor:** Usuario autenticado
@@ -166,19 +217,20 @@
   * **2a. Club con partido en curso:** El sistema desactiva la opción de edición y muestra un mensaje informando que no es posible modificar scripts mientras haya partidos en juego.
   * **5a. Error en la estructura de bloques:** El sistema marca los errores lógicos y solicita repararlos antes de realizar cambios
 
-* **CU15:** Eliminar comportamiento 
+### CU15: Eliminar comportamiento 
+
 * **Actor:** Usuario autenticado
-* **Precondición:** El usuario tiene una sesión activa y visualiza sus comportamientos
-* **escenario exitoso principal:**
-  1. El usuario presiona el botón "Eliminar" en un comportamiento especifico
-  2. El sistema comprueba que el club **no tenga partidos en curso**
-  3. El sistema solicita confirmación al usuario para proceder con el borrado
-  4. El usuario confirma la eliminación
-  5. El sistema ejecuta una baja del comportamiento
-  6. El sistema notifica la eliminación exitosa y lo retira del listado activo
-* **escenarios excepcionales:**
-  * **2a. Club con partido en curso:** El sistema bloquea la eliminación notificando la restricción de partidos activos
-  * **4a. Cancelación:** El usuario cancela y el comportamiento permanece activo
+* **Precondición:** El usuario tiene una sesión activa y visualiza sus comportamientos.
+* **Escenario exitoso principal:**
+  1. El usuario presiona el botón "Eliminar" en un comportamiento especifico.
+  2. El sistema comprueba que el club **no tenga partidos en curso**.
+  3. El sistema solicita confirmación al usuario para proceder con el borrado.
+  4. El usuario confirma la eliminación.
+  5. El sistema ejecuta una baja del comportamiento.
+  6. El sistema notifica la eliminación exitosa y lo retira del listado activo.
+* **Escenarios excepcionales:**
+  * **2a. Club con partido en curso:** El sistema bloquea la eliminación notificando la restricción de partidos activos.
+  * **4a. Cancelación:** El usuario cancela y el comportamiento permanece activo.
 
 * **CU16:** Listar comportamientos del club
 * **Actor:** Usuario autenticado.
@@ -190,30 +242,59 @@
 * **escenarios excepcioanles:**
   * **2a. No existen comportamientos registrados:** El sistema muestra un mensaje indicando que el club aún no posee tácticas creadas junto a un botón para crear la primera
 
-### Módulo: Ligas y Torneos
-* **CU17:** Crear liga (pública o privada con código, min/max clubes >= 3, duración)
+## Módulo: Ligas y Torneos
+
+### CU17.01: Crear liga Pública
+* **Actor:** Usuario autenticado (Club Creador).
+* **Precondición:** El usuario ha iniciado sesión.
+* **Escenario exitoso principal:**
+  1. El usuario accede a la sección "Ligas" y luego a "Crear nueva liga pública".
+  2. El sistema despliega el formulario de configuración solicitando:
+     * Nombre de la liga.
+     * Cantidad mínima de clubes (por defecto 3, configurable a un valor mayor o igual a 3)
+     * Cantidad máxima de clubes.
+     * Tiempo de espera entre rondas (Seguidas, Diarias, Semanales).
+	     * Diarias: Pedirá hora a jugar. 
+	     * Semanales: Pedirá hora y día a jugar.
+     * Hora y día de inicio de liga. 
+  3. El usuario completa los parámetros y confirma la creación.
+  4. El sistema valida las reglas de negocio:
+     * Ningún campo esté vacío.
+     * La cantidad mínima es 3.
+     * La cantidad máxima es mayor o igual a la mínima.
+  5. El sistema crea la `Liga` asignando al club del usuario como creador y la muestra en la sección "Ligas disponibles".
+  6. El sistema inscribe automáticamente al club creador como primer participante (completando los datos de inscripción del CU19).
+  * **Escenarios excepcionales:**
+  * **4a. Campo vacío/inválido:** El sistema resalta los bloques incompletos ó inválidos e impide el guardado hasta su corrección.
+  * **4b. Mínimo de clubes menor a 3:** El sistema advierte que el cupo mínimo permitido es de 3 clubes e impide guardar.
+  * **4c. Máximo menor al mínimo:** El sistema notifica la inconsistencia en los cupos y solicita corregir los valores.
+
+### CU17.02: Crear liga Privada
 
 * **Actor:** Usuario autenticado (Club Creador).
 * **Precondición:** El usuario ha iniciado sesión
 * **escenario exitoso principal:**
-  1. El usuario accede a la sección "Ligas" y crea una
+  1. El usuario accede a la sección "Ligas" y luego a "Crear nueva liga privada".
   2. El sistema despliega el formulario de configuración solicitando:
      * Nombre de la liga.
-     * Tipo de accesibilidad: Pública o Privada (con código/contraseña de acceso o invitación).
      * Cantidad mínima de clubes (por defecto 3, configurable a un valor mayor o igual a 3)
-     * Cantidad máxima de clubes
-     * Duración de los partidos.  ??
+     * Cantidad máxima de clubes.
+     * Tiempo de espera entre rondas (Seguidas, Diarias, Semanales).
+	     * Diarias: Pedirá hora a jugar. 
+	     * Semanales: Pedirá hora y día a jugar.
+     * Hora y día de inicio de liga. 
   3. El usuario completa los parámetros y confirma la creación.
   4. El sistema valida las reglas de negocio:
-     * El nombre no está vacío
-     * La cantidad mínima es 3
-     * La cantidad máxima es mayor o igual a la mínima
-     * Si es privada, se genera o valida el código de acceso
-  5. El sistema crea la entidad `Liga` en estado `ABIERTA` asignando al club del usuario como creador (owner)
-  6. El sistema inscribe automáticamente al club creador como primer participante (solicitando los datos de inscripción del CU19)
-* **escenarios excepcionales:**
-  * **4a. Mínimo de clubes menor a 3:** El sistema advierte que el cupo mínimo permitido es de 3 clubes e impide guardar.
-  * **4b. Máximo menor al mínimo:** El sistema notifica la inconsistencia en los cupos y solicita corregir los valores
+     * Ningún campo esté vacío.
+     * La cantidad mínima es 3.
+     * La cantidad máxima es mayor o igual a la mínima.
+  5. El sistema genera un código de ingreso a la liga y muestra la liga en la sección "Ligas Disponibles Privadas".
+  6. El sistema inscribe automáticamente al club creador como primer participante (completando los datos de inscripción del CU19).
+  * **Escenarios excepcionales:**
+  * **4a. Campo vacío/inválido:** El sistema resalta los bloques incompletos ó inválidos e impide el guardado hasta su corrección.
+  * **4b. Mínimo de clubes menor a 3:** El sistema advierte que el cupo mínimo permitido es de 3 clubes e impide guardar.
+  * **4c. Máximo menor al mínimo:** El sistema notifica la inconsistencia en los cupos y solicita corregir los valores.
+
 
 * **CU18:** Listar y buscar ligas disponibles
 
@@ -221,30 +302,46 @@
 * **Precondición:** El usuario tiene una sesión activa
 * **escenario exitoso principal:**
   1. El usuario abre "Explorar Ligas"
-  2. El sistema consulta y presenta la lista de ligas en estado `ABIERTA` y con cupos disponibles.
-  3. Para cada liga, el sistema muestra: nombre, tipo (pública/privada), creador, cupos ocupados/totales (ej: 4/8) y duración de partidos
-  4. El usuario puede filtrar por nombre o visibilidad
-  5. El sistema actualiza la lista según los filtros aplicados
+  2. El sistema consulta y presenta la lista de ligas públicas en estado `ABIERTA` y con cupos disponibles.
+  3. Para cada liga, el sistema muestra: nombre, creador, cupos ocupados/totales (ej: 4/8) y duración de partidos
+  4. El usuario puede filtrar por nombre.
+  5. El sistema actualiza la lista según los filtros aplicados.
 * **escenarios excepcionales:**
   * **2a. No hay ligas disponibles con cupo abierto:** El sistema muestra un mensaje indicando que no se encontraron ligas abiertas y ofrece la opción de "Crear Liga"
 
-* **CU19:** Inscribirse a una liga (selección de 6 jugadores, formación y tácticas iniciales)
+### CU19.01: Inscribirse a una liga Pública
+
 * **Actor:** Usuario autenticado
-* **Precondición:** El usuario tiene una sesión activa. El club posee al menos 6 jugadores y 1 comportamiento. La liga está en estado `ABIERTA` y no ha alcanzado el cupo máximo.
-* **escenario exitoso principal:**
+* **Precondición:** El usuario tiene una sesión activa. La liga esta disponible y no ha alcanzado el cupo máximo.
+* **Escenario exitoso principal:**
   1. El usuario selecciona una liga y presiona "Unirse"
-  2. Si la liga es privada, el sistema solicita ingresar el código de acceso. El usuario lo ingresa y el sistema valida que coincida
-  3. El sistema presenta la pantalla de configuración de plantel para la liga
-  4. El usuario selecciona exactamente 6 jugadores de su club.
-  5. El usuario define la alineación por defecto para el torneo: 3 titulares, 3 suplentes, la formación táctica y asigna un comportamiento a cada jugador
-  6. El usuario confirma la inscripción
-  7. El sistema valida que el club no esté previamente inscripto y que la configuración contenga exactamente 6 jugadores válidos con comportamientos
-  8. El sistema registra la `ParticipacionLiga` y genera las copias inmutables de los 6 jugadores (`JugadorInscriptoLiga`) y sus comportamientos guardados para la liga
-  9. Si con esta inscripción se alcanza el cupo máximo de clubes, el sistema bloquea nuevas uniones y deja la liga a la espera de ser iniciada
+  2. El sistema valida que el club no esté previamente inscripto.
+  3. El sistema configura la participación del club en la liga con su equipo default.
+  4. El sistema muestra como quedaría y consulta si desea confirmar.
+  5. El usuario confirma la inscripción.
+  6. El sistema registra la participación del club en la liga. 
+  7. Si con esta inscripción se alcanza el cupo máximo de clubes, el sistema bloquea nuevas uniones y deja la liga a la espera de ser iniciada.
 * **escenarios excepcionales:**
-  * **2a. Código de acceso incorrecto:** El sistema deniega el acceso e informa el error
-  * **7a. Plantel incompleto:** El sistema notifica que deben seleccionarse exactamente 6 jugadores (3 titulares y 3 suplentes) con sus respectivos scripts
-  * **9a. Liga llena simultáneamente:** Si otro club ocupó el último cupo instantes antes, el sistema notifica que la liga se ha completado
+  * **9a. Liga llena simultáneamente:** Si otro club ocupó el último cupo instantes antes, el sistema notifica que la liga se ha completado.
+
+### CU19.02: Inscribirse a una liga Privada
+
+* **Actor:** Usuario autenticado
+* **Precondición:** El usuario tiene una sesión activa. La liga esta disponible y no ha alcanzado el cupo máximo.
+* **Escenario exitoso principal:**
+  1. El usuario selecciona una liga y presiona "Unirse".
+  2. 5. El sistema valida que el club no esté previamente inscripto..
+  3. El sistema solicita ingresar el código de acceso. 
+  4. El usuario lo ingresa.
+  5. El sistema valida que coincida.
+  6. El sistema configura la participación del club en la liga con su equipo default.
+  7. El sistema muestra como quedaría y consulta si desea confirmar.
+  8. El usuario confirma la inscripción.
+  9. El sistema registra la participación del club en la liga. 
+  10. Si con esta inscripción se alcanza el cupo máximo de clubes, el sistema bloquea nuevas uniones y deja la liga a la espera de ser iniciada.
+* **escenarios excepcionales:**
+  * **5a. Código de acceso incorrecto:** El sistema deniega el acceso e informa el error.
+  * **10a. Liga llena simultáneamente:** Si otro club ocupó el último cupo instantes antes, el sistema notifica que la liga se ha completado
 
 
 * **CU20:** Abandonar liga (solo antes del inicio)
@@ -261,21 +358,18 @@
 * **escenarios excepcionales:**
   * **2a. La liga ya fue iniciada:** El sistema oculta/bloquea el botón de abandono y muestra un mensaje informando que no es posible retirarse de un torneo en curso
 
-
-* **CU21:** Iniciar liga (Creador, con cupo mínimo alcanzado)
+### CU21: Iniciar liga (Creador, con cupo mínimo alcanzado)
 
 * **Actor:** Usuario autenticado (Club Creador).
-* **Precondición:** La liga está en estado `ABIERTA` y la cantidad de clubes inscriptos es mayor o igual a la cantidad mínima configurada
-* **escenario exitoso principal:**
-  1. El creador accede al panel de administración de su liga.
-  2. El sistema habilita el botón "Iniciar Liga" al constatar que se cumple el cupo mínimo.
-  3. El creador presiona "Iniciar Liga"
-  4. El sistema cambia el estado de la liga a `INICIADA`.
-  5. El sistema genera automáticamente el `Fixture` con el calendario completo de partidos en formato todos contra todos, agrupándolos por rondas
-  6. El sistema inicializa la `TablaDePuntaje` con todos los clubes inscriptos en 0 puntos.
-  7. El sistema notifica a todos los participantes e inicia la cuenta regresiva para la primera ronda de partidos simultáneos.
+* **Precondición:** La liga está disponible y la cantidad de clubes inscriptos es mayor o igual a la cantidad mínima configurada.
+* **Escenario exitoso principal:**
+  1. El creador presiona "Iniciar Liga".
+  2. El sistema inicia la liga y la oculta en la sección de "Ligas disponibles".
+  3. El sistema genera automáticamente el `Fixture` con el calendario completo de partidos en formato todos contra todos, agrupándolos por rondas.
+  4. El sistema inicializa la `TablaDePuntaje` con todos los clubes inscriptos en 0 puntos.
+  5. El sistema notifica a todos los participantes e inicia la cuenta regresiva para la primera ronda de partidos simultáneos.
 * **escenarios excepcionales:**
-  * **2a. No se alcanza el cupo mínimo de clubes:** El botón permanece deshabilitado informando cuántos clubes faltan para poder arrancar
+  * **2a. No se alcanza el cupo mínimo de clubes:** El botón permanece deshabilitado informando cuántos clubes faltan para poder arrancar.
 
 * **CU22:** Cancelar liga (Creador, antes del inicio)
 * **Actor:** Usuario autenticado (Club Creador)
@@ -290,49 +384,55 @@
   * **1a. La liga ya inició:** El sistema impide la cancelación una vez que el torneo está en juego
 
 
-* **CU23:** Ver fixture, rondas y tabla de posiciones de la liga
+### CU23: Consultar fixture, rondas y tabla de posiciones de una liga
 
-* **Actor:** Usuario autenticado
-* **Precondición:** El usuario accede al detalle de una liga iniciada o finalizada.
-* **escenario exitoso principal:**
-  1. El usuario ingresa a la liga deseada
-  2. El sistema presenta dos pestañas principales:
-     * **Fixture / Rondas:** Muestra los enfrentamientos de cada ronda, indicando si los partidos están programados, en curso (con marcador en vivo) o finalizados (con resultado final).
-     * **Tabla de Posiciones:** Muestra la lista de clubes ordenada por: Puntos,Diferencia de Gol,Goles a Favor,Partidos Ganados/Empatados/Perdidos
-  3. El usuario puede alternar entre rondas o hacer clic en un partido en vivo para ir a observarlo
-* **escenario excepcionales:**
-  * No presenta
+- **Actor:** Usuario autenticado perteneciente a la liga.
+- **Precondición:** El club del usuario se encuentra inscripto en una liga que ha sido iniciada.
+- **Escenario exitoso principal:**
+    1. El usuario accede al detalle de la liga.
+    2. El sistema muestra el fixture completo de la liga organizado por rondas.
+    3. Para cada ronda, el sistema muestra:
+        - Los clubes enfrentados.
+        - El horario de cada partido.
+        - El estado del partido: programado, en curso o finalizado.
+        - El resultado, en caso de que el partido haya finalizado.
+    4. El sistema muestra la tabla de posiciones de la liga.
+    5. Los clubes se ordenan de acuerdo con los puntos obtenidos:
+        - Partido ganado: 3 puntos.
+        - Partido empatado: 1 punto.
+        - Partido perdido: 0 puntos.
+    6. En caso de empate en puntos, el sistema aplica los criterios de desempate establecidos:
+        1. Mayor diferencia de goles.
+        2. Mayor cantidad de goles a favor.
+        3. Menor cantidad de goles en contra.
+    7. El usuario puede seleccionar una ronda para consultar sus partidos.
+    8. Si uno de los partidos de la liga se encuentra en curso, el usuario puede seleccionarlo para observarlo en vivo.
+- **Escenarios excepcionales:**
+    - **3a. Ronda aún no disputada:** El sistema muestra los enfrentamientos y horarios programados sin resultados.
+    - **8a. Partido no iniciado** Si el usuario intenta acceder a un partido no iniciado, el sistema muestra la cancha vacía. 
+    - **8b. Partido finalizado:** Si el usuario intenta acceder a un partido que acaba de finalizar, el sistema muestra su resultado final.
 
 * **CU24:** Finalizar liga (automático tras la última ronda)
 
-* **Actor:** Sistema de Simulación (Automático)
-* **Precondición:** La liga está en estado `INICIADA` y se ha simulado y registrado el resultado del último partido de la última ronda del fixture
-* **escenario exitoso principal:**
-  1. El sistema de simulación detecta que todos los partidos del fixture han pasado a estado `FINALIZADO`
-  2. El sistema actualiza la tabla de posiciones con los resultados de la última fecha y determina las posiciones finales definitivas
-  3. El sistema cambia el estado de la liga a `FINALIZADA`
-  4. Si la liga era de tipo **Pública**, el sistema calcula y transfiere los puntos obtenidos por cada club a la tabla de **Ranking Global**
-  5. El sistema emite una notificación a todos los participantes con el resultado final del torneo
-* **escenarios excepcionales:**
-  * **4a. Liga Privada:** El sistema finaliza la liga pero no otorga ni modifica los puntos del Ranking Global   
+-   **Actor:** Sistema.
+- **Precondición:** La liga se encu entra iniciada y todos los partidos correspondientes a todas sus rondas han finalizado.
+- **Escenario exitoso principal:**
+    1. El sistema verifica que todos los partidos del fixture hayan finalizado.
+    2. El sistema actualiza la tabla de posiciones con los resultados de la última ronda.
+    3. El sistema aplica los criterios de puntuación y desempate establecidos para determinar las posiciones finales.
+    4. El sistema establece la clasificación definitiva de los clubes.
+    5. El sistema cambia el estado de la liga a `FINALIZADA`.
+    6. El sistema muestra el fixture completo, los resultados finales y la tabla de posiciones definitiva.
+    7. El sistema informa a los clubes participantes que la liga ha finalizado.
+- **Consideración para ligas públicas:**
+    - Los resultados de los partidos disputados en una liga pública también se consideran para el Ranking Global.
+- **Consideración para ligas privadas:**
+    - Los resultados de la liga privada solamente afectan al ranking propio de la liga y no al Ranking Global.
 
-### Módulo: Partidos y Simulación        (asumiendo que existe el sistema de amigos)
-* **CU25:** Enviar desafío de partido amistoso a un amigo
+---
 
-* **Actor:** Usuario autenticado
-* **Precondición:** El usuario tiene una sesión activa. El club posee al menos 6 jugadores y 1 comportamiento. El destinatario pertenece a la lista de amigos del usuario
-* **escenario exitoso principal:**
-  1. El usuario accede a su lista de amigos y presiona el botón "Desafiar" junto al amigo elegido
-  2. El sistema despliega el formulario de configuración del partido amistoso solicitando:
-     * Duración total del partido
-     * Selección de los 6 jugadores (3 titulares y 3 suplentes)
-     * Selección de la formación táctica y asignación de comportamientos a los jugadores
-  3. El usuario completa los parámetros y envía el desafío
-  4. El sistema valida que el club cumpla con la plantilla de 6 jugadores válidos con tácticas asignadas
-  5. El sistema crea el partido en estado `PROGRAMADO` (modo amistoso) y envía la notificación/solicitud al amigo destinatario
-  6. El sistema confirma el envío y deja el desafío en estado "Esperando respuesta"
-* **escenarios excepcionales:**
-  * **2a. Plantel incompleto:** El sistema notifica que deben asignarse exactamente 3 titulares, 3 suplentes y sus respectivos comportamientos para poder enviar la invitación
+## Módulo: Partidos y Simulación        (asumiendo que existe el sistema de amigos)
+# CU25:ELIMINADO
 
 * **CU26:** Aceptar / Rechazar desafío de partido amistoso
 
@@ -349,59 +449,86 @@
 * **escenarios excepcionales:**
   * **3a. Rechazar desafío:** El usuario presiona "Rechazar" el sistema cancela la solicitud, elimina el partido programado y notifica al otro usuario
 
-* **CU27:** Configurar alineación previa al partido (titulares, suplentes y formación ?? )
+### CU27: Configurar alineación previa al partido (titulares, suplentes y formación)
 
 * **Actor:** Usuario autenticado.
 * **Precondición:** El club tiene un partido programado (de liga o amistoso) que aún no ha comenzado.
-* **Flujo Principal:**
+* **Escenario exitoso:**
   1. El usuario accede al detalle de su próximo partido.
-  2. El sistema carga la alineación por defecto del club (los 6 jugadores inscriptos en la liga o los configurados en el amistoso).
+  2. El sistema carga la alineación por defecto del club (los 6 jugadores inscriptos en la liga con sus comportamientos y la formación).
   3. El usuario hace cambios previos:
      * Intercambia qué jugadores arrancan como titulares y cuáles como suplentes
-     * Selecciona la formación táctica ?? 
+     * Selecciona la formación táctica.
      * Modifica los scripts de comportamiento asignados a cada titular
   4. El usuario presiona "Guardar Alineación".
-  5. El sistema valida que haya exactamente 3 titulares y 3 suplentes, y que cada titular tenga un comportamiento asignado.
-  6. El sistema guarda la configuración táctica específica para ese encuentro ??
-* **escenarios excepcioanles:**
-  * **2a. El usuario no interviene:** Si el usuario no modifica la alineación antes de la hora de inicio, el sistema inicia el partido automáticamente utilizando la configuración por defecto guardada en la inscripción
+  5. El sistema valida que haya exactamente 3 titulares y 3 suplentes, que cada titular tenga un comportamiento asignado y haya una formación definida.
+  6. El sistema guarda la configuración táctica específica para el encuentro.
+* **Escenarios excepcioanles:**
+  * **5a. Campos incompletos:** Quedó algún camop jugador, comportamiento o formación incompleto, el sistema lo marca y pide que lo complete.
 
-* **CU28:** Observar partido en vivo   (a reveer)
-* **Actor:** Usuario autenticado / Visitante
-* **Precondición:** El partido se encuentra en estado `EN_CURSO`
-* **escenario exitoso principal:**
-  1. El usuario accede a la vista de la cancha del partido en disputa.
-  2. El cliente web (React) establece una conexión de tiempo real (**WebSocket**) 
-  3. El servidor simula el encuentro paso a paso (ticks) y transmite periódicamente el estado completo del juego:
-     * Coordenadas (X, Y) y vector de movimiento de la pelota.
-     * Posición, orientación y acción actual (corriendo, pateando..) de los 6 jugadores en cancha
-     * Cuarto actual (1 a 4), tiempo restante y marcador en vivo
-  4. La interfaz en React recibe los mensajes y redibuja la animación de la cancha y el marcador en tiempo real sin recargar la página
-  5. El usuario puede consultar la ficha técnica y atributos PACSS de los jugadores rivales (sin visibilidad de su código fuente de comportamiento)
-  6. Al completarse los 4 cuartos, el servidor envía el evento de finalización, actualiza el estado a `FINALIZADO` y cierra la transmisión
-* **escenarios excepcionales:**
-  * **2a. Pérdida de conexión:** Si la conexión WebSocket se interrumpe, el cliente intenta reconectarse automáticamente al canal del partido
+ **CU28:** Observar partido en vivo   (a reveer)
+*- **Actor:** Usuario autenticado perteneciente a la liga.
+- **Precondición:** El club del usuario pertenece a la misma liga del partido que desea observar y el partido se encuentra en curso.
+- **Escenario exitoso principal:**
+    1. El usuario accede al fixture de la liga.
+    2. El sistema identifica los partidos que se encuentran en curso.
+    3. El usuario selecciona el partido que desea observar.
+    4. El sistema muestra la representación en vivo del partido.
+    5. Durante el encuentro, el sistema muestra la información actualizada del partido, incluyendo:
+        - Clubes participantes.
+        - Jugadores en cancha.
+        - Marcador.
+        - Tiempo restante.
+        - Etapa actual del partido.
+    6. Durante las pausas de hidratación y el entretiempo, el sistema informa que el partido se encuentra temporalmente pausado.
+    7. Al finalizar el partido, el sistema muestra el resultado definitivo.
+    8. El resultado queda reflejado en el fixture y en la tabla de posiciones correspondiente.
+- **Escenarios excepcionales:**
+    - **3a. Partido ya finalizado:** Si el partido finaliza antes de que el usuario acceda, el sistema muestra el resultado final en lugar de la vista en vivo.
 
-* **CU29:** Realizar sustitución o cambio táctico durante pausa de partido (máx 1 por pausa, máx 3 total)
+### CU29: Planear cambio de jugador
+
 * **Actor:** Usuario autenticado (propietario de uno de los clubes en juego)
-* **Precondición:** El partido está `EN_CURSO` y entra en una de las 3 pausas reglamentarias (mitad del 1° cuarto, entretiempo o mitad del 2° cuarto)
-* **escenario exitoso principal:**
-  1. El sistema de simulación detiene el avance del cronómetro del partido e inicia la cuenta regresiva de la pausa de n segundos.
-  2. El sistema habilita en la vista del partido el panel de control táctico
-  3. El usuario realiza una de las siguientes acciones (o ambas):
-     * **Sustitución:** Selecciona un jugador titular para salir y un suplente habilitado para ingresar (respetando el límite de 1 sustitución por pausa y máximo 3 en el partido)
-     * **Cambio táctico:** Reasigna un script de comportamiento diferente a cualquiera de sus titulares
-  4. El usuario presiona "Confirmar Cambios".
-  5. El cliente envía el comando táctico al servidor a través del canal **WebSocket** abierto
-  6. El servidor valida que no se haya superado el cupo de sustituciones y que la orden haya ingresado dentro del tiempo de la pausa
-  7. El servidor aplica los cambios en el motor de simulación y reanuda el siguiente tramo del partido con la nueva alineación.
-* **escenarios excepcioanles:**
-  * **1a. Solicitud de cambio previa:** Si el usuario planificó un cambio durante el juego activo, el sistema lo aplica de forma automática al comenzar la pausa sin requerir confirmación manual
-  * **3a. La pausa concluye sin cambios:** Si el usuario no realiza ninguna acción durante los n segundos, el sistema reanuda el partido con la configuración previa y la oportunidad de cambio de esa pausa se pierde (no es acumulable)
-  * **6a. Intento de realizar más de una sustitución en la misma pausa:** El sistema bloquea el segundo cambio e informa que solo se permite una sustitución por pausa
+* **Precondición:** El partido está en curso.
+* **Escenario exitoso principal:**
+1.  El usuario aprieta "Planificar cambio" durante el tiempo de juego.
+2. El sistema habilita en la vista el panel de control táctico. 
+3. El usuario selecciona el jugador que desea cambiar. 
+4. El sistema muestra los jugadores disponibles para dicho reemplazo. 
+5. El usuario decide cuál quiere y presiona "confirmar cambios".
+6. El sistema refleja los cambios en el partido luego de la siguiente pausa, ya sea de hidratación o entretiempo.
+* **Escenarios excepcional:**
+  * **6a. La pausa concluye sin cambios:** Si el usuario no realiza ninguna acción durante los n segundos, el sistema reanuda el partido con la configuración previa y la oportunidad de cambio de esa pausa se pierde (no es acumulable).
+  * **6b. Intento de realizar más de una sustitución en la misma pausa:** El sistema bloquea el segundo cambio e informa que solo se permite una sustitución por pausa
+
+### CU30: Realizar cambio en pausa (hidratación o entretiempo)
+
+* **Actor:** Usuario autenticado (propietario de uno de los clubes en juego)
+* **Precondición:** El partido está en curso y entra en una de las 3 pausas reglamentarias (hidratación 1, entretiempo, hidratación 2)
+* **Escenario exitoso principal:**
+1. El usuario toca "Realizar cambio".
+2. 2. El sistema habilita en la vista el panel de control táctico. 
+3. El usuario selecciona el jugador que desea cambiar. 
+4. El sistema muestra los jugadores disponibles para dicho reemplazo. 
+5. El usuario decide cuál quiere y presiona "confirmar cambios".
+6. El sistema al finalizar la pausa refleja el cambio hecho. 
+- **Escenario excepcional:**
+	-  **6a. Intento de realizar más de una sustitución en la misma pausa:** El sistema bloquea el segundo cambio e informa que solo se permite una sustitución por pausa
+
+### CU31: Anular planeamiento de cambio
+
+* **Actor:** Usuario autenticado (propietario de uno de los clubes en juego)
+* **Precondición:** El partido está en curso y hay cambios planificados.
+* **Escenario exitoso principal:**
+ 1. El usuario toca "Realizar cambio".
+ 2. El sistema habilita en la vista el panel de control táctico. 
+ 3. El usuario selecciona "Anular cambio".
+ 4. El sistema descarta el cambio planeado y no lo aplica en el tiempo de pausa. 
+ - **Escenario excepcional:** 
+	 -  No aplica.
 
 ### Módulo: Rankings
-* **CU31:** Consultar ranking global de clubes
+* **CU32:** Consultar ranking global de clubes
 
 * **Actor:** Usuario autenticado / Visitante 
 * **Precondición:** El usuario accede a la sección de clasificación del sistema
