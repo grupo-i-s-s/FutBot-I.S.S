@@ -112,7 +112,7 @@ El sistema NO contará con
 - Sistema para crear formaciones
 - Otros formatos de ligas/competiciones.
 - Chat de texto/voz entre clubes, ni sistema de mensajeria.
-
+- Partidos del mismo club simultaneamente, ya sea amistosos o de liga.
 
 ## Objetivos, entregables y requerimentos (REVISAR)
 
