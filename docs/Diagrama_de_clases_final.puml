@@ -1,0 +1,190 @@
+@startuml FutBot_Class_Diagram
+
+top to bottom direction
+skinparam classAttributeIconSize 0
+skinparam nodesep 80
+skinparam ranksep 80
+skinparam packageStyle rectangle
+hide empty members
+
+package "Club management" as ClubZone #EAF3FF {
+    class User {
+        -username : String
+        -name : String
+        -email : String
+        -password : String
+
+        +change_password(new_password : String)
+    }
+
+    class Club {
+        -id : int
+        -name : String
+        -avatar : String
+        -friendly_available : bool
+
+        +change_avatar(new_avatar : String)
+        +can_play() : bool
+    }
+
+    class Team {
+        -id : int
+        -formation : String
+
+        +change_player(coming, going)
+        +change_formation(formation : String)
+    }
+
+    class Player {
+        -id : int
+        -name : String
+        -power : int
+        -agility : int
+        -control : int
+        -strength : int
+        -speed : int
+        -deleted : bool
+
+        +delete()
+    }
+
+    class Behaviour {
+        -id : int
+        -name : String
+        -code : String
+        -deleted : bool
+
+        +edit(code : String)
+        +delete()
+    }
+}
+
+package "League management" as LeagueZone #FFF4D6 {
+    class PrivateLeague {
+        -password : String
+
+        +send_invite(username : String)
+    }
+
+    class PublicLeague {
+    }
+
+    abstract class League {
+        -id : int
+        -name : String
+        -min_teams : int
+        -max_teams : int
+        -start_datetime : DateTime
+        -end_datetime : DateTime
+        -status : LeagueStatus
+
+        +start()
+        +cancel()
+    }
+
+    class LeagueRegistration {
+        -id : int
+        -joined_at : DateTime
+        -players
+
+        +leave()
+    }
+}
+
+package "Scheduling and matches" as MatchZone #E8F5E9 {
+    class Fixture {
+        -id : int
+
+        +generate()
+    }
+
+    class Round {
+        -id : int
+        -number : int
+        -start_datetime : DateTime
+    }
+
+    abstract class Match {
+        -id : int
+        -duration : Duration
+        -start_datetime : DateTime
+        -status : MatchStatus
+        -score1 : int
+        -score2 : int
+
+        +start()
+        +resume()
+        +finish()
+        +hydration_break()
+        +half_time()
+        +request_change(subbed : Player, coming : Player)
+        +change_behaviour(player : Player, behaviour : Behaviour)
+    }
+
+    class LeagueMatch {
+    }
+
+    class FriendlyMatch {
+        -privacy : FriendlyPrivacy
+
+        +send_invite(username : String)
+        +join(club : Club)
+    }
+}
+
+package "Rankings" as RankingZone #F3E8FF {
+    class Scoreboard {
+        -results
+
+        +update(match : LeagueMatch)
+    }
+
+    class Leaderboard {
+        -rankings
+
+        +update(match : LeagueMatch)
+    }
+}
+
+User "1" *-- "1" Club : owns
+Club "1" *-- "6..*" Player : players
+Club "1" *-- "1..*" Behaviour : behaviours
+Player "*" --> "0..1" Behaviour : behaviour
+Club "1" *-- "1" Team : default team
+Team "1" --> "6" Player : players
+League "*" --> "1" Club : creator
+League "1" *-- "0..*" LeagueRegistration : registrations
+Club "1" -- "0..*" LeagueRegistration : participates
+LeagueRegistration "1" --> "6" Player : registered players
+League "1" *-- "1" Scoreboard : standings
+Scoreboard --> Club : ranks
+League "1" *-- "0..1" Fixture : fixture
+Fixture "1" *-- "1..*" Round : rounds
+Round "1" *-- "1..*" LeagueMatch : matches
+LeagueMatch "*" --> "2" LeagueRegistration : participants
+FriendlyMatch "*" --> "2" Club : participants
+PrivateLeague --|> League
+PublicLeague --|> League
+LeagueMatch --|> Match
+FriendlyMatch --|> Match
+
+' Visual layout hints only; they do not represent domain relationships.
+Club -[hidden]right- League
+League -[hidden]right- Fixture
+Fixture -[hidden]right- Scoreboard
+
+User -[hidden]down- Club
+Club -[hidden]down- Team
+Team -[hidden]right- Player
+Player -[hidden]down- Behaviour
+
+PrivateLeague -[hidden]down- PublicLeague
+League -[hidden]down- LeagueRegistration
+
+Fixture -[hidden]down- Round
+Round -[hidden]down- LeagueMatch
+LeagueMatch -[hidden]down- FriendlyMatch
+
+Scoreboard -[hidden]down- Leaderboard
+
+@enduml
