@@ -27,6 +27,7 @@ Para registrar un usuario, se deberá completar un formulario con los siguientes
 
 Una vez creado el usuario, necesitará los datos de email y password para iniciar sesión.
 
+---
 ### Clubes
 
 Al registrarse, el usuario también deberá configurar su club con un nombre y avatar.
