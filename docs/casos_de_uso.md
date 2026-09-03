@@ -1,85 +1,50 @@
 # Casos de Uso - FutBot
- **Versión:** 0.1
+ **Versión:** 0.4
 
 ## Módulo: Autenticación y Cuenta
 
-### CU01: Registrar nuevo usuario
-
-* **Actor:** Visitante
-* **Precondición:** El visitante no se ha registrado en el sistema. 
+### Caso de uso #: Registrar nuevo usuario
+* **Actor primario:** Usuario
+* **Precondición:** El usuario no se ha registrado en el sistema. 
 * **Escenario exitoso Principal:**
   1. El visitante accede a la vista de registro.
-  2. El sistema presenta el formulario de registro solicitando: nombre completo, nombre de usuario (`username`), correo electrónico (`email`), contraseña (`password`).
-  3. El visitante completa los campos y envía el formulario.
-  4. El sistema valida los datos:
-     * El formato del correo electrónico es válido y no está registrado previamente.
-     * El nombre de usuario es único.
-  5. El sistema crea la cuenta del `Usuario`.
-  6. El sistema crea automáticamente la entidad `Club` asociada al nuevo usuario. *Deberá Configurarlo: CU01.1*.
-* **Casos excepcionales:**
-  * **4a. Datos duplicados (Email o Username ya existentes):** El sistema notifica que el correo o nombre de usuario ya están en uso y solicita ingresar valores diferentes
-  * **4c. Campos obligatorios vacíos o inválidos:** El sistema resalta los campos con error y vuelve a pedir que ingrese los datos.
-### CU01.1: Configurar club
+  2. El sistema muestra un formulario a completar para registrar el nuevo usuario.
+  3. El usuario completa los datos requeridos.
+  4. El sistema guarda el formulario de registro que contiene nombre, nombre de usuario, correo electrónico, nombre del club, avatar y contraseña y notifica que se ha creado la cuenta.
+* **Casos excepcionales:** \
+  4. a) El email o el nombre de usuario ya estan registrados  en otro usuario\
+  El sistema notifica que el correo o nombre de usuario ya están en uso.\
+  4. b) Existen campos obligatorios vacíos o inválidos\
+  El sistema resalta los campos con error.
 
-- **Actor**: Usuario.
-- **Precondición**: El usuario ya completó datos de registro. 
-- **Escenario exitoso principal:**
-    1. El usuario debe configurar su club. 
-    2. El sistema presenta un formulario solicitando:
-        - Nombre del club.
-        - Avatar, seleccionado desde la biblioteca de avatares brindada por el sistema.
-    3. El usuario ingresa el nombre de su club y selecciona un avatar.
-    4. El usuario confirma la configuración.
-    5. El sistema valida que los campos obligatorios hayan sido completados.
-    6. El sistema configura el club asociado al usuario con el nombre y avatar seleccionados.
-    7. El sistema le asigna al club un equipo default de 3 jugadores titulares, 3 suplentes y un comportamiento para todos. 
-    8. El sistema confirma la configuración y permite al usuario acceder al panel principal de su club.
-    9. El usuario pone "Continuar".
-    10. El sistema redirige al inicio de FutBot. 
-- **Casos excepcionales:**
-	 **5a. Campos obligatorios incompletos:** El sistema informa al usuario qué campos deben completarse antes de continuar.
-
-### Caso de uso 2: Iniciar sesión 
-* **Actor primario:** Usuario registrado 
+### Caso de uso #: Iniciar sesión 
+* **Actor primario:** Usuario 
 * **Precondición:** El usuario posee una cuenta registrada en el sistema y no tiene una sesión activa en el cliente.
-* **escenario exitoso principal:**
+* **Escenario exitoso principal:**
   1. El usuario accede a la pantalla de inicio de sesión.
-  2. El sistema solicita correo electrónico y contraseña.
+  2. El sistema solicita nombre usuario y contraseña.
   3. El usuario ingresa sus datos y presiona "Iniciar Sesión".
-  4. El sistema valida que el correo exista y que la contraseña sea correcta. Se redirige al usuario a la vista principal de su club.
-* **escenarios excepcionales:**
-    4. a) Las credenciales ingresadas son inválidas
-    El sistema muestra un mensaje de error genérico (*"Correo o contraseña incorrectos"*) y permite reintentar el ingreso.
-    4. b) La cuenta ingresada es inexistente
-	  El sistema muestra el mismo mensaje de error genérico que en 4a.
+  4. Se redirige al usuario a la vista principal de su club.
+* **Escenarios excepcionales:** \
+    4. a) Las credenciales ingresadas son inválidas \
+    El sistema muestra un mensaje de error.\
+    4. b) La cuenta ingresada es inexistente \
+	  El sistema muestra el mismo mensaje de error que en 4a.
 
-### CU03: Modificar club
-
-- **Actor:** Usuario autenticado.
-- **Precondición:** El usuario se ha registrado correctamente en el sistema.
-- **Escenario exitoso principal:**
-    1. El usuario accede a la configuración de su club.
-    2. El sistema muestra el avatar actual y la biblioteca de avatares disponibles.
-    3. El usuario selecciona un nuevo avatar.
-    4. El usuario confirma el cambio.
-    5. El sistema actualiza el avatar del club.
-    6. El sistema refleja el nuevo avatar en la interfaz y confirma que el cambio fue realizado correctamente.
-- **Escenarios excepcionales:**
-    - **4a. Cancelación de modificación:** Si el usuario cancela la modificación del avatar, el sistema conserva el avatar anterior sin realizar cambios.
-
-* ### Caso de uso 4: Cerrar sesión 
-* **Actor primario:** Usuario autenticado
+### Caso de uso #: Cerrar sesión 
+* **Actor primario:** Usuario
 * **Precondición:** El usuario cuenta con una sesión activa en la aplicación.
-* **escenario exitoso principal :**
+* **Escenario exitoso principal :**
   1. El usuario presiona el botón "Cerrar Sesión".
-  2. El sistema invalida la sesión activa y redirige al usuario a la página de inicio.
-* **escenarios excepcionales:**
+  2. El sistema dirige al usuario a la página de inicio.
+* **Escenarios excepcionales:**
     No aplica.
 
-### **CU05:** Consultar perfil de club rival
+## Modulo Club
 
-* **Actor:** Usuario autenticado.
-* **Precondición:** El usuario tiene una sesión activa y visualiza un listado público.
+### Caso de uso #: Consultar perfil de club rival
+* **Actor primario:** Usuario.
+* **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
   1. El usuario selecciona el nombre o avatar de un club rival.
   2. El sistema recupera y muestra la información pública del club:
