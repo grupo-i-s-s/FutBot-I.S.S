@@ -1,0 +1,643 @@
+openapi: 3.0.3
+
+info:
+  title: FutBot API
+  version: 0.3.0
+  description: API mínima para el MVP de FutBot.
+
+servers:
+  - url: http://localhost:8000/api/v1
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  /auth/register:
+    post:
+      summary: Registrar usuario
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Usuario registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Datos inválidos o duplicados
+
+  /auth/login:
+    post:
+      summary: Iniciar sesión
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Credenciales inválidas
+
+  /club/me:
+    get:
+      summary: Obtener mi club
+      responses:
+        '200':
+          description: Club
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Club'
+
+    patch:
+      summary: Modificar mi club
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Club'
+      responses:
+        '200':
+          description: Club actualizado
+
+  /players:
+    get:
+      summary: Listar jugadores
+      responses:
+        '200':
+          description: Jugadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Player'
+
+    post:
+      summary: Crear jugador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Player'
+      responses:
+        '201':
+          description: Jugador creado
+        '400':
+          description: PACSS inválido
+
+  /players/{playerId}:
+    delete:
+      summary: Eliminar jugador
+      parameters:
+        - $ref: '#/components/parameters/PlayerId'
+      responses:
+        '204':
+          description: Jugador eliminado
+        '403':
+          description: El jugador no puede eliminarse
+
+  /behaviours:
+    get:
+      summary: Listar comportamientos
+      responses:
+        '200':
+          description: Comportamientos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Behaviour'
+
+    post:
+      summary: Crear comportamiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Behaviour'
+      responses:
+        '201':
+          description: Comportamiento creado
+        '403':
+          description: El club tiene un partido en curso
+
+  /behaviours/{behaviourId}:
+    patch:
+      summary: Editar comportamiento
+      parameters:
+        - $ref: '#/components/parameters/BehaviourId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Behaviour'
+      responses:
+        '200':
+          description: Comportamiento actualizado
+        '403':
+          description: No se puede editar ahora
+
+    delete:
+      summary: Eliminar comportamiento
+      parameters:
+        - $ref: '#/components/parameters/BehaviourId'
+      responses:
+        '204':
+          description: Comportamiento eliminado
+        '403':
+          description: No se puede eliminar ahora
+
+  /team/default:
+    get:
+      summary: Obtener equipo default
+      responses:
+        '200':
+          description: Equipo default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+
+    put:
+      summary: Configurar equipo default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Team'
+      responses:
+        '200':
+          description: Equipo actualizado
+        '400':
+          description: El equipo debe tener 6 jugadores válidos
+
+  /leagues:
+    get:
+      summary: Listar ligas disponibles
+      parameters:
+        - name: name
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ligas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/League'
+
+    post:
+      summary: Crear liga
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/League'
+      responses:
+        '201':
+          description: Liga creada
+        '400':
+          description: Configuración inválida
+
+  /leagues/{leagueId}:
+    get:
+      summary: Obtener detalle de liga
+      parameters:
+        - $ref: '#/components/parameters/LeagueId'
+      responses:
+        '200':
+          description: Liga, fixture y tabla de posiciones
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeagueDetail'
+
+  /leagues/{leagueId}/join:
+    post:
+      summary: Unirse a una liga
+      description: Usa y congela los 6 jugadores del equipo default.
+      parameters:
+        - $ref: '#/components/parameters/LeagueId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accessCode:
+                  type: string
+      responses:
+        '201':
+          description: Club inscripto
+        '409':
+          description: Liga llena, código inválido o club ya inscripto
+
+  /leagues/{leagueId}/leave:
+    post:
+      summary: Abandonar liga
+      parameters:
+        - $ref: '#/components/parameters/LeagueId'
+      responses:
+        '204':
+          description: Club removido
+        '409':
+          description: La liga ya inició
+
+  /leagues/{leagueId}/start:
+    post:
+      summary: Iniciar liga
+      parameters:
+        - $ref: '#/components/parameters/LeagueId'
+      responses:
+        '200':
+          description: Liga iniciada y fixture generado
+        '409':
+          description: No se puede iniciar la liga
+
+  /leagues/{leagueId}/cancel:
+    post:
+      summary: Cancelar liga
+      parameters:
+        - $ref: '#/components/parameters/LeagueId'
+      responses:
+        '204':
+          description: Liga cancelada
+        '409':
+          description: No se puede cancelar la liga
+
+  /matches/{matchId}:
+    get:
+      summary: Consultar partido
+      description: Si está en curso, devuelve su estado actual.
+      parameters:
+        - $ref: '#/components/parameters/MatchId'
+      responses:
+        '200':
+          description: Partido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+
+  /matches/{matchId}/lineup:
+    put:
+      summary: Configurar alineación
+      parameters:
+        - $ref: '#/components/parameters/MatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Lineup'
+      responses:
+        '200':
+          description: Alineación guardada
+        '400':
+          description: Alineación inválida
+
+  /matches/{matchId}/substitution:
+    post:
+      summary: Planificar o realizar cambio
+      parameters:
+        - $ref: '#/components/parameters/MatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Substitution'
+      responses:
+        '200':
+          description: Cambio aceptado
+        '409':
+          description: Cambio no permitido
+
+    delete:
+      summary: Anular cambio planificado
+      parameters:
+        - $ref: '#/components/parameters/MatchId'
+      responses:
+        '204':
+          description: Cambio anulado
+
+  /matches/{matchId}/players/{playerId}/behaviour:
+    patch:
+      summary: Cambiar comportamiento de un jugador
+      parameters:
+        - $ref: '#/components/parameters/MatchId'
+        - $ref: '#/components/parameters/PlayerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [behaviourId]
+              properties:
+                behaviourId:
+                  type: integer
+      responses:
+        '204':
+          description: Comportamiento cambiado
+
+  /friendly-matches:
+    get:
+      summary: Listar amistosos disponibles
+      responses:
+        '200':
+          description: Amistosos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Match'
+
+    post:
+      summary: Crear amistoso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [startDateTime]
+              properties:
+                startDateTime:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Amistoso creado
+
+  /friendly-matches/{matchId}/join:
+    post:
+      summary: Unirse a un amistoso
+      parameters:
+        - $ref: '#/components/parameters/MatchId'
+      responses:
+        '200':
+          description: Club unido al partido
+        '409':
+          description: Partido completo
+
+  /leaderboard:
+    get:
+      summary: Consultar ranking global
+      responses:
+        '200':
+          description: Ranking
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RankingEntry'
+
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PlayerId:
+      name: playerId
+      in: path
+      required: true
+      schema: { type: integer }
+
+    BehaviourId:
+      name: behaviourId
+      in: path
+      required: true
+      schema: { type: integer }
+
+    LeagueId:
+      name: leagueId
+      in: path
+      required: true
+      schema: { type: integer }
+
+    MatchId:
+      name: matchId
+      in: path
+      required: true
+      schema: { type: integer }
+
+  schemas:
+
+    RegisterRequest:
+      type: object
+      required: [name, username, email, password]
+      properties:
+        name: { type: string }
+        username: { type: string }
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        club:
+          $ref: '#/components/schemas/Club'
+
+    Club:
+      type: object
+      properties:
+        id: { type: integer, readOnly: true }
+        name: { type: string }
+        avatar: { type: string }
+        friendlyAvailable: { type: boolean }
+
+    Player:
+      type: object
+      required: [name, power, agility, control, speed, strength]
+      description: Cada PACSS va de 20 a 100 y la suma debe ser 300.
+      properties:
+        id: { type: integer, readOnly: true }
+        name: { type: string }
+        power: { type: integer, minimum: 20, maximum: 100 }
+        agility: { type: integer, minimum: 20, maximum: 100 }
+        control: { type: integer, minimum: 20, maximum: 100 }
+        speed: { type: integer, minimum: 20, maximum: 100 }
+        strength: { type: integer, minimum: 20, maximum: 100 }
+
+    Behaviour:
+      type: object
+      required: [name, code]
+      properties:
+        id: { type: integer, readOnly: true }
+        name: { type: string }
+        code: { type: string }
+
+    Team:
+      type: object
+      required: [playerIds, formation]
+      properties:
+        playerIds:
+          type: array
+          minItems: 6
+          maxItems: 6
+          uniqueItems: true
+          items: { type: integer }
+        formation: { type: string }
+
+    League:
+      type: object
+      required: [name, type, minTeams, maxTeams, startDateTime]
+      properties:
+        id: { type: integer, readOnly: true }
+        name: { type: string }
+        type: { type: string, enum: [PUBLIC, PRIVATE] }
+        status:
+          type: string
+          enum: [CREATED, STARTED, FINISHED, CANCELLED]
+          readOnly: true
+        minTeams: { type: integer, minimum: 3 }
+        maxTeams: { type: integer, minimum: 3 }
+        startDateTime: { type: string, format: date-time }
+        accessCode: { type: string, writeOnly: true }
+
+    LeagueDetail:
+      allOf:
+        - $ref: '#/components/schemas/League'
+        - type: object
+          properties:
+            registrations:
+              type: array
+              items:
+                $ref: '#/components/schemas/LeagueRegistration'
+            fixture:
+              $ref: '#/components/schemas/Fixture'
+            standings:
+              type: array
+              items:
+                $ref: '#/components/schemas/RankingEntry'
+
+    LeagueRegistration:
+      type: object
+      properties:
+        clubId: { type: integer }
+        registeredPlayerIds:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { type: integer }
+
+    Fixture:
+      type: object
+      properties:
+        rounds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Round'
+
+    Round:
+      type: object
+      properties:
+        number: { type: integer }
+        startDateTime: { type: string, format: date-time }
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Match'
+
+    Match:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [LEAGUE, FRIENDLY] }
+        startDateTime: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [SCHEDULED, PLAYING, HYDRATION_BREAK, HALF_TIME, FINISHED, CANCELLED]
+        clubIds:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { type: integer }
+        score1: { type: integer }
+        score2: { type: integer }
+        remainingSeconds: { type: integer }
+
+    Lineup:
+      type: object
+      required: [starters, substitutes, formation, behaviours]
+      properties:
+        starters:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { type: integer }
+        substitutes:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { type: integer }
+        formation: { type: string }
+        behaviours:
+          type: object
+          additionalProperties: { type: integer }
+
+    Substitution:
+      type: object
+      required: [playerOutId, playerInId, mode]
+      properties:
+        playerOutId: { type: integer }
+        playerInId: { type: integer }
+        mode: { type: string, enum: [PLAN, APPLY] }
+
+    RankingEntry:
+      type: object
+      properties:
+        position: { type: integer }
+        clubId: { type: integer }
+        clubName: { type: string }
+        points: { type: integer }
+        played: { type: integer }
+        wins: { type: integer }
+        draws: { type: integer }
+        losses: { type: integer }
+        goalsFor: { type: integer }
+        goalsAgainst: { type: integer }
+        goalDifference: { type: integer }
