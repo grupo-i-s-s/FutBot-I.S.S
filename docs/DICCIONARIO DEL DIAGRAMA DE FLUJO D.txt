@@ -1,0 +1,12 @@
+DICCIONARIO DEL DIAGRAMA DE FLUJO DE DATOS
+
+Equipo_default = jugador1 + jugador2 + jugador3 + jugador4 + jugador5 + jugador6 + comportamiento
+Datos_de_registro = Nombre_Club + email + Username + contaseña + nombre
+Nuevo_club = Datos_de_registro + avatar + Equipo_default
+Datos_jugador = name + PACSS 
+Nuevo_jugador = Datos_jugador + id_club
+Plantilla = jugador1 + jugador2 + jugador3 + jugador4 + jugador5 + jugador6 + [comportamiento]* + formacion
+Estadísticas_partido = goles_club1 + goles_club2 + id_club1 + id_club2
+Max_min = min_cant_clubes + max_cant_clubes
+Codigo = [primitiva] *
+Nuevo_comportamiento = código + nombre + id_comportamiento
