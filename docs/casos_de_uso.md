@@ -1,9 +1,9 @@
 # Casos de Uso - FutBot
- **Versión:** 0.4
+ **Versión:** 0.5
 
 ## Módulo: Autenticación y Cuenta
 
-### Caso de uso #: Registrar nuevo usuario
+### Caso de uso 1: Registrar nuevo usuario
 * **Actor primario:** Usuario
 * **Precondición:** El usuario no se ha registrado en el sistema. 
 * **Escenario exitoso Principal:**
@@ -17,7 +17,7 @@
   4. b) Existen campos obligatorios vacíos o inválidos\
   El sistema resalta los campos con error.
 
-### Caso de uso #: Iniciar sesión 
+### Caso de uso 2: Iniciar sesión 
 * **Actor primario:** Usuario 
 * **Precondición:** El usuario posee una cuenta registrada en el sistema y no tiene una sesión activa en el cliente.
 * **Escenario exitoso principal:**
@@ -31,7 +31,7 @@
     4. b) La cuenta ingresada es inexistente \
 	  El sistema muestra el mismo mensaje de error que en 4a.
 
-### Caso de uso #: Cerrar sesión 
+### Caso de uso 3: Cerrar sesión 
 * **Actor primario:** Usuario
 * **Precondición:** El usuario cuenta con una sesión activa en la aplicación.
 * **Escenario exitoso principal :**
@@ -40,9 +40,78 @@
 * **Escenarios excepcionales:**\
     No aplica.
 
+### Caso de uso 4: Cambiar contraseña
+* **Actor primario:** Usuario
+* **Precondición:** El usuario cuenta con una sesión activa en la aplicación.
+* **Escenario exitoso principal :**
+  1. El usuario ingresa a su perfil y presiona "Cambiar contraseña". 
+  2. El sistema muestra formulario a completar con: mail, contrseña vieja y nueva. 
+  3. El usuario lo completa y presiona guardar cambios. 
+  4. El sistema informa que los cambios han sido guardados.
+* **Escenarios excepcionales:**\
+  4. a) Existe campo incompleto. \
+      El sistema resalta el campo avisando al usuario que es obligatorio completarlo.  
+  4. b) Contraseña inválida. \
+      El sistema resalta el campo mostrando los requisitos que debe cumplir la contraseña.
+
 ## Modulo Club
 
-### Caso de uso #: Consultar perfil de club rival
+### Caso de uso 5: Ver equipo
+
+* **Actor primario:** Usuario. 
+* **Precondición:** El usuario tiene sesión activa.
+* **Escenario exitoso principal:** 
+  1. El usuario accede a "Mi club".
+  2. El sistema muestra detalles del club. 
+  3. El usuario selecciona "Mi equipo".
+  4. El sistema muestra el equipo actual.
+* **Escenarios excepcionales:** \
+* No aplica
+
+
+### Caso de uso 6: Modificar equipo default
+
+* **Actor primario:** Usuario. 
+* **Precondición:** El usuario tiene sesión activa.
+* **Escenario exitoso principal:** 
+  1. El usuario accede a "Mi club".
+  2. El sistema muestra detalles del club. 
+  3. El usuario selecciona "Modificar equipo".
+  4. El sistema muestra el equipo actual y el listado de jugadores. 
+  5. El usuario selecciona que jugador va a cambiar y por cual.
+  6. El sistema muestra reflejado el cambio en la vista del equipo actual. 
+* **Escenarios excepcionales:** \
+* No aplica
+
+### Caso de uso 7: Modificar nombre del club
+
+* **Actor primario:** Usuario. 
+* **Precondición:** El usuario tiene sesión activa.
+* **Escenario exitoso principal:** 
+  1. El usuario accede a "Mi club".
+  2. El sistema muestra detalles del club. 
+  3. El usuario selecciona "Cambiar nombre".
+  4. El sistema muestra campo pidiendo nuevo nombre. 
+  5. El usuario ingresa el nombre. 
+  6. El sistema lo guarda y refleja el cambio en los detalles del club. 
+* **Escenarios excepcionales:** \
+  6. a) Campo vacío:** El sistema resalta el campo pidiendo que lo complete. 
+
+### Caso de uso 8: Modificar nombre del club
+
+* **Actor primario:** Usuario. 
+* **Precondición:** El usuario tiene sesión activa.
+* **Escenario exitoso principal:** 
+  1. El usuario accede a "Mi club".
+  2. El sistema muestra detalles del club. 
+  3. El usuario selecciona "Cambiar avatar".
+  4. El sistema muestra la biblioteca de avatares disponibles. 
+  5. El usuario selecciona el avatar que desea. 
+  6. El sistema muestra los cambios reflejados en los detalles del club. 
+* **Escenarios excepcionales:** \
+  No aplica
+
+### Caso de uso 9: Consultar perfil de club rival
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -56,7 +125,7 @@
 
 ## Módulo: Gestión de Plantel y Comportamientos
 
-### Caso de uso #: Crear jugador
+### Caso de uso 10: Crear jugador
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -74,7 +143,7 @@
     4. c) El jugador no tiene nombre\
     El sistema solicita completar el campo obligatorio de nombre.
 
-### Caso de uso #: Listar jugadores del club
+### Caso de uso 11: Ver jugadores del club
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -84,7 +153,7 @@
   2. a) El club no posee jugadores creados.\
   El sistema notifica que no hay jugadores creados.
 
-### Caso de uso #: Eliminar jugador del club 
+### Caso de uso 12: Eliminar jugador del club 
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -100,7 +169,7 @@
     El sistema notifica que no se pueden eliminar jugadores que juegan en una liga.
 
 
-### Caso de uso #: Crear comportamiento 
+### Caso de uso 13: Crear comportamiento 
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -114,7 +183,7 @@
     4. a) Lo actualizado es invalido\
     El sistema marca los errores lógicos y solicita repararlos antes de guardar.
 
-### Caso de uso #: Editar un comportamiento 
+### Caso de uso 14: Editar un comportamiento 
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa y al menos un comportamiento creado.
 * **escenario exitoso principal:**
@@ -128,7 +197,7 @@
     4. a) Lo actualizado es invalido\
     El sistema marca los errores lógicos y solicita repararlos antes de realizar cambios.
 
-### Caso de uso #: Eliminar comportamiento 
+### Caso de uso 15: Eliminar comportamiento 
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -140,7 +209,7 @@
     2. a) El club está jugando un partido\
     El sistema notifica que no se pueden eliminar comportamientos mientras se juega un partido.
 
-### Caso de uso #: Ver comportamientos del club
+### Caso de uso 16: Ver comportamientos del club
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -150,9 +219,67 @@
     2. a) No existen comportamientos registrados\
     El sistema muestra un mensaje indicando que el club aún no posee tácticas creadas.
 
+### Caso de uso 17: Cambiar comportamiento del jugador
+* **Actor primario:** Usuario
+* **Precondición:** El usuario tiene una sesión activa.
+* **Escenario exitoso principal:**
+  1. El usuario selecciona el jugador desde la plantilla del equipo. 
+  2. El sistema muestra las opciones "Cambiar jugador" y "Cambiar comportamiento" 
+  3. El usuario presiona "Cambiar comportamiento" 
+  4. El sistema despliega un listado de todos los comportamientos disponibles.
+  5. El usuario selecciona el comportamiento. 
+  6. El sistema informa que el comportamiento ha sido actualizado. 
+* **Escenarios excepcionales:**\
+      No aplica
+
+
+## Módulo partido amistoso
+
+### Caso de uso 18: Crear partido amistoso
+
+* **Actor primario:** Usuario.
+* **Precondición:** El usuario tiene sesión activa.
+* **Escenario exitoso principal:**
+  1. El usuario accede a la sección "Partidos amistosos".
+  2. El sistema muestra la pestaña correspondiente con partidos amistosos disponibles. 
+  3. El usuario presiona "Crear nuevo partido".
+  4. El sistema muestra el formulario para configurar el partido. (Día y hora de inicio).
+  5. El usuario completa los campos y presiona "Confirmar amistoso". 
+  6. El sistema lo muestra en "Partidos disponibles".
+* **Escenarios excepcionales:**\
+  6. a) Hay un campo incompleto \
+    El sistema resalta el campo incompleto avisando al usuario que es obligatorio completarlo. \
+  6. b) Hay un campo incorrecto: \
+    El sistema resalta el campo incorrecto avisando al usuario con qué dato debería completarlo. 
+
+### Caso de uso 19: Unirse a partido amistoso
+
+* **Actor primario:** Usuario. 
+* **Precondición:** El usuario tiene sesión activa.
+* **Escenario exitoso principal:** 
+  1. El usuario accede a la sección "Partidos amistosos".
+  2. El sistema muestra la pestaña correspondiente con partidos amistosos disponibles. 
+  3. El usuario presiona "Unirse" en algún partido disponible.
+  4. El sistema  muestra la ventana para decidir equipo para jugar. 
+  5. El usuario selecciona 3 jugadores titulares, 3 jugadores suplentes y su formación inicial. 
+  6. El sistema redirige al escenario inicial del partido.
+* **Escenarios excepcionales:** \
+  6. a) No se decidió alguno de los campos obligatorios.\
+	El sistema resalta el campo incompleto indicando que es obligatorio. 
+
+### Caso de uso 20: Ver partidos amistosos disponibles
+
+* **Actor primario:** Usuario. 
+* **Precondición:** El usuario tiene sesión activa.
+* **Escenario exitoso principal:** 
+  1. El usuario accede a la sección "Partidos amistosos".
+  2. El sistema muestra todos los partidos amistosos disponibles.  
+- **Escenarios excepcionales:** \
+  No aplica
+
 ## Módulo: Ligas y Torneos
 
-### Caso de uso #: Crear liga Pública
+### Caso de uso 21: Crear liga Pública
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -171,7 +298,7 @@
   4. a) Existe un campo vacío o inválido \
   El sistema resalta los bloques incompletos ó inválidos.
 
-### Caso de uso #: Crear liga Privada
+### Caso de uso 22: Crear liga Privada
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
@@ -191,17 +318,17 @@
   El sistema resalta los bloques incompletos ó inválidos.
 
 
-### Caso de uso #: Ver ligas
+### Caso de uso 23: Ver ligas públicas
 * **Actor primario:** Usuario autenticado
 * **Precondición:** El usuario tiene una sesión activa.
 * **Escenario exitoso principal:**
-  1. El usuario abre "Explorar Ligas"
+  1. El usuario abre "Explorar Ligas Públicas"
   2. El sistema presenta la lista de ligas públicas con cupos disponibles.
 * **Escenarios excepcionales:**\
-    2. a) No hay ligas disponibles con cupo abierto\
-    El sistema muestra un mensaje indicando que no se encontraron ligas abiertas.
+    2. a) No hay ligas disponibles con cupo disponible\
+    El sistema muestra un mensaje indicando que no se encontraron ligas disponibles.
 
-### Caso de uso #: Buscar entre las ligas disponibles
+### Caso de uso 24: Buscar entre las ligas públicas disponibles
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa y hay ligas disponibles.
 * **Escenario exitoso principal:**
@@ -211,7 +338,7 @@
     2. a) No hay ligas disponibles con cupo abierto que coincidan con lo filtrado.\
     El sistema muestra un mensaje indicando que no se encontraron coincidencias.
 
-### Caso de uso #: Inscribirse a una liga Pública
+### Caso de uso 25: Inscribirse a una liga Pública
 * **Actor primario:** Usuario
 * **Precondición:** El usuario tiene una sesión activa. La liga esta disponible y no ha alcanzado el cupo máximo.
 * **Escenario exitoso principal:**
@@ -223,7 +350,31 @@
   4. a) La liga llena simultáneamente pues otro club ocupó el último cupo instantes antes. \
   El sistema notifica que la liga se ha completado y no ha podido inscribirse.
 
-### Caso de uso #: Inscribirse a una liga Privada
+
+
+### Caso de uso 26: Ver ligas privadas
+* **Actor primario:** Usuario autenticado
+* **Precondición:** El usuario tiene una sesión activa.
+* **Escenario exitoso principal:**
+  1. El usuario abre "Explorar Ligas Privadas"
+  2. El sistema presenta la lista de ligas privadas con cupos disponibles.
+* **Escenarios excepcionales:**\
+    2. a) No hay ligas disponibles con cupo disponible\
+    El sistema muestra un mensaje indicando que no se encontraron ligas disponibles.
+
+
+
+### Caso de uso 27: Buscar entre las ligas privadas disponibles
+* **Actor primario:** Usuario
+* **Precondición:** El usuario tiene una sesión activa y hay ligas disponibles.
+* **Escenario exitoso principal:**
+  1. El usuario filtra ligas disponibles por nombre.
+  2. El sistema presenta la lista de ligas privadas con cupos disponibles que coinciden con lo filtrado.
+* **Escenarios excepcionales:**\
+    2. a) No hay ligas disponibles con cupo abierto que coincidan con lo filtrado.\
+    El sistema muestra un mensaje indicando que no se encontraron coincidencias.
+
+### Caso de uso 28: Inscribirse a una liga Privada
 * **Actor primario:** Usuario autenticado
 * **Precondición:** El usuario tiene una sesión activa. La liga esta disponible y no ha alcanzado el cupo máximo.
 * **Escenario exitoso principal:**
@@ -239,7 +390,7 @@
   6. a) La liga llena simultáneamente pues otro club ocupó el último cupo instantes antes. \
   El sistema notifica que la liga se ha completado y no ha podido inscribirse.
 
-### Caso de uso #: Abandonar liga
+### Caso de uso 29: Abandonar liga
 * **Actor primario:** Usuario
 * **Precondición:** El club está inscripto en una liga que no ha sido iniciada.
 * **escenario exitoso principal:**
@@ -250,7 +401,7 @@
 * **Escenarios excepcionales:** \
     No aplica.
 
-### Caso de uso #: Iniciar liga
+### Caso de uso 30: Iniciar liga
 * **Actor primario:** Usuario
 * **Precondición:** La liga está disponible y la cantidad de clubes inscriptos es mayor o igual a la cantidad mínima configurada.
 * **Escenario exitoso principal:**
@@ -260,7 +411,7 @@
 * **Escenarios excepcionales:** \
     No aplica.
 
-### Caso de uso #: Cancelar liga
+### Caso de uso 31: Cancelar liga
 * **Actor primario:** Usuario
 * **Precondición:** La liga aún no ha iniciado
 * **escenario exitoso principal:**
@@ -271,17 +422,26 @@
 * **escenarios excepcionales:**
     No aplica.
 
-### Caso de uso #: Consultar fixture, rondas y tabla de posiciones de una liga
+
+### Caso de uso 32: Consultar fixture
 * **Actor primario:** Usuario autenticado perteneciente a la liga.
 * **Precondición:** El club del usuario se encuentra inscripto en una liga que ha sido iniciada.
 * **Escenario exitoso principal:**
-    1. El usuario accede al detalle de la liga.
-    2. El sistema muestra el fixture completo de la liga organizado por rondas. \
-    El sistema muestra la tabla de posiciones de la liga.
+    1. El usuario accede al detalle de la liga y presiona "Ver fixture".
+    2. El sistema muestra el fixture completo de la liga organizado por rondas.
 * **Escenarios excepcionales:**\
     No aplica
 
-### Caso de uso #: Configurar alineación previa al partido 
+### Caso de uso 33: Consultar tabla de posiciones de una liga
+* **Actor primario:** Usuario autenticado perteneciente a la liga.
+* **Precondición:** El club del usuario se encuentra inscripto en una liga que ha sido iniciada.
+* **Escenario exitoso principal:**
+    1. El usuario accede al detalle de la liga y presiona "Ver tabla de posiciones".
+    2. El sistema muestra la tabla de posiciones de la liga.
+* **Escenarios excepcionales:**\
+    No aplica
+
+### Caso de uso 34: Configurar alineación previa al partido 
 * **Actor primario:** Usuario.
 * **Precondición:** El club tiene un partido programado (de liga o amistoso) que aún no ha comenzado.
 * **Escenario exitoso:**
@@ -293,7 +453,7 @@
   4. a) Quedo algun campo incompleto.\
   El sistema solicita completar el campo obligatorio.
 
-### Caso de uso #: Observar partido en vivo
+### Caso de uso 35: Observar partido en vivo
 * **Actor primario:** Usuario
 * **Precondición:** El club del usuario pertenece a la misma liga del partido que desea observar y el partido se encuentra en curso.
 * **Escenario exitoso principal:**
@@ -306,7 +466,7 @@
 * **Escenarios excepcionales:**
     No aplica.
 
-### Caso de uso #: Planear cambio de jugador
+### Caso de uso 36: Planear cambio de jugador
 * **Actor primario:** Usuario
 * **Precondición:** El partido está en curso.
 * **Escenario exitoso principal:**
@@ -320,7 +480,7 @@
 	2. a) Se intenta realizar más de una sustitución en la misma pausa. \
   El sistema bloquea el segundo cambio e informa que solo se permite una sustitución por pausa.
 
-### Caso de uso #: Realizar cambio en pausa
+### Caso de uso 37: Realizar cambio en pausa
 * **Actor primario:** Usuario
 * **Precondición:** El partido está en curso y está en una de las 3 pausas reglamentarias (hidratación 1, entretiempo, hidratación 2)
 * **Escenario exitoso principal:**
@@ -330,11 +490,11 @@
   4. El sistema muestra los jugadores disponibles para dicho reemplazo. 
   5. El usuario decide cuál quiere y presiona "confirmar cambios".
   6. El sistema al finalizar la pausa refleja el cambio hecho. 
-* **Escenario excepcional:**
+* **Escenario excepcional:**\
 	2. a) Se intenta realizar más de una sustitución en la misma pausa. \
   El sistema bloquea el segundo cambio e informa que solo se permite una sustitución por pausa.
 
-### Caso de uso #: Anular planeamiento de cambio
+### Caso de uso 38: Anular planeamiento de cambio
 * **Actor primario:** Usuario
 * **Precondición:** El partido está en curso y hay cambios planificados.
 * **Escenario exitoso principal:**
@@ -346,7 +506,7 @@
     No aplica.
 
 ### Módulo: Rankings
-### Caso de uso 32: Consultar ranking global de clubes
+### Caso de uso 39: Consultar ranking global de clubes
 * **Actor primario:** Usuario 
 * **Precondición:** El usuario posee una sesión activa.
 * **Escenario exitoso principal:**
