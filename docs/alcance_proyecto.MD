@@ -2,16 +2,17 @@
 
 **I.S.S (Ingeniería del Software Survival)**
 Fecha: 21/08/2026
-Versión del documento: 0.6
+Versión del documento: 0.7
 
 
 FutBot es un videojuego en línea en el cual se pueden jugar partidos de fútbol en vivo entre clubes.
 
 Para poder comenzar a jugar, el usuario deberá registrarse, cada mail podrá tener un único usuario. Además deberá configurar su club decidiendo el nombre y eligiendo su avatar.
 
-Una vez dentro del club el usuario podrá comenzar a crear sus propios jugadores y comportamientos.
 
-Al tener 6 o más jugadores y al menos 1 comportamiento, podrá crear o participar en partidos amistosos, contra clubes que estén disponibles.  Además al usuario se le habilitan la participación en las ligas, donde podrá crear / unirse, iniciar (sólo si es el creador), cancelar (si es club creador) /  (si no es club creador) abandonar, sólo si la liga no ha iniciado. Existen ligas privadas y públicas, dentro de cada liga hay un ranking propio de la misma.
+
+El sistema te proporciona 6 jugadores default con 1 comportamiento para jugar, una vez dentro del club el usuario podrá comenzar a crear sus propios jugadores y comportamientos. Podrá crear o participar en partidos amistosos, contra clubes que estén disponibles.  Además al usuario se le habilitan la participación en las ligas, donde podrá crear / unirse, iniciar (sólo si es el creador), cancelar (si es club creador) /  (si no es club creador) abandonar, sólo si la liga no ha iniciado. Existen ligas privadas y públicas, dentro de cada liga hay un ranking propio de la misma.
+
 
   --- 
 ## El sistema esta conformado por las siguentes partes:
@@ -62,7 +63,6 @@ Se pueden eliminar jugadores siempre y cuando no haya ningún partido en curso (
 
 Se pueden crear tantos como el usuario desee. Deberá asignarle un nombre al comportamiento y el código correspondiente, el usuario codificará los comportamientos a través de programación en bloque.  Estos se pueden editar y/o eliminar, siempre y cuando no haya partidos en curso (la eliminación es lógica). 
 La programación en bloque se hará a partir de ciertas primitivas brindadas por el sistema.
-Por ejemplo:
 
 - **Correr()**
 - **Patear()**
@@ -72,7 +72,7 @@ Por ejemplo:
 
 ## Partido
 
-Los partidos tendrán una duración de ***COMPLETAR*** con un entretiempo, y dos pausas de hidratación que dividen el tiempo entre inicio/fin y entretiempo en exactamente 4 tiempos iguales.  
+Los partidos tendrán una duración de 5 con un entretiempo, y dos pausas de hidratación que dividen el tiempo entre inicio/fin y entretiempo en exactamente 4 tiempos iguales.  
 
 <small> Es decir: inicio - <i>juego</i> - pausa hidratación 1 - <i>juego</i> - entretiempo - <i>juego</i> - pausa hidratación 2 - <i>juego</i> - fin </small>
 
@@ -83,7 +83,7 @@ Además se puede planear un cambio de jugador durante el tiempo de juego el cual
 
 Es un partido entre dos clubes fuera de liga, cuyo resultado no suma puntos al ranking global. 
 Para poder participar en algún amistoso, el club deberá mostrarse como "disponible" para amistosos. 
-El club podrá crear partido y decidir horario de inicio, se unirá con el equipo default del mismo. 
+El club podrá crear partido y decidir horario de inicio, se unirá con el equipo default del mismo pero podra realizar cambios en el equipo si lo desea antes de comenzar. 
 Al "matchear" con otro club el partido se iniciara en el horario estipulado, si no hay match, se cancela. 
   
 
@@ -95,7 +95,7 @@ El sistema contará con un ranking global que incluye a TODOS los clubes existen
 
 Cada partido ganado sumará 3 puntos, el empate 1 y la derrota 0.
 
-En caso de empate, se decidirá en el siguiente orden: diferencia de goles, goles a favor, por último, goles en contra. **LAS METRICAS LAS DECIDEN LOS PROFESORES**
+En caso de empate, se decidirá en el siguiente orden: diferencia de goles, goles a favor, por último, goles en contra.
   
 
 ---
@@ -106,9 +106,9 @@ Al participar en una liga el usuario se inscribirá con el equipo default defini
 
 Cada liga tiene su propio ranking.
 
-Cualquier usuario que pertenezca  a una liga, podrá ver los partidos que se están jugando en la misma.
+Cualquier usuario que pertenezca a una liga, podrá ver los partidos que se están jugando en la misma.
 
-Para **crear** una liga se debe designar un mínimo de clubes (al menos 3), un máximo y una accesibilidad, ya sea privada o pública. Una vez que se cumpla el mínimo, solo el creador podrá iniciarla.
+Para **crear** una liga se debe designar un mínimo de clubes (al menos 3), un máximo y una accesibilidad, ya sea privada o pública y el tiempo de juego en los partidos (en el momento, diariamente o semanalmente). Una vez que se cumpla el mínimo, solo el creador podrá iniciarla.
 
 **Antes de que se inicie una liga**:
 - El club creador puede cancelar la liga. Todos los clubes serán eliminados de la misma.
@@ -120,14 +120,14 @@ La liga se juega formato todos contra todos.
 - Existe un fixture que incluye horario de partidos, rondas a jugar y enfrentamientos.
 - Cada par de clubes se enfrentará una única vez.
 - Todos los partidos de una misma ronda se juegan simultáneamente.
-- Hay un tiempo de espera de **A DEFINIR** entre ronda y ronda.
+- Hay un tiempo de espera que elige el creador de liga que puede ser de 2 minutos, 24 horas o 7 dias entre ronda y ronda.
 - La liga finalizará al cumplirse todas las rondas.
 - Si el equipo no está presente, el partido se juega igual con el equipo default.
 
 
 ### Privadas
 
-Se ingresa con una invitación o ingresando la contraseña establecida por el creador de dicha liga.
+Se ingresa con un codigo que proporciona el sistema al creador de la liga.
 Los puntos NO sumarán en el ranking global.
 
 ### Públicas
@@ -143,6 +143,8 @@ Los clubes se pueden unir a cualquier liga disponible no iniciada.
   
 
 El sistema NO contará con
+
+- Editar jugadores ya creados.
 
 - Sistemas de transferencia/prestamos de jugadores entre clubes.
 
@@ -161,7 +163,5 @@ El sistema NO contará con
 - Chat de texto/voz entre clubes, ni sistema de mensajeria.
 
 - Carga de fotos desde su ordenador ni via web. 
-
-- Partidos del mismo club simultaneamente, ya sea amistosos o de liga.
 
 - Juego de partidos en simultáneo, ya sean ligas u amistosos. 
