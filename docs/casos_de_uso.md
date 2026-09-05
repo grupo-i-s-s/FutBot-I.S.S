@@ -1,5 +1,53 @@
 # Casos de Uso - FutBot
- **Versión:** 0.5
+ **Versión:** 0.6
+
+# Índice de Contenidos
+- [Casos de Uso - FutBot](#casos-de-uso---futbot)
+  - [Módulo: Autenticación y Cuenta](#módulo-autenticación-y-cuenta)
+    - [Caso de uso 1: Registrar nuevo usuario](#caso-de-uso-1-registrar-nuevo-usuario)
+    - [Caso de uso 2: Iniciar sesión](#caso-de-uso-2-iniciar-sesión)
+    - [Caso de uso 3: Cerrar sesión](#caso-de-uso-3-cerrar-sesión)
+    - [Caso de uso 4: Cambiar contraseña](#caso-de-uso-4-cambiar-contraseña)
+  - [Modulo Club](#modulo-club)
+    - [Caso de uso 5: Ver equipo](#caso-de-uso-5-ver-equipo)
+    - [Caso de uso 6: Modificar equipo default](#caso-de-uso-6-modificar-equipo-default)
+    - [Caso de uso 7: Modificar nombre del club](#caso-de-uso-7-modificar-nombre-del-club)
+    - [Caso de uso 8: Modificar nombre del club](#caso-de-uso-8-modificar-nombre-del-club)
+    - [Caso de uso 9: Consultar perfil de club rival](#caso-de-uso-9-consultar-perfil-de-club-rival)
+  - [Módulo: Gestión de Plantel y Comportamientos](#módulo-gestión-de-plantel-y-comportamientos)
+    - [Caso de uso 10: Crear jugador](#caso-de-uso-10-crear-jugador)
+    - [Caso de uso 11: Ver jugadores del club](#caso-de-uso-11-ver-jugadores-del-club)
+    - [Caso de uso 12: Eliminar jugador del club](#caso-de-uso-12-eliminar-jugador-del-club)
+    - [Caso de uso 13: Crear comportamiento](#caso-de-uso-13-crear-comportamiento)
+    - [Caso de uso 14: Editar un comportamiento](#caso-de-uso-14-editar-un-comportamiento)
+    - [Caso de uso 15: Eliminar comportamiento](#caso-de-uso-15-eliminar-comportamiento)
+    - [Caso de uso 16: Ver comportamientos del club](#caso-de-uso-16-ver-comportamientos-del-club)
+    - [Caso de uso 17: Cambiar comportamiento del jugador](#caso-de-uso-17-cambiar-comportamiento-del-jugador)
+  - [Módulo partido amistoso](#módulo-partido-amistoso)
+    - [Caso de uso 18: Crear partido amistoso](#caso-de-uso-18-crear-partido-amistoso)
+    - [Caso de uso 19: Unirse a partido amistoso](#caso-de-uso-19-unirse-a-partido-amistoso)
+    - [Caso de uso 20: Ver partidos amistosos disponibles](#caso-de-uso-20-ver-partidos-amistosos-disponibles)
+  - [Módulo: Ligas y Torneos](#módulo-ligas-y-torneos)
+    - [Caso de uso 21: Crear liga Pública](#caso-de-uso-21-crear-liga-pública)
+    - [Caso de uso 22: Crear liga Privada](#caso-de-uso-22-crear-liga-privada)
+    - [Caso de uso 23: Ver ligas públicas](#caso-de-uso-23-ver-ligas-públicas)
+    - [Caso de uso 24: Buscar entre las ligas públicas disponibles](#caso-de-uso-24-buscar-entre-las-ligas-públicas-disponibles)
+    - [Caso de uso 25: Inscribirse a una liga Pública](#caso-de-uso-25-inscribirse-a-una-liga-pública)
+    - [Caso de uso 26: Ver ligas privadas](#caso-de-uso-26-ver-ligas-privadas)
+    - [Caso de uso 27: Buscar entre las ligas privadas disponibles](#caso-de-uso-27-buscar-entre-las-ligas-privadas-disponibles)
+    - [Caso de uso 28: Inscribirse a una liga Privada](#caso-de-uso-28-inscribirse-a-una-liga-privada)
+    - [Caso de uso 29: Abandonar liga](#caso-de-uso-29-abandonar-liga)
+    - [Caso de uso 30: Iniciar liga](#caso-de-uso-30-iniciar-liga)
+    - [Caso de uso 31: Cancelar liga](#caso-de-uso-31-cancelar-liga)
+    - [Caso de uso 32: Consultar fixture](#caso-de-uso-32-consultar-fixture)
+    - [Caso de uso 33: Consultar tabla de posiciones de una liga](#caso-de-uso-33-consultar-tabla-de-posiciones-de-una-liga)
+    - [Caso de uso 34: Configurar alineación previa al partido](#caso-de-uso-34-configurar-alineación-previa-al-partido)
+    - [Caso de uso 35: Observar partido en vivo](#caso-de-uso-35-observar-partido-en-vivo)
+    - [Caso de uso 36: Planear cambio de jugador](#caso-de-uso-36-planear-cambio-de-jugador)
+    - [Caso de uso 37: Realizar cambio en pausa](#caso-de-uso-37-realizar-cambio-en-pausa)
+    - [Caso de uso 38: Anular planeamiento de cambio](#caso-de-uso-38-anular-planeamiento-de-cambio)
+    - [Módulo: Rankings](#módulo-rankings)
+    - [Caso de uso 39: Consultar ranking global de clubes](#caso-de-uso-39-consultar-ranking-global-de-clubes)
 
 ## Módulo: Autenticación y Cuenta
 
@@ -150,12 +198,11 @@
   1. El usuario selecciona la opción para ver sus jugadores.
   2. El sistema muestra una vista con la información de cada jugador.
 * **Escenarios excepcionales:**\
-  2. a) El club no posee jugadores creados.\
-  El sistema notifica que no hay jugadores creados.
+  No aplica. 
 
 ### Caso de uso 12: Eliminar jugador del club 
 * **Actor primario:** Usuario
-* **Precondición:** El usuario tiene una sesión activa.
+* **Precondición:** El usuario tiene una sesión activa y al menos 7 jugadores.
 * **Escenario exitoso principal:**
   1. El usuario selecciona la opción "Eliminar" en un jugador específico
   2. El sistema solicita confirmación advirtiendo que la acción eliminara al jugador.
@@ -199,7 +246,7 @@
 
 ### Caso de uso 15: Eliminar comportamiento 
 * **Actor primario:** Usuario
-* **Precondición:** El usuario tiene una sesión activa.
+* **Precondición:** El usuario tiene una sesión activa y al menos 2 comportamientos.
 * **Escenario exitoso principal:**
   1. El usuario presiona el botón "Eliminar" en un comportamiento especifico.
   2. El sistema solicita confirmación al usuario.
@@ -216,8 +263,7 @@
   1. El usuario ingresa a la sección "Comportamientos"
   2. El sistema muestra la lista de tácticas con su nombre, fecha de creación/modificación y las opciones de "Editar", "Ver" o "Eliminar".
 * **Escenarios excepcioanles:**\
-    2. a) No existen comportamientos registrados\
-    El sistema muestra un mensaje indicando que el club aún no posee tácticas creadas.
+      No aplica.
 
 ### Caso de uso 17: Cambiar comportamiento del jugador
 * **Actor primario:** Usuario
