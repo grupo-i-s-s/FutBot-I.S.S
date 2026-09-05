@@ -7,184 +7,177 @@ skinparam ranksep 80
 skinparam packageStyle rectangle
 hide empty members
 
-package "Club management" as ClubZone #EAF3FF {
-    class User {
-        -username : String
-        -name : String
+package "Gestión de club" as ClubZone #EAF3FF {
+    class Usuario {
+        -nombre_usuario : String
+        -nombre_completo : String
         -email : String
-        -password : String
+        -contraseña : String
 
-        +change_password(new_password : String)
+        +cambiar_contraseña(nueva_contraseña : String)
     }
 
     class Club {
         -id : int
-        -name : String
+        -nombre : String
         -avatar : String
-        -friendly_available : bool
+        -disponible_amistoso : bool
 
-        +change_avatar(new_avatar : String)
-        +can_play() : bool
+        +cambiar_avatar(nuevo_avatar : String)
     }
 
-    class Team {
+    class EquipoDefault {
         -id : int
-        -formation : String
+        -formacion : String
 
-        +change_player(coming, going)
-        +change_formation(formation : String)
+        +cambiar_jugador(entra : Jugador , sale : Jugador)
+        +seleccionar_formacion(formacion : String)
     }
 
-    class Player {
+    class Jugador {
         -id : int
-        -name : String
-        -power : int
-        -agility : int
+        -nombre : String
+        -poder : int
+        -agilidad : int
         -control : int
-        -strength : int
-        -speed : int
-        -deleted : bool
+        -fuerza : int
+        -velocidad : int
+        -eliminado : bool
 
-        +delete()
+        +eliminar()
     }
 
-    class Behaviour {
+    class Comportamiento {
         -id : int
-        -name : String
-        -code : String
-        -deleted : bool
+        -nombre : String
+        -codigo : String
+        -eliminado : bool
 
-        +edit(code : String)
-        +delete()
+        +editar(codigo : String)
+        +eliminar()
     }
 }
 
-package "League management" as LeagueZone #FFF4D6 {
-    class PrivateLeague {
-        -password : String
-
-        +send_invite(username : String)
+package "Gestion de Ligas" as LeagueZone #FFF4D6 {
+    class LigaPrivada {
+        -clave_acceso : String
     }
 
-    class PublicLeague {
+    class LigaPublica {
     }
 
-    abstract class League {
+    abstract class Liga {
         -id : int
-        -name : String
-        -min_teams : int
-        -max_teams : int
-        -start_datetime : DateTime
-        -end_datetime : DateTime
-        -status : LeagueStatus
+        -nombre : String
+        -min_clubes : int
+        -max_clubes : int
+        -fecha_hora_inicio : DateTime
+        -fecha_hora_fin : DateTime
+        -estado : EstadoLiga
 
-        +start()
-        +cancel()
+        +iniciar()
+        +cancelar()
     }
 
-    class LeagueRegistration {
+    class InscripcionLiga {
         -id : int
-        -joined_at : DateTime
-        -players
+        -fecha_inscripcion : DateTime
 
-        +leave()
+        +abandonar()
     }
 }
 
-package "Scheduling and matches" as MatchZone #E8F5E9 {
+package "Partidos y Fixture" as MatchZone #E8F5E9 {
     class Fixture {
         -id : int
 
-        +generate()
+        +generar()
     }
 
-    class Round {
+    class Ronda {
         -id : int
-        -number : int
-        -start_datetime : DateTime
+        -numero : int
+        -fecha_hora_inicio : DateTime
     }
 
-    abstract class Match {
+    abstract class Partido {
         -id : int
-        -duration : Duration
-        -start_datetime : DateTime
-        -status : MatchStatus
-        -score1 : int
-        -score2 : int
+        -duracion : Duration
+        -fecha_hora_inicio : DateTime
+        -estado : EstadoPartido
+        -marcador1 : int
+        -marcador2 : int
 
-        +start()
-        +resume()
-        +finish()
-        +hydration_break()
-        +half_time()
-        +request_change(subbed : Player, coming : Player)
-        +change_behaviour(player : Player, behaviour : Behaviour)
+        +iniciar()
+        +reanudar()
+        +finalizar()
+        +pausa_hidratacion()
+        +entretiempo()
+        +solicitar_cambio(sale : Jugador, entra : Jugador)
+        +cambiar_comportamiento(jugador : Jugador, comportamiento : Comportamiento)
     }
 
-    class LeagueMatch {
+    class PartidoLiga {
     }
 
-    class FriendlyMatch {
-        -privacy : FriendlyPrivacy
-
-        +send_invite(username : String)
-        +join(club : Club)
+    class PartidoAmistoso {
+        +unirse(club : Club)
     }
 }
 
 package "Rankings" as RankingZone #F3E8FF {
-    class Scoreboard {
-        -results
+    class TablaPosicionesLiga {
+        -resultados
 
-        +update(match : LeagueMatch)
+        +actualizar(partido : PartidoLiga)
     }
 
-    class Leaderboard {
-        -rankings
+    class RankingGlobal {
+        -clasificaciones
 
-        +update(match : LeagueMatch)
+        +actualizar(partido : PartidoLiga)
     }
 }
 
-User "1" *-- "1" Club : owns
-Club "1" *-- "6..*" Player : players
-Club "1" *-- "1..*" Behaviour : behaviours
-Player "*" --> "0..1" Behaviour : behaviour
-Club "1" *-- "1" Team : default team
-Team "1" --> "6" Player : players
-League "*" --> "1" Club : creator
-League "1" *-- "0..*" LeagueRegistration : registrations
-Club "1" -- "0..*" LeagueRegistration : participates
-LeagueRegistration "1" --> "6" Player : registered players
-League "1" *-- "1" Scoreboard : standings
-Scoreboard --> Club : ranks
-League "1" *-- "0..1" Fixture : fixture
-Fixture "1" *-- "1..*" Round : rounds
-Round "1" *-- "1..*" LeagueMatch : matches
-LeagueMatch "*" --> "2" LeagueRegistration : participants
-FriendlyMatch "*" --> "2" Club : participants
-PrivateLeague --|> League
-PublicLeague --|> League
-LeagueMatch --|> Match
-FriendlyMatch --|> Match
+Usuario "1" *-- "1" Club : administra
+Club "1" *-- "6..*" Jugador : jugadores
+Club "1" *-- "1..*" Comportamiento : comportamientos
+Jugador "*" --> "0..1" Comportamiento : comportamiento
+Club "1" *-- "1" EquipoDefault : equipo_default
+EquipoDefault "1" --> "6" Jugador : jugadores
+Liga "*" --> "1" Club : creador
+Liga "1" *-- "0..*" InscripcionLiga : inscripciones
+Club "1" -- "0..*" InscripcionLiga : participa
+InscripcionLiga "1" --> "6" Jugador : jugadores_registrados
+Liga "1" *-- "1" TablaPosicionesLiga : posiciones
+TablaPosicionesLiga --> Club : clasifica
+Liga "1" *-- "0..1" Fixture : fixture
+Fixture "1" *-- "1..*" Ronda : rondas
+Ronda "1" *-- "1..*" PartidoLiga : partidos
+PartidoLiga "*" --> "2" InscripcionLiga : participantes
+PartidoAmistoso "*" --> "2" Club : participantes
+LigaPrivada --|> Liga
+LigaPublica --|> Liga
+PartidoLiga --|> Partido
+PartidoAmistoso --|> Partido
 
 ' Visual layout hints only; they do not represent domain relationships.
-Club -[hidden]right- League
-League -[hidden]right- Fixture
-Fixture -[hidden]right- Scoreboard
+Club -[hidden]right- Liga
+Liga -[hidden]right- Fixture
+Fixture -[hidden]right- TablaPosicionesLiga
 
-User -[hidden]down- Club
-Club -[hidden]down- Team
-Team -[hidden]right- Player
-Player -[hidden]down- Behaviour
+Usuario -[hidden]down- Club
+Club -[hidden]down- EquipoDefault
+EquipoDefault -[hidden]right- Jugador
+Jugador -[hidden]down- Comportamiento
 
-PrivateLeague -[hidden]down- PublicLeague
-League -[hidden]down- LeagueRegistration
+LigaPrivada -[hidden]down- LigaPublica
+Liga -[hidden]down- InscripcionLiga
 
-Fixture -[hidden]down- Round
-Round -[hidden]down- LeagueMatch
-LeagueMatch -[hidden]down- FriendlyMatch
+Fixture -[hidden]down- Ronda
+Ronda -[hidden]down- PartidoLiga
+PartidoLiga -[hidden]down- PartidoAmistoso
 
-Scoreboard -[hidden]down- Leaderboard
+TablaPosicionesLiga -[hidden]down- RankingGlobal
 
 @enduml
