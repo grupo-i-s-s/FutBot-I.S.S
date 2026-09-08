@@ -27,7 +27,10 @@ nuevo_comportamiento = jugador# + nomrbre_comportamiento
 
 
 ## DFD Ligas
-
+Datos_liga = nombre_liga + min_max + t_espera + t_init
+Formación = jugador1 + jugador2 + jugador3 + jugador4 + jugador5 + jugador6 + alineación
+Comportamientos = [Comportamiento]*
+Datos_usuario = id_usuario
 
 ## DFD Club
 comportamiento = nombre + código
@@ -40,3 +43,8 @@ datos_club = avatar + nombre
 cambio_jugadores = id_jugador1 + id_jugador2
 
 ## DFD Registro
+datos_inicio_sesion = nombre_usuario + contraseNa
+datos_registro = nombre + nombre_usuario + correo + nombre_club + avatar + contraseña
+usuario = nombre + nombre_usuario + correo + nombre_club + avatar + contraseña + id_usuario
+usuarios_registrados = [usuario]*
+datos_cambio = nombre_usuario + contraseña + nueva_contraseña
