@@ -14,9 +14,8 @@ Nuevo_comportamiento = código + nombre + id_comportamiento
 
 ## DFD Partido 
 
-partido_programado = 
+partido_programado = datos_de_partido + estadisticas
 datos_de_partido = horario + fecha_inicio + usuario_creador
-id_usuario = 
 lista_comportamientos = nombre_comportamientos + código correspondiente
 jugador# =  PACSS + nombre
 cambio_planeado = jugador + jugador_entrante
@@ -31,6 +30,13 @@ nuevo_comportamiento = jugador# + nomrbre_comportamiento
 
 
 ## DFD Club
+comportamiento = nombre + código
+datos_comportamiento = nombre + código
+PACSS = power + agility + control + speed + strength 
+jugador_comportamiento = id_comportamiento + id_jugador 
+eliminación_comportamiento = id_comportamiento + false 
+eliminación_jugador = id_jugador + false 
+datos_club = avatar + nombre 
+cambio_jugadores = id_jugador1 + id_jugador2
 
-
-## DFD Registro 
+## DFD Registro
