@@ -1,8 +1,9 @@
 # Backend de FutBot
 
 Guía para desarrollar la API en equipo con **FastAPI, SQLAlchemy y PostgreSQL**.
-Las convenciones de este documento son la propuesta de trabajo del proyecto;
-si el equipo cambia una, debe actualizar esta guía en la misma entrega.
+La arquitectura acordada es **controller → servicio → repositorio**, manteniendo
+**modelos** y **schemas**. Las demás convenciones de este documento son la propuesta
+de trabajo del proyecto; si el equipo cambia una, debe actualizar esta guía en la misma entrega.
 
 Para preparar el entorno completo, seguir el [README principal](../README.md).
 Todos los comandos Docker de esta guía se ejecutan desde la **raíz del repositorio**.
@@ -107,7 +108,10 @@ No mezclar `behaviour` y `behavior` para el mismo concepto.
 | Booleanos | Condición explícita | `is_available`, `has_opponent`, `can_join` |
 | Tablas futuras | Plural en `snake_case` | `players`, `friendly_matches` |
 | Claves primarias y foráneas | `id` y entidad singular + `_id` | `id`, `club_id` |
-| Módulos de rutas | Recurso en plural | `players.py`, `leagues.py` |
+| Controllers | Entidad singular + `_controller.py` | `player_controller.py` |
+| Servicios | Entidad singular + `_service.py` | `player_service.py` |
+| Repositorios | Entidad singular + `_repository.py` | `player_repository.py` |
+| Modelos y schemas | Entidad singular, dentro de su carpeta | `models/player.py`, `schemas/player.py` |
 | Pruebas | `test_` + comportamiento | `test_create_player_rejects_invalid_pacss` |
 | Campos JSON públicos | Nombres exactos del contrato, usualmente `camelCase` | `clubId`, `behaviourId` |
 | Rutas HTTP | Nombres del contrato, minúsculas y guiones cuando corresponda | `/players`, `/friendly-matches` |
@@ -123,33 +127,38 @@ por líneas en blanco. Usar imports desde `app`, por ejemplo `from app.database 
 Evitar `import *` y módulos llamados `fastapi.py`, `sqlalchemy.py` o `typing.py`, porque
 pueden ocultar paquetes reales. `SessionLocal` conserva el nombre de la fábrica ya existente.
 
-## 4. Estructura al agregar funcionalidades
+## 4. Arquitectura: controller, servicio y repositorio
 
-El árbol siguiente es una **estructura propuesta para crecer**. Hoy solo existen
-los archivos de la sección 1. Crear los módulos según la necesidad de cada tarea,
-sin agregar capas vacías ni mover código ajeno como parte de un cambio funcional.
+Esta es la **estructura acordada para las nuevas funcionalidades**. Hoy solo existen
+los archivos de la sección 1; el árbol indica dónde incorporar cada parte a medida
+que se implemente. Las rutas de salud actuales siguen en `main.py`.
 
 ```text
 app/
   __init__.py
   main.py                        # Aplicación, middleware y registro de routers
   database.py                    # Motor, sesiones y Base
-  api/
+  dependencies.py                # Dependencias HTTP comunes, p. ej. usuario autenticado
+  controllers/
     __init__.py
-    dependencies.py              # Dependencias HTTP comunes, p. ej. usuario autenticado
-    routes/
-      __init__.py
-      players.py                 # APIRouter del recurso
-      leagues.py
-  schemas/
+    player_controller.py         # HTTP: peticiones y respuestas de /players
+    league_controller.py
+  services/
     __init__.py
-    player.py                    # PlayerCreate, PlayerRead: datos de entrada/salida
+    player_service.py            # Casos de uso, reglas y transacciones
+    league_service.py
+  repositories/
+    __init__.py
+    player_repository.py         # Consultas y persistencia de jugadores
+    league_repository.py
   models/
     __init__.py
     player.py                    # Player: tabla y relaciones ORM
-  services/
+    league.py
+  schemas/
     __init__.py
-    players.py                   # Casos de uso y reglas de jugadores
+    player.py                    # PlayerCreate, PlayerRead: datos de entrada/salida
+    league.py
   core/
     __init__.py
     config.py                    # Configuración común, cuando crezca
@@ -157,21 +166,72 @@ app/
 tests/
   test_health.py                 # Pruebas existentes
   unit/
-    test_players.py              # Reglas aisladas
+    test_player_service.py       # Reglas con repositorios simulados
   integration/
-    test_players_api.py          # HTTP, persistencia y transacciones
+    test_player_repository.py    # Consultas contra una base de pruebas
+    test_player_controller.py    # Contrato HTTP y flujo completo
 ```
 
-Una **ruta** traduce HTTP a una operación, obtiene las dependencias y define la respuesta.
-Un **schema** describe y valida los datos que entran o salen. Un **modelo** representa
-una tabla. Un **servicio** ejecuta un caso de uso y sus reglas. Evitar concentrar consultas,
-validación, autenticación y transacciones en `main.py`.
+### Responsabilidad de cada parte
 
-Dirección de dependencias: rutas → servicios → modelos/base de datos. Los servicios
-no importan routers ni `app.main`; los modelos no dependen de HTTP. Los schemas no son
-modelos ORM: por ejemplo, `PlayerCreate` puede admitir solo campos de alta y `PlayerRead`
-incluir el ID generado. Si crecen las consultas compartidas, evaluar una capa de repositorios;
-no es obligatoria para cada operación simple.
+| Parte | Responsabilidad | Qué delega |
+| --- | --- | --- |
+| Controller | Define endpoints con `APIRouter`, recibe schemas, obtiene la identidad y la sesión mediante dependencias, llama al servicio y define la respuesta HTTP. | Reglas del caso de uso al servicio; nunca consulta la base directamente. |
+| Servicio | Ejecuta un caso de uso, valida reglas de negocio y permisos sobre recursos, coordina repositorios y controla la transacción. | Consultas y persistencia al repositorio; no devuelve `JSONResponse` ni conoce códigos HTTP. |
+| Repositorio | Consulta, agrega, actualiza o elimina modelos usando SQLAlchemy y la sesión recibida. | Decisiones de negocio y confirmación de la transacción al servicio. |
+| Modelo | Representa una tabla, sus columnas, relaciones y restricciones de persistencia. | Validación de peticiones y formato público de respuesta a los schemas. |
+| Schema | Define y valida la forma de los datos de entrada o salida con Pydantic. | Reglas que requieren estado de la base o coordinación de entidades al servicio. |
+
+En FastAPI, el controller contiene el `APIRouter`: no agregamos una carpeta `routes/`
+que repita esa responsabilidad. `main.py` registra esos routers y configura la aplicación.
+Los nombres de archivo usan singular y sufijo de capa; las rutas conservan los nombres
+del contrato, como `/players`.
+
+El flujo de una petición es:
+
+```text
+Petición HTTP + schema de entrada
+    → controller
+    → servicio
+    → repositorio → modelos / PostgreSQL
+    ← resultado hacia el servicio y el controller
+Respuesta HTTP + schema de salida
+```
+
+Los imports siguen la misma dirección: controllers → servicios → repositorios →
+modelos/base de datos. Los servicios también pueden usar los tipos de schemas y la
+sesión para coordinar una transacción, pero no escriben consultas SQLAlchemy.
+Ni servicios ni repositorios importan controllers o `app.main`. Los modelos no
+dependen de HTTP y los schemas no acceden a la base.
+
+Para empezar, cada capa puede implementarse con funciones de módulo: el controller
+llama a `player_service.create_player(...)`, que usa funciones de `player_repository`.
+No hacen falta clases base, interfaces abstractas ni un repositorio genérico para
+aplicar esta estructura. Si se necesitan clases, usar nombres como `PlayerService`
+y `PlayerRepository`, conservando las mismas responsabilidades.
+
+Los repositorios reciben la sesión como argumento y devuelven modelos, colecciones
+o `None` cuando una búsqueda no encuentra un registro. El servicio decide si ese
+resultado representa un error del caso de uso y lo expresa con una excepción funcional
+definida en `core/errors.py`. El controller o un manejador HTTP central traduce ese
+error al contrato de la API. Estos manejadores todavía deben implementarse.
+
+### Ejemplo: crear un jugador
+
+1. `schemas/player.py` define `PlayerCreate` con los campos de alta y `PlayerRead`
+   con los campos públicos de respuesta. Validar tipos y límites de campos en el schema.
+2. `controllers/player_controller.py` recibe la petición y la identidad autenticada,
+   obtiene la sesión y llama al servicio; no toma un `clubId` del cliente como prueba de propiedad.
+3. `services/player_service.py` valida las reglas del caso de uso, como la suma PACSS,
+   y coordina la asignación al club y del comportamiento inicial definido en el contrato.
+4. `repositories/player_repository.py` realiza las consultas necesarias y agrega
+   el modelo `Player` a la sesión. Puede hacer `flush()` para obtener el ID sin confirmar.
+5. El servicio confirma la operación completa. El controller devuelve el resultado
+   con `PlayerRead` y el estado HTTP establecido en el contrato.
+
+Este ejemplo describe cómo se distribuirá una funcionalidad futura; no afirma que
+el alta de jugadores esté implementada. Cada operación que accede a persistencia
+sigue las tres capas, aunque al principio las funciones sean pequeñas.
 
 ## 5. Sesiones, escrituras y esquema de base de datos
 
@@ -185,9 +245,16 @@ ni mezclar `AsyncSession` sin coordinar un cambio de acceso a datos.
 
 El servicio que representa el caso de uso completo es el responsable de la transacción:
 confirmar una vez cuando toda la operación termine y hacer rollback si falla.
-Las funciones auxiliares no deben hacer commits parciales. Por ejemplo, crear cuenta,
-club y jugadores iniciales debe ser una única operación atómica. `get_db` no hace
-commit automáticamente; cerrar una sesión no guarda los cambios pendientes.
+Los repositorios reciben **la misma sesión** durante todo el caso de uso y no hacen
+`commit()`, `rollback()` ni la cierran por su cuenta. Pueden hacer `flush()` cuando
+necesiten enviar cambios a la base dentro de la transacción todavía abierta;
+`flush()` no equivale a confirmar los cambios.
+
+Por ejemplo, crear cuenta, club y jugadores iniciales debe ser una única operación
+atómica, aunque intervengan varios repositorios. Evitar llamar a otro servicio que
+haga su propio commit dentro de esa operación; la confirmación pertenece al servicio
+que coordina el caso de uso completo. `get_db` no hace commit automáticamente;
+cerrar una sesión no guarda los cambios pendientes.
 
 Usar consultas parametrizadas de SQLAlchemy; no concatenar entradas del usuario en SQL.
 Aplicar restricciones de unicidad y claves foráneas en la base además de las validaciones
@@ -279,6 +346,12 @@ errores de permiso o estado que correspondan. En escrituras, comprobar que un re
 no deja cambios parciales. Probar las reglas delicadas en concurrencia cuando aplique,
 por ejemplo una única plaza disponible. Usar nombres de pruebas que expresen el
 comportamiento y datos sintéticos; no depender del orden de ejecución.
+
+Distribuir esas pruebas según la responsabilidad: servicios con repositorios simulados
+para aislar reglas; repositorios contra PostgreSQL de pruebas para verificar consultas
+y restricciones; controllers para validar schemas, estados HTTP y errores. Incluir
+pruebas del flujo completo sin simular repositorios cuando se deba comprobar una
+transacción entre varias entidades.
 
 Todavía no hay Ruff, Black ni una verificación automática de estilo configurados.
 Las convenciones de esta guía se revisan manualmente hasta incorporar esas herramientas

@@ -6,7 +6,7 @@ Docker Compose instala las dependencias y levanta los tres servicios.
 ## Guías para desarrollar en equipo
 
 - [Frontend: archivos, dependencias y convenciones de React](frontend/README.md).
-- [Backend: requirements, estructura, API y convenciones de Python](backend/README.md).
+- [Backend: requirements, controllers, servicios, repositorios, modelos y schemas](backend/README.md).
 
 Estas guías distinguen la base existente de la estructura propuesta para las próximas
 funcionalidades e incluyen ejemplos de nombres y pautas para coordinar ambos equipos.
