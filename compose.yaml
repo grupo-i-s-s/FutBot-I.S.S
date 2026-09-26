@@ -1,0 +1,70 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+      # Polling permite detectar cambios también en Docker Desktop/WSL.
+      VITE_USE_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Sincroniza el volumen de dependencias cuando cambia package-lock.json.
+    command: sh -c "npm ci --no-audit --no-fund && exec npm run dev"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:?Copiar .env.example a .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
+      WATCHFILES_FORCE_POLLING: "true"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  db:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Copiar .env.example a .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Desde PostgreSQL 18, PGDATA vive bajo /var/lib/postgresql/18/docker.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:
+  frontend_node_modules:
