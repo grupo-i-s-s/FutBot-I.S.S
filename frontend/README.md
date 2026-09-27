@@ -1,6 +1,6 @@
 # Frontend de FutBot
 
-Guía para desarrollar la interfaz en equipo con **React, JavaScript y Vite**.
+Guía para desarrollar la interfaz en equipo con **React, JavaScript, Vite y Tailwind CSS**.
 Las convenciones de este documento son la propuesta de trabajo del proyecto;
 si el equipo cambia una, debe actualizar esta guía en la misma entrega.
 
@@ -17,17 +17,18 @@ no desde `frontend/`.
 | `Dockerfile` | Define la imagen con Node, instala dependencias y establece el comando de inicio. | Modificarlo si cambia la preparación del entorno. |
 | `.dockerignore` | Excluye archivos del contexto que Docker usa para construir la imagen. | Evita copiar `node_modules`, compilaciones y configuraciones locales. No reemplaza a `.gitignore`. |
 | `index.html` | Es la página de entrada de Vite; contiene el elemento donde React se monta. | Mantener aquí los metadatos generales de la página. |
-| `vite.config.js` | Configura React, el servidor, la detección de cambios y el proxy hacia FastAPI. | La configuración del entorno va aquí; la lógica de negocio, en `src/`. |
+| `vite.config.js` | Configura los plugins de React y Tailwind, el servidor, la detección de cambios y el proxy hacia FastAPI. | La configuración del entorno va aquí; la lógica de negocio, en `src/`. |
 | `src/main.jsx` | Monta React en `#root` y carga los estilos globales. | Mantenerlo pequeño; agregar aquí los proveedores globales cuando existan. |
 | `src/App.jsx` | Componente raíz. Actualmente muestra el estado de conexión. | Componer las pantallas; evitar concentrar aquí toda la aplicación. |
-| `src/styles.css` | Estilos globales actuales. | Reservarlo para reglas generales y variables de diseño. |
+| `src/styles.css` | Importa Tailwind y define los colores del tema y estilos base. | Reservarlo para reglas generales y variables de diseño compartidas. |
 | `node_modules/` | Paquetes instalados por npm. | Generado, no se versiona. Compose lo guarda en un volumen separado. |
 | `dist/` | Archivos generados por la compilación para distribución. | Generado, no editar ni versionar. |
 
 Una **dependencia directa** es un paquete elegido por el equipo, como React.
 Una **transitiva** es un paquete que otra dependencia necesita. En `package.json`,
 `dependencies` contiene bibliotecas de la aplicación y `devDependencies`, herramientas
-de desarrollo o compilación, como Vite. Ambas categorías se instalan en este entorno.
+de desarrollo o compilación, como Vite, `tailwindcss` y `@tailwindcss/vite`.
+Ambas categorías se instalan en este entorno.
 El frontend no usa archivos `requirements`: esos pertenecen al proyecto Python.
 
 ## 2. Convenciones de nombres y estilo
@@ -49,7 +50,7 @@ No alternar `behaviour` con `behavior` para la misma entidad.
 | Constantes fijas compartidas | `UPPER_SNAKE_CASE` | `POLL_INTERVAL_MS` |
 | Carpetas | Minúsculas y `kebab-case` si tienen varias palabras | `players/`, `friendly-matches/` |
 | Módulos sin JSX | `camelCase`, extensión `.js` | `formatDate.js`, `http.js` |
-| CSS de componente nuevo | Mismo nombre + `.module.css` | `PlayerCard.module.css` |
+| Estilos de componente | Utilidades Tailwind en `className`; CSS Modules para excepciones | `className="rounded-lg p-4"`, `PlayerCard.module.css` |
 | Pruebas futuras | Nombre del módulo + `.test.jsx` o `.test.js` | `PlayerCard.test.jsx`, `formatDate.test.js` |
 | Recursos gráficos | Minúsculas y `kebab-case` | `default-avatar.svg` |
 
@@ -82,14 +83,12 @@ src/
     http.js                      # Peticiones y errores HTTP comunes
   components/
     Button.jsx                   # Componentes compartidos por varias funciones
-    Button.module.css
   features/
     players/
       PlayerListPage.jsx         # Pantalla del plantel
       api.js                     # listPlayers, createPlayer
       components/
         PlayerCard.jsx
-        PlayerCard.module.css
       hooks/
         usePlayers.js
     friendly-matches/
@@ -125,9 +124,45 @@ una función pura de formato no necesita convertirse en hook.
   evitar que una respuesta antigua sobrescriba una selección reciente.
 - Preferir elementos semánticos (`button`, `form`, `label`) y controles accesibles
   con teclado. Asociar las etiquetas a los campos y mostrar los errores junto al formulario.
-- Para nuevos componentes, usar CSS Modules para aislar estilos. Las reglas globales
-  actuales pueden seguir en `styles.css`. No cambiar globalmente todos los `button`
-  para resolver el diseño de una sola pantalla.
+- Para nuevos componentes, usar las utilidades de Tailwind en `className`. Reservar
+  CSS Modules para estilos específicos que lo necesiten y mantener las reglas
+  globales en `styles.css`, dentro de `@layer base`. Evitar reglas globales que
+  sobrescriban las utilidades para resolver el diseño de una sola pantalla.
+
+### Tailwind CSS
+
+Está integrado **Tailwind CSS 4** mediante el plugin `@tailwindcss/vite` y la
+importación `@import "tailwindcss";` en `src/styles.css`. Vite genera el CSS tanto
+en desarrollo como al compilar. Esta integración no necesita `tailwind.config.js`,
+configuración de PostCSS ni un comando separado para compilar estilos.
+[Instalación oficial con Vite](https://tailwindcss.com/docs/installation/using-vite).
+
+Ejemplo de JSX:
+
+```jsx
+<button className="rounded-lg bg-brand px-4 py-2 text-white hover:opacity-90 disabled:opacity-50">
+  Guardar
+</button>
+```
+
+Para trabajar en equipo:
+
+- Usar primero las utilidades existentes de espaciado, tipografía y tamaño. Extraer
+  un componente compartido si varias pantallas repiten la misma combinación.
+- Los colores compartidos se definen con `@theme` en `src/styles.css`: actualmente
+  `brand`, `canvas`, `ink` y `frame`, que permiten clases como `bg-brand`, `bg-canvas`,
+  `text-ink` y `border-frame`. Agregar allí nuevos valores de diseño que se repitan.
+- Escribir clases completas, incluso cuando dependen del estado. Usar un mapa como
+  `statusClasses` en `App.jsx` o un ternario con cadenas completas. Evitar construir
+  nombres como `bg-${color}-500`, que el detector no puede reconocer como clases completas.
+- Diseñar primero para pantallas pequeñas y aplicar variantes como `sm:` o `md:`
+  donde haga falta. Incluir estados de foco y controles deshabilitados.
+- El CSS de la aplicación entra por `main.jsx`. Mantener esa importación para que
+  Tailwind y los estilos base estén disponibles en todas las pantallas.
+
+Para recibir esta dependencia o cambios posteriores, usar el procedimiento habitual
+desde la raíz: `docker compose up --build -d --wait`. Los Dockerfiles y Compose ya
+instalan los paquetes declarados; no hace falta instalar Tailwind en la computadora.
 
 ## 5. Contrato con el backend
 

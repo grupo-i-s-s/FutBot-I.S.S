@@ -1,6 +1,6 @@
 # FutBot
 
-Base de desarrollo con React + Vite, FastAPI, SQLAlchemy y PostgreSQL 18.
+Base de desarrollo con React + Vite + Tailwind CSS, FastAPI, SQLAlchemy y PostgreSQL 18.
 Docker Compose instala las dependencias y levanta los tres servicios.
 
 ## Guías para desarrollar en equipo

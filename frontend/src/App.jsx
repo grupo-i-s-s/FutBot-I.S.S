@@ -42,15 +42,25 @@ export default function App() {
     error: 'No se pudo conectar con el servidor o la base de datos.',
   }
 
+  const statusClasses = {
+    checking: 'bg-[#f0f2f4]',
+    ready: 'bg-[#e5f3e9]',
+    error: 'bg-[#fce8e6] text-[#8b211b]',
+  }
+
   return (
-    <main>
-      <p className="eyebrow">ENTORNO DE DESARROLLO</p>
-      <h1>FutBot</h1>
-      <p>La base del proyecto está en marcha.</p>
-      <div className={`status ${status}`} role="status" aria-live="polite">
+    <main className="mx-auto my-[12vh] w-[calc(100%_-_40px)] max-w-[620px] rounded-[20px] border border-frame bg-white p-[clamp(24px,5vw,48px)]">
+      <p className="text-xs leading-relaxed font-bold tracking-[0.12em]">ENTORNO DE DESARROLLO</p>
+      <h1 className="my-4 text-5xl leading-normal font-bold">FutBot</h1>
+      <p className="leading-relaxed">La base del proyecto está en marcha.</p>
+      <div className={`my-7 rounded-lg p-5 leading-relaxed ${statusClasses[status]}`} role="status" aria-live="polite">
         {messages[status]}
       </div>
-      <button disabled={status === 'checking'} onClick={() => setAttempt(attempt + 1)}>
+      <button
+        className="cursor-pointer rounded-lg bg-brand px-5 py-3 text-white focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#c37b08] disabled:cursor-wait disabled:opacity-65"
+        disabled={status === 'checking'}
+        onClick={() => setAttempt(attempt + 1)}
+      >
         Comprobar conexión
       </button>
     </main>
