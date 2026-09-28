@@ -57,3 +57,16 @@ def resgistrar_endpoint():
 @auth_router.get("/me", response_model=UserResponse)
 def me(db: Database, identity: CurrentIdentity):
     return auth_service.get_current_user(db, identity)
+
+
+@auth_router.post("/logout", status_code=204)
+def logout(request: Request, db: Database):
+    token = request.cookies.get(settings.cookie_name)
+
+    auth_service.logout(db, token)
+
+    response = Response(status_code=204)
+    clear_session_cookie(response)
+
+    return response
+
