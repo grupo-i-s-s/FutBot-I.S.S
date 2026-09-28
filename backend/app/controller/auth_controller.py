@@ -70,3 +70,12 @@ def logout(request: Request, db: Database):
 
     return response
 
+
+@auth_router.post("/change-password", status_code=204)
+def change_password(data: ChangePasswordRequest, db: Database, identity: CurrentIdentity):
+    auth_service.change_password(db, identity, data)
+
+    response = Response(status_code=204)
+    clear_session_cookie(response)
+
+    return response
