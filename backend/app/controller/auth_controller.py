@@ -52,3 +52,8 @@ def resgistrar_endpoint():
     set_session_cookie(response, token)
 
     return user
+
+
+@auth_router.get("/me", response_model=UserResponse)
+def me(db: Database, identity: CurrentIdentity):
+    return auth_service.get_current_user(db, identity)
