@@ -14,16 +14,32 @@ anyio==4.15.1
     #   httpx
     #   starlette
     #   watchfiles
+argon2-cffi==25.1.0
+    # via -r requirements.txt
+argon2-cffi-bindings==26.1.0
+    # via
+    #   -r requirements.txt
+    #   argon2-cffi
 certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
+cffi==2.1.1
+    # via
+    #   -r requirements.txt
+    #   argon2-cffi-bindings
 click==8.5.0
     # via
     #   -r requirements.txt
     #   uvicorn
 colorama==0.4.6 ; sys_platform == 'win32'
     # via pytest
+dnspython==2.8.0
+    # via
+    #   -r requirements.txt
+    #   email-validator
+email-validator==2.3.0
+    # via -r requirements.txt
 fastapi==0.141.1
     # via -r requirements.txt
 h11==0.16.0
@@ -41,6 +57,7 @@ idna==3.20
     # via
     #   -r requirements.txt
     #   anyio
+    #   email-validator
     #   httpx
 iniconfig==2.3.0
     # via pytest
@@ -52,6 +69,12 @@ psycopg==3.3.6
     # via -r requirements.txt
 psycopg-binary==3.3.6 ; implementation_name != 'pypy'
     # via -r requirements.txt
+pwdlib==0.3.1
+    # via -r requirements.txt
+pycparser==3.0 ; implementation_name != 'PyPy'
+    # via
+    #   -r requirements.txt
+    #   cffi
 pydantic==2.13.5
     # via
     #   -r requirements.txt
