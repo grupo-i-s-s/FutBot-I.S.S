@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from app.repositories import (
+from app.repository import (
     session_repository,
     user_repository
 )
-from app.schemas.auth_schema import (
+from app.schemas.auth_schemas import (
     ChangePasswordRequest,
     LoginRequest,
     RegisterRequest,
