@@ -11,10 +11,10 @@ class Setting:
 
 
 settings = Setting(cookie_name="FutBotSession",
-                   cookie_secure=os.getenv("AUTH_COOKIE_SECURE", "false"),
-                   session_hours=os.getenv("AUTH_SESSION_HOURS", "8"),
+                   cookie_secure=os.getenv("AUTH_COOKIE_SECURE", "false").lower() == "true",
+                   session_hours=int(os.getenv("AUTH_SESSION_HOURS", "8")),
                    allowed_origins=frozenset(origin.strip().rstrip("/")
-                                             for origin in os.getenv("AUTH_ALLOWED_ORIGINS").split(",")
+                                             for origin in os.getenv("AUTH_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
                                              if origin.strip()))
 
 if settings.session_hours <= 0:
