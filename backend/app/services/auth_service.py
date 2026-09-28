@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.repository import (
     session_repository,
-    user_repository
+    user_repository, behaviour_repository, player_repository
 )
 from app.schemas.auth_schemas import (
     ChangePasswordRequest,
@@ -92,7 +92,10 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
             avatar=data.avatar
         )
 
-        # TODO: CREAR JUGADORES DEFAULT Y COMPORTAMIENTOS
+        behaviour = behaviour_repository.create_default_behaviour(db, club.id)
+
+        players = player_repository.create_default_players(db, club.id, behaviour.id)
+
 
         result = public_user(user, club)
 
