@@ -46,9 +46,6 @@ def login(data: LoginRequest, request: Request, response: Response, db: Database
 
     user, token = auth_service.login(db, data, previous_token)
 
-# REGISTRO
-@auth_router.post("/registrar")
-def resgistrar_endpoint(): 
     set_session_cookie(response, token)
 
     return user
