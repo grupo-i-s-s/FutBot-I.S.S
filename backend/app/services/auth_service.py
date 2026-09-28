@@ -67,18 +67,12 @@ def public_user(user: User, club: Club) -> UserResponse:
 
 def register(db: Session, data: RegisterRequest) -> UserResponse:
     try:
-        existing_email = user_repository.get_by_email(
-            db,
-            str(data.email)
-        )
+        existing_email = user_repository.get_by_email(db, str(data.email))
 
         if existing_email:
             raise duplicate_error("email")
 
-        existing_username = user_repository.get_by_username(
-            db,
-            data.username
-        )
+        existing_username = user_repository.get_by_username(db, data.username)
 
         if existing_username:
             raise duplicate_error("username")
