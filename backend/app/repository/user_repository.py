@@ -1,48 +1,54 @@
-from datetime import datetime
-
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.auth_model import AuthSession
+from app.models.auth_model import Club, User
 
 
-def create(
-        db: Session,
-        *,
-        token_hash: str,
-        user_id: int,
-        created_at: datetime,
-        expires_at: datetime) -> None:
-    session = AuthSession(
-        token_hash=token_hash,
+def get_by_email(db: Session, email: str, *, lock: bool = False) -> User | None:
+    query = select(User).where(User.email == email)
+    if lock:
+        query = query.with_for_update()
+    return db.scalar(query)
+
+
+def get_by_username(db: Session, username: str) -> User | None:
+    return db.scalar(select(User).where(User.username == username))
+
+
+def get_by_id(db: Session, user_id: int, *, lock: bool = False) -> User | None:
+    query = select(User).where(User.id == user_id)
+    if lock:
+        query = query.with_for_update()
+    return db.scalar(query)
+
+
+def get_club(db: Session, user_id: int) -> Club | None:
+    return db.scalar(select(Club).where(Club.user_id == user_id))
+
+
+def create_user(db: Session, *, name: str, username: str, email: str, password_hash: str) -> User:
+    user = User(
+        name=name,
+        username=username,
+        email=email,
+        password_hash=password_hash,
+    )
+    db.add(user)
+    db.flush()
+    return user
+
+
+def create_club(db: Session, *, user_id: int, name: str, avatar: str) -> Club:
+    club = Club(
         user_id=user_id,
-        created_at=created_at,
-        expires_at=expires_at,
+        name=name,
+        avatar=avatar,
+        friendly_available=False,
     )
-
-    db.add(session)
-
-
-def get_active(db: Session, token_hash: str, now: datetime) -> AuthSession | None:
-    return db.scalar(
-        select(AuthSession).where(
-            AuthSession.token_hash == token_hash,
-            AuthSession.expires_at > now,
-        )
-    )
+    db.add(club)
+    db.flush()
+    return club
 
 
-def delete_by_token(db: Session, token_hash: str) -> None:
-    db.execute(
-        delete(AuthSession).where(
-            AuthSession.token_hash == token_hash
-        )
-    )
-
-
-def delete_for_user(db: Session, user_id: int) -> None:
-    db.execute(
-        delete(AuthSession).where(
-            AuthSession.user_id == user_id
-        )
-    )
+def set_password(user: User, password_hash: str) -> None:
+    user.password_hash = password_hash
