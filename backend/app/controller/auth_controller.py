@@ -1,4 +1,4 @@
-from app.schemas.auth_schema import (
+from app.schemas.auth_schemas import (
     ChangePasswordRequest,
     LoginRequest,
     RegisterRequest,
