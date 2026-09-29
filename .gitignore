@@ -11,6 +11,8 @@
 # Frontend
 node_modules/
 dist/
+playwright-report/
+test-results/
 
 # Backend
 __pycache__/

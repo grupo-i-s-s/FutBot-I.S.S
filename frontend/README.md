@@ -1,5 +1,18 @@
 # Frontend de FutBot
 
+## Pantalla Mi club — ISS-108
+
+Disponible en `/club`, con acceso desde la pantalla de conexión `/`.
+Usa `GET /api/club/me` y `PATCH /api/club/me` del backend de ISS-120,
+con la cookie de sesión de Autenticación y el encabezado de escritura
+`X-Futbot-Request: 1`. Implementación y pendientes de integración:
+[ISS-108](../docs/iss_108_my_club.md).
+
+La pantalla está en `src/features/clubs/MyClubPage.jsx`; recibe las rutas de los
+otros módulos mediante `destinations` y la de ingreso mediante `loginHref`.
+Mientras no estén integrados, los módulos se muestran como «Próximamente».
+El escudo es provisional: no se interpreta el campo `avatar` hasta acordar su formato.
+
 Guía para desarrollar la interfaz en equipo con **React, JavaScript, Vite y Tailwind CSS**.
 Las convenciones de este documento son la propuesta de trabajo del proyecto;
 si el equipo cambia una, debe actualizar esta guía en la misma entrega.
@@ -254,10 +267,32 @@ Verificar en el navegador el flujo modificado, incluyendo error, carga, campos
 inválidos y pantalla angosta cuando corresponda. Una compilación exitosa no valida
 por sí sola el comportamiento de la interfaz.
 
-Hoy existen los scripts `dev`, `build` y `preview`. **No hay todavía scripts `test`,
-`lint` ni un formateador configurado.** Cuando se incorpore un ejecutor de pruebas,
-guardar las pruebas junto al componente o módulo y priorizar el comportamiento
-visible. Documentar su comando aquí; no dar por ejecutadas herramientas pendientes.
+Existen los scripts `dev`, `build`, `preview` y `test`. `npm test` ejecuta las pruebas
+de navegador con Playwright, junto al componente (`*.test.js`). No hay `lint`
+ni un formateador configurado.
+
+Desde `frontend/`, con Node compatible instalado (ver `package.json`):
+
+```sh
+npm ci
+npx playwright install chromium
+npm test
+npm run build
+```
+
+Para ejecutarlas dentro del contenedor Linux, desde la raíz:
+
+```sh
+docker compose exec frontend npx playwright install --with-deps chromium
+docker compose exec frontend npm test
+```
+
+Playwright inicia su propio Vite en `127.0.0.1:4173`; dejar ese puerto libre.
+Las pruebas de Mi club simulan las respuestas HTTP: verifican la interfaz y sus
+peticiones, pero no reemplazan la prueba integrada con Autenticación y PostgreSQL.
+Los fallos dejan trazas en `test-results/`, excluido de Git. Los fixtures de navegación
+en `tests/fixtures/` son exclusivos de pruebas, no pantallas de otros módulos.
+
 `preview` sirve para revisar la compilación y no reemplaza al entorno integrado
 de desarrollo, cuyo proxy está en `server.proxy`.
 
