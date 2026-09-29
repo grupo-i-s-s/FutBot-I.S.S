@@ -1,10 +1,14 @@
 # Backend de FutBot
 
-## Implementación de Clubes (ISS-120)
+## Implementación de Clubes (ISS-120 e ISS-111)
 
 `GET /club/me` y `PATCH /club/me` ya permiten consultar el club autenticado y cambiar
-`friendlyAvailable`. Reutilizan las cookies y protección de escritura de Autenticación.
+`friendlyAvailable` y, con ISS-111, `name`. PATCH acepta uno o ambos campos,
+rechaza objetos vacíos, null explícito y campos adicionales. El nombre usa las
+reglas del registro: trim y entre 1 y 50 caracteres. No requiere migración.
+Reutilizan las cookies y protección de escritura de Autenticación.
 Ver [contrato, alcance y pruebas de ISS-120](../docs/iss_120_club_availability.md).
+La ampliación del contrato se documenta en [ISS-111](../docs/iss_111_club_name.md).
 La implementación sigue `controller → servicio → repositorio`, usando las carpetas
 actuales `controller/` y `repository/` de `feature/auth`, en singular. El árbol y las
 notas que siguen sobre funcionalidades futuras describen la propuesta inicial.

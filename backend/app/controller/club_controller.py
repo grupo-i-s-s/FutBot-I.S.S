@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.dependencies import CurrentIdentity, Database
-from app.schemas.club_schemas import ClubAvailabilityUpdate, ClubResponse
+from app.schemas.club_schemas import ClubResponse, ClubUpdate
 from app.services import club_service
 
 
@@ -14,7 +14,7 @@ def get_my_club(db: Database, identity: CurrentIdentity) -> ClubResponse:
 
 
 @club_router.patch("/me", response_model=ClubResponse)
-def update_my_availability(
-    data: ClubAvailabilityUpdate, db: Database, identity: CurrentIdentity,
+def update_my_club(
+    data: ClubUpdate, db: Database, identity: CurrentIdentity,
 ) -> ClubResponse:
-    return club_service.update_availability(db, identity.user_id, data)
+    return club_service.update_club(db, identity.user_id, data)

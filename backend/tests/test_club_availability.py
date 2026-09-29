@@ -11,7 +11,7 @@ from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 from app.models.auth_model import AuthSession, Club, User
-from app.schemas.club_schemas import ClubAvailabilityUpdate
+from app.schemas.club_schemas import ClubUpdate
 from app.security import hash_session_token
 from app.services import club_service
 
@@ -103,7 +103,6 @@ def test_update_persists_both_values_without_changing_profile_or_other_club(clie
     {"friendlyAvailable": []}, {"friendly_available": True},
     {"friendlyAvailable": True, "clubId": 2},
     {"friendlyAvailable": True, "userId": 2},
-    {"friendlyAvailable": True, "name": "Changed"},
     {"friendlyAvailable": True, "avatarId": "new"},
     {"friendlyAvailable": True, "avatar": "new"},
 ])
@@ -153,7 +152,119 @@ def test_failed_commit_rolls_back_and_does_not_return_success(monkeypatch):
     club = Club(id=1, user_id=1, name="Club", avatar="existing", friendly_available=False)
     monkeypatch.setattr(club_service.club_repository, "get_by_user_id", lambda *_: club)
     with pytest.raises(RuntimeError, match="test commit failure"):
-        club_service.update_availability(
-            db, 1, ClubAvailabilityUpdate(friendlyAvailable=True),
+        club_service.update_club(
+            db, 1, ClubUpdate(name="New name", friendlyAvailable=True),
         )
     db.rollback.assert_called_once_with()
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("Nuevo club", "Nuevo club"),
+    ("  Club del barrio  ", "Club del barrio"),
+    ("\tClub Ñandú\n", "Club Ñandú"),
+    ("A", "A"),
+    ("a" * 50, "a" * 50),
+    ("  " + "a" * 50 + "  ", "a" * 50),
+    ("Club 1", "Club 1"),
+    ("Club 2", "Club 2"),  # El registro no exige nombres de club únicos.
+    ("⚽" * 50, "⚽" * 50),
+])
+def test_name_update_is_normalized_persisted_and_preserves_other_fields(client, name, expected):
+    client.patch("/club/me", json={"friendlyAvailable": True}, headers=HEADERS)
+    response = client.patch("/club/me", json={"name": name}, headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": 1, "name": expected, "avatar": "existing-avatar", "friendlyAvailable": True,
+    }
+    assert client.get("/club/me").json() == response.json()
+    client.cookies.set(settings.cookie_name, TOKENS[2])
+    assert client.get("/club/me").json() == {
+        "id": 2, "name": "Club 2", "avatar": "existing-avatar", "friendlyAvailable": False,
+    }
+
+
+@pytest.mark.parametrize("name", ["", "   ", "\t\n", "x" * 51, None, 1, True, [], {}])
+def test_invalid_name_rejects_the_entire_update(client, name):
+    before = client.get("/club/me").json()
+    response = client.patch(
+        "/club/me", json={"name": name, "friendlyAvailable": True}, headers=HEADERS,
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert "name" in response.json()["error"]["fields"]
+    assert client.get("/club/me").json() == before
+
+
+@pytest.mark.parametrize("payload", [
+    {"name": "New", "friendlyAvailable": None},
+    {"name": "New", "friendlyAvailable": "false"},
+    {"name": "New", "avatar": "new"},
+    {"name": "New", "avatarId": 2},
+    {"name": "New", "userId": 2},
+    {"name": "New", "clubId": 2},
+    {"name": "New", "friendly_available": True},
+])
+def test_unknown_or_invalid_fields_cannot_partially_rename_club(client, payload):
+    before = client.get("/club/me").json()
+    response = client.patch("/club/me", json=payload, headers=HEADERS)
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert client.get("/club/me").json() == before
+
+
+def test_name_and_availability_can_be_updated_together_or_separately(client):
+    response = client.patch(
+        "/club/me", json={"name": "New name", "friendlyAvailable": True}, headers=HEADERS,
+    )
+    assert response.status_code == 200
+    assert response.json()["name"] == "New name"
+    assert response.json()["friendlyAvailable"] is True
+    assert client.get("/club/me").json() == response.json()
+    # El cliente de ISS-108 sigue pudiendo enviar únicamente disponibilidad.
+    response = client.patch("/club/me", json={"friendlyAvailable": False}, headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json()["name"] == "New name"
+    assert response.json()["friendlyAvailable"] is False
+
+
+@pytest.mark.parametrize("token", [None, "invalid", "z" * 43, TOKENS[4]])
+def test_name_update_requires_a_valid_session(client, token):
+    client.cookies.clear()
+    if token:
+        client.cookies.set(settings.cookie_name, token)
+    response = client.patch("/club/me", json={"name": "New"}, headers=HEADERS)
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "SESSION_INVALID"
+
+
+@pytest.mark.parametrize("headers", [
+    {}, {"Origin": HEADERS["Origin"]},
+    {"Origin": "https://untrusted.example", "X-Futbot-Request": "1"},
+])
+def test_name_update_requires_csrf_headers(client, headers):
+    response = client.patch("/club/me", json={"name": "New"}, headers=headers)
+    assert response.status_code == 403
+    assert client.get("/club/me").json()["name"] == "Club 1"
+
+
+def test_name_update_for_account_without_club_returns_409(client):
+    client.cookies.set(settings.cookie_name, TOKENS[3])
+    response = client.patch("/club/me", json={"name": "New"}, headers=HEADERS)
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ACCOUNT_INCOMPLETE"
+
+
+def test_database_failure_rolls_back_both_changes(client, monkeypatch):
+    before = client.get("/club/me").json()
+
+    def fail_commit(db):
+        db.flush()
+        raise RuntimeError("simulated database failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Session, "commit", fail_commit)
+        with pytest.raises(RuntimeError, match="simulated database failure"):
+            client.patch(
+                "/club/me", json={"name": "New", "friendlyAvailable": True}, headers=HEADERS,
+            )
+    assert client.get("/club/me").json() == before
