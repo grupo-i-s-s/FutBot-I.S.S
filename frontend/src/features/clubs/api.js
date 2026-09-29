@@ -19,3 +19,11 @@ export async function updateClubAvailability(friendlyAvailable, { signal } = {})
     signal,
   }))
 }
+
+export async function updateClubName(name, { signal } = {}) {
+  return readClub(await request('/club/me', {
+    method: 'PATCH',
+    body: { name },
+    signal,
+  }))
+}

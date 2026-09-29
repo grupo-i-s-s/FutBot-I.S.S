@@ -1,10 +1,14 @@
 import { AlertCircle, Check, LoaderCircle, Shield, Swords } from 'lucide-react'
 import { Button } from '../../components/ui/button.jsx'
 import ClubNavigation from './components/ClubNavigation.jsx'
+import ClubNameForm from './components/ClubNameForm.jsx'
 import { useMyClub } from './hooks/useMyClub.js'
 
 export default function MyClubPage({ destinations = {}, loginHref }) {
-  const { club, isLoading, loadError, saveError, isSaving, hasSaved, reload, toggleAvailability } = useMyClub()
+  const {
+    club, isLoading, loadError, refreshError, saveError, isSaving, hasSaved, reload, toggleAvailability,
+    nameError, hasNameSaved, isSavingName, isSavingAvailability, saveName, clearNameFeedback,
+  } = useMyClub()
   const needsSession = loadError?.status === 401
   const isAccountIncomplete = loadError?.code === 'ACCOUNT_INCOMPLETE'
 
@@ -24,7 +28,7 @@ export default function MyClubPage({ destinations = {}, loginHref }) {
           <p className="mt-3 text-muted-foreground">Prepará tu club para el próximo desafío.</p>
         </div>
 
-        {isLoading ? (
+        {isLoading && !club ? (
           <div role="status" className="flex min-h-56 items-center justify-center gap-3 rounded-2xl border border-frame bg-white p-6">
             <LoaderCircle className="size-5 motion-safe:animate-spin" aria-hidden="true" />
             Cargando tu club…
@@ -49,17 +53,38 @@ export default function MyClubPage({ destinations = {}, loginHref }) {
           </section>
         ) : club && (
           <>
-            <section aria-labelledby="club-name" className="flex flex-col gap-5 rounded-2xl border border-frame bg-white p-6 sm:flex-row sm:items-center sm:p-8">
+            {isLoading && <p role="status" className="text-sm text-brand">Actualizando tu club…</p>}
+            {refreshError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                <div role="alert">
+                  <p className="font-semibold">No pudimos actualizar los datos del club.</p>
+                  <p className="mt-1">{refreshError.message}</p>
+                  <p className="mt-2">Mostramos los últimos datos confirmados y conservamos tu borrador.</p>
+                </div>
+                <Button onClick={reload} disabled={isSaving || isLoading} variant="outline" className="mt-3">Volver a consultar</Button>
+              </div>
+            )}
+            <section aria-labelledby="club-name" className="flex flex-col gap-5 rounded-2xl border border-frame bg-white p-6 sm:flex-row sm:items-start sm:p-8">
               <div role="img" aria-label="Escudo provisional del club" className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-brand text-white">
                 <Shield className="size-10" aria-hidden="true" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm text-muted-foreground">Tu club</p>
                 <h2 id="club-name" className="mt-1 text-2xl font-bold break-words sm:text-3xl">{club.name}</h2>
                 <p className="mt-3 inline-flex items-center gap-2 text-sm">
                   <span aria-hidden="true" className={`size-2 rounded-full ${club.friendlyAvailable ? 'bg-brand' : 'bg-slate-400'}`} />
                   {club.friendlyAvailable ? 'Disponible para nuevos amistosos' : 'No disponible para nuevos amistosos'}
                 </p>
+                <ClubNameForm
+                  name={club.name}
+                  isSaving={isSaving || isLoading}
+                  isSavingName={isSavingName}
+                  error={nameError}
+                  hasSaved={hasNameSaved}
+                  onSave={saveName}
+                  onReload={reload}
+                  onClearFeedback={clearNameFeedback}
+                />
               </div>
             </section>
 
@@ -82,7 +107,7 @@ export default function MyClubPage({ destinations = {}, loginHref }) {
                   aria-checked={club.friendlyAvailable}
                   aria-label="Disponibilidad para amistosos"
                   aria-describedby="availability-description availability-effect"
-                  disabled={isSaving}
+                  disabled={isSaving || isLoading}
                   onClick={toggleAvailability}
                   className="flex shrink-0 cursor-pointer items-center gap-3 self-start rounded-lg p-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand disabled:cursor-wait disabled:opacity-60"
                 >
@@ -96,7 +121,7 @@ export default function MyClubPage({ destinations = {}, loginHref }) {
                 Este cambio solo afecta nuevas participaciones. No cancela amistosos aceptados ni modifica partidos en curso.
               </p>
               <p role="status" className="mt-3 flex min-h-6 items-center gap-2 text-sm text-brand">
-                {isSaving ? <><LoaderCircle className="size-4 motion-safe:animate-spin" aria-hidden="true" />Guardando disponibilidad…</> : hasSaved ? <><Check className="size-4" aria-hidden="true" />Disponibilidad guardada.</> : null}
+                {isSavingAvailability ? <><LoaderCircle className="size-4 motion-safe:animate-spin" aria-hidden="true" />Guardando disponibilidad…</> : hasSaved ? <><Check className="size-4" aria-hidden="true" />Disponibilidad guardada.</> : null}
               </p>
               {saveError && (
                 <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">

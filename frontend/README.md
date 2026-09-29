@@ -13,6 +13,12 @@ otros módulos mediante `destinations` y la de ingreso mediante `loginHref`.
 Mientras no estén integrados, los módulos se muestran como «Próximamente».
 El escudo es provisional: no se interpreta el campo `avatar` hasta acordar su formato.
 
+ISS-112 agrega «Cambiar nombre» dentro de Mi club, sobre el backend de ISS-111.
+Permite cancelar o guardar, valida 1–50 caracteres después de quitar espacios
+exteriores y mantiene el borrador ante un error. Nombre y disponibilidad comparten
+un bloqueo de escritura para evitar peticiones simultáneas desde la pantalla.
+Ver [entrega y seguimiento de ISS-112](../docs/iss_112_club_name_form.md).
+
 Guía para desarrollar la interfaz en equipo con **React, JavaScript, Vite y Tailwind CSS**.
 Las convenciones de este documento son la propuesta de trabajo del proyecto;
 si el equipo cambia una, debe actualizar esta guía en la misma entrega.

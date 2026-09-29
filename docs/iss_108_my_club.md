@@ -1,5 +1,9 @@
 # ISS-108 — Mi club: implementación y machete para Jira
 
+> Esta guía conserva el alcance inicial de ISS-108. La edición de nombre ya se
+> implementa en las ramas de [ISS-111](iss_111_club_name.md) y
+> [ISS-112](iss_112_club_name_form.md); sus documentos registran el avance posterior.
+
 ## Rama y dependencia
 
 - Rama: `feature/my-club`.
