@@ -2,9 +2,9 @@
 # version: 0.4.0
 # description: FutBot API 
 
-> Estado implementado de Clubes en `feature/club-availability`: consultar
-> [ISS-120](iss_120_club_availability.md). Por ahora `PATCH /club/me` acepta únicamente
-> `friendlyAvailable`; edición de nombre y avatar en la tabla siguen siendo alcance futuro.
+> Clubes: [ISS-120](iss_120_club_availability.md) implementa consulta y disponibilidad;
+> [ISS-111](iss_111_club_name.md), en `feature/club-name`, amplía PATCH para editar
+> `name`. Se admite uno o ambos campos; el avatar sigue fuera del contrato de escritura.
 
 
 | Método | Endpoint | Resumen / Descripción | Parámetros | Request Body (Campos y Reglas) | Códigos y Respuestas |
@@ -13,7 +13,7 @@
 | **POST** | `/auth/login` | Iniciar sesión (Sin auth) | — | **JSON (Requerido):**<br>• `email` (email) req<br>• `password` (password) req | • `200`: Sesión iniciada<br>• `401`: Credenciales inválidas |
 | **POST** | `/auth/change-password` | Cambiar contraseña | — | **JSON (Requerido):**<br>• `oldPassword` (password) req<br>• `newPassword` (password) req | • `200`: Contraseña actualizada<br>• `400`: Datos incompletos o contraseña inválida |
 | **GET** | `/club/me` | Obtener mi club | — | — | • `200`: Club |
-| **PATCH** | `/club/me` | Modificar mi club | — | **JSON (Requerido):**<br>• `name` (str)<br>• `avatar` (str)<br>• `friendlyAvailable` (bool) | • `200`: Club actualizado |
+| **PATCH** | `/club/me` | Modificar nombre/disponibilidad de mi club | — | **JSON:** al menos uno de `name` (str, trim, 1–50 caracteres) o `friendlyAvailable` (booleano estricto). Se conservan campos omitidos. No admite null, avatar ni campos extra. | • `200`: Club actualizado<br>• `400`: Validación<br>• `401`: Sesión inválida<br>• `403`: CSRF<br>• `409`: Cuenta sin club |
 | **GET** | `/clubs/{clubId}` | Consultar perfil de club rival | • `clubId` (path, int) req | — | • `200`: Información pública del rival, estadísticas y plantilla de jugadores<br>• `404`: Club rival no encontrado |
 | **GET** | `/players` | Listar jugadores | — | — | • `200`: Jugadores |
 | **POST** | `/players` | Crear jugador | — | **JSON (Requerido):**<br>*Regla: Cada PACSS va de 20 a 100 y la suma debe ser 300.*<br>• `name` (str) req<br>• `power` (int, 20-100) req<br>• `agility` (int, 20-100) req<br>• `control` (int, 20-100) req<br>• `speed` (int, 20-100) req<br>• `strength` (int, 20-100) req | • `201`: Jugador creado<br>• `400`: PACSS inválido o sumatoria distinta de 300 |

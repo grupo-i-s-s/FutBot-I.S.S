@@ -10,3 +10,7 @@ def get_by_user_id(db: Session, user_id: int) -> Club | None:
 
 def set_availability(club: Club, available: bool) -> None:
     club.friendly_available = available
+
+
+def set_name(club: Club, name: str) -> None:
+    club.name = name

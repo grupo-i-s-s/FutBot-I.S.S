@@ -1,5 +1,9 @@
 # ISS-120 — Consultar mi club y cambiar disponibilidad
 
+> Esta guía conserva el alcance de la entrega inicial de ISS-120. ISS-111 amplía
+> posteriormente PATCH para admitir `name` y actualizaciones parciales sin romper
+> el envío de solo disponibilidad. Ver el [contrato vigente de ISS-111](iss_111_club_name.md).
+
 Implementación en `feature/club-availability`, basada en la referencia local
 `origin/feature/auth` (`eae2399`). No requiere cambios de esquema: reutiliza `Club`
 y la migración `backend/migrations/001_auth.sql` de Autenticación.
