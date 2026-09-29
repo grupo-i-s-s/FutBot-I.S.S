@@ -1,5 +1,14 @@
 # Backend de FutBot
 
+## Implementación de Clubes (ISS-120)
+
+`GET /club/me` y `PATCH /club/me` ya permiten consultar el club autenticado y cambiar
+`friendlyAvailable`. Reutilizan las cookies y protección de escritura de Autenticación.
+Ver [contrato, alcance y pruebas de ISS-120](../docs/iss_120_club_availability.md).
+La implementación sigue `controller → servicio → repositorio`, usando las carpetas
+actuales `controller/` y `repository/` de `feature/auth`, en singular. El árbol y las
+notas que siguen sobre funcionalidades futuras describen la propuesta inicial.
+
 Guía para desarrollar la API en equipo con **FastAPI, SQLAlchemy y PostgreSQL**.
 La arquitectura acordada es **controller → servicio → repositorio**, manteniendo
 **modelos** y **schemas**. Las demás convenciones de este documento son la propuesta

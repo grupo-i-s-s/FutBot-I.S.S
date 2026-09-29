@@ -2,6 +2,10 @@
 # version: 0.4.0
 # description: FutBot API 
 
+> Estado implementado de Clubes en `feature/club-availability`: consultar
+> [ISS-120](iss_120_club_availability.md). Por ahora `PATCH /club/me` acepta únicamente
+> `friendlyAvailable`; edición de nombre y avatar en la tabla siguen siendo alcance futuro.
+
 
 | Método | Endpoint | Resumen / Descripción | Parámetros | Request Body (Campos y Reglas) | Códigos y Respuestas |
 | :--- | :--- | :--- | :--- | :--- | :--- |
