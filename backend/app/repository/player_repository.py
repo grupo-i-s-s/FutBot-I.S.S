@@ -21,3 +21,10 @@ def create_default_players(db: Session, club_id: int, behaviour_id) -> List[Play
     db.flush()
 
     return players
+
+
+def create_player(db: Session, player: Player) -> Player:
+    db.add(player)
+    db.flush()
+
+    return player
