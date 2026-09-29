@@ -8,6 +8,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+import app.models.auth_model  # noqa: F401
+import app.models.player  # noqa: F401
+from app.controllers.player_controller import router as player_router
 from app.database import engine, get_db
 
 
@@ -24,13 +27,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(player_router)
+
 
 @app.get("/health", tags=["health"])
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/health/ready", tags=["health"], responses={503: {"description": "Base de datos no disponible"}})
+@app.get(
+    "/health/ready",
+    tags=["health"],
+    responses={503: {"description": "Base de datos no disponible"}},
+)
 def readiness(db: Annotated[Session, Depends(get_db)]):
     try:
         db.execute(text("SELECT 1"))

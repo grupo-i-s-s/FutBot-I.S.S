@@ -10,7 +10,7 @@ class User(Base):
     name: Mapped[str]=mapped_column(String(50))
     email: Mapped[str]=mapped_column(String(254))
     username: Mapped[str]=mapped_column(String(50))
-    password_hash: Mapped[str]=mapped_column(String(255)))
+    password_hash: Mapped[str]=mapped_column(String(255))
 
 
 class Club(Base):

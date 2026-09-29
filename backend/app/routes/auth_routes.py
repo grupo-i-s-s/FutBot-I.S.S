@@ -4,4 +4,5 @@ auth_router = APIRouter()
 
 # REGISTRO
 @auth_router.post("/registrar")
-def resgistrar_endpoint(): 
+def resgistrar_endpoint():
+ pass 

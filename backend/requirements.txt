@@ -8,6 +8,12 @@ anyio==4.15.1
     # via
     #   starlette
     #   watchfiles
+argon2-cffi==25.1.0
+    # via pwdlib
+argon2-cffi-bindings==26.1.0
+    # via argon2-cffi
+cffi==2.1.1
+    # via argon2-cffi-bindings
 click==8.5.0
     # via uvicorn
 fastapi==0.141.1
@@ -22,6 +28,10 @@ psycopg==3.3.6
     # via -r requirements.in
 psycopg-binary==3.3.6 ; implementation_name != 'pypy'
     # via psycopg
+pwdlib==0.3.1
+    # via -r requirements.in
+pycparser==3.0 ; implementation_name != 'PyPy'
+    # via cffi
 pydantic==2.13.5
     # via fastapi
 pydantic-core==2.46.5
