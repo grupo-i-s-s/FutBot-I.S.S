@@ -1,13 +1,6 @@
 import './CreatePlayersPage.css';
 import { useState } from 'react';
-import './CreatePlayersPage.css';
-
-async function handleSubmit(event) {
-    event.preventDefault()
-    const response = await register(name)
-    console.log(response)
-    console.log(response.status)
-}
+import { createPlayer } from './api';
 
 export default function CreatePlayerPage() {
     const [name, setName] = useState('');
@@ -16,9 +9,18 @@ export default function CreatePlayerPage() {
     const [control, setControl] = useState(60);
     const [speed, setSpeed] = useState(60);
     const [strength, setStrength] = useState(60);
-    const handleSubmit = (event) => { event.preventDefault(); };
 
     const totalPoints = power + agility + control + speed + strength;
+
+    const isValid = name.trim() !== '' && totalPoints === 300;
+
+    async function handleSubmit(event) {
+        event.preventDefault()
+        if (!isValid) { return; }
+        const response = await createPlayer(name, power, agility, control, speed, strength)
+        console.log(response)
+        console.log(response.status)
+    }
 
     return (
     <main className="create-players-page"> 
