@@ -3,7 +3,7 @@ import LoginPage from './features/login/LoginPage.jsx'
 import RegisterPage from './features/register/RegisterPage.jsx'
 import MyClubPage from './features/my-club/MyClubPage.jsx'
 import NotFoundPage from './features/not-found/NotFoundPage.jsx'
-import CrearLiga from './features/crear-liga/crear_liga.jsx'
+import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx'
 
 export default function App() {
     return (
