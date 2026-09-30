@@ -7,7 +7,7 @@ CREATE TABLE leagues (
     max_teams INTEGER NOT NULL,
     start_datetime TIMESTAMPTZ NOT NULL,
     end_datetime TIMESTAMPTZ, 
-    status VARCHAR(20) NOT NULL DEFAULT 'open',
+    status VARCHAR(20) NOT NULL DEFAULT 'open'
 );
 
 CREATE TABLE league_registrations (
