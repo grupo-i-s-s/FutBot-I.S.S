@@ -5,8 +5,8 @@ CREATE TABLE leagues (
     name VARCHAR(50) NOT NULL,
     min_teams INTEGER NOT NULL,
     max_teams INTEGER NOT NULL,
-    start_datetime TIMESTAMPTZ,
-    end_datetime TIMESTAMPTZ,
+    start_datetime TIMESTAMPTZ NOT NULL,
+    end_datetime TIMESTAMPTZ, 
     status VARCHAR(20) NOT NULL DEFAULT 'open',
 );
 
