@@ -1,4 +1,6 @@
 import './CreatePlayersPage.css';
+import { useState } from 'react';
+import './CreatePlayersPage.css';
 
 async function handleSubmit(event) {
     event.preventDefault()
@@ -6,9 +8,6 @@ async function handleSubmit(event) {
     console.log(response)
     console.log(response.status)
 }
-
-import { useState } from 'react';
-import './CreatePlayersPage.css';
 
 export default function CreatePlayerPage() {
     const [name, setName] = useState('');
@@ -18,6 +17,8 @@ export default function CreatePlayerPage() {
     const [speed, setSpeed] = useState(60);
     const [strength, setStrength] = useState(60);
     const handleSubmit = (event) => { event.preventDefault(); };
+
+    const totalPoints = power + agility + control + speed + strength;
 
     return (
     <main className="create-players-page"> 
@@ -97,6 +98,13 @@ export default function CreatePlayerPage() {
                 max="100" 
                 value={strength}
                 onChange={(event) => setStrength(Number(event.target.value))}/>
+
+            <div className="total-box">
+                <span className="total-label">Puntos Totales:</span>
+                <span className="total-value">{totalPoints}</span>
+            </div>
+
+            <button type="submit" className="register-button"> Confirmar </button>
         </form>
         </section>
     </main>
