@@ -1,5 +1,8 @@
-import { request } from '@/api/http.js'
+import {request} from '@/api/http.js';
 
-export function register(email, password, repeatPassword, userName, clubName, avatar) {
-    return request('/auth/register', { method: 'POST', body: { email, password, repeatPassword, userName, clubName, avatar } })
+export function register(name, username, email, clubName, password, passwordConfirmation, avatar) {
+    return request('/auth/register', {
+        method: 'POST',
+        body: {name, username, email, clubName, password, passwordConfirmation, avatar}
+    });
 }

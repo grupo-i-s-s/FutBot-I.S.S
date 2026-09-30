@@ -11,11 +11,12 @@ export default function RegisterPage() {
     const[avatar, setAvatar]  = useState('')
     const[clubName, setClubName] = useState('')
     const[userName, setUserName] = useState('')
+    const [name, setName] = useState();
 
     
     async function handleSubmit(event) {
         event.preventDefault()
-        const response = await register(email, password, repeatPassword, avatar, clubName, userName)
+        const response = await register(name, userName, email, clubName, password, repeatPassword, avatar)
         console.log(response)
         console.log(response.status)
     }
@@ -28,13 +29,23 @@ export default function RegisterPage() {
                     <h1 className="register-title">Registro Usuario</h1>
                     <form onSubmit={handleSubmit}> 
                         <div className="formulary-box">
-                            <label htmlFor="user-name">Nombre de Usuario</label>
+                            <label htmlFor="name">Nombre</label>
                             <input  
                                     id="user-name" 
                                     type="text" 
                                     placeholder="Tu nombre" 
-                                    value = {userName} 
-                                    onChange = {(event) => setUserName(event.target.value)}>
+                                    value = {name}
+                                    onChange = {(event) => setName(event.target.value)}>
+                            </input>
+                        </div>
+                        <div className="formulary-box">
+                            <label htmlFor="user-name">Nombre de Usuario</label>
+                            <input
+                                id="user-name"
+                                type="text"
+                                placeholder="Nombre de usuario"
+                                value = {userName}
+                                onChange = {(event) => setUserName(event.target.value)}>
                             </input>
                         </div>
                         <div className="formulary-box">
@@ -91,8 +102,6 @@ export default function RegisterPage() {
                                 onChange = {(event) => setRepeatPassword(event.target.value)}>
                             </input>
                         </div>
-                    </form>
-                    <form>
                         <button type="submit" className="register-button">
                             Registrar Club
                         </button>
