@@ -1,0 +1,55 @@
+.create-players-page {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
+    flex-direction: column;
+    text-align: center;
+    color: #19362b;
+}
+.main-page-title {
+    font-size: 40px;
+    color: #19362b; 
+    margin-bottom: 10px; /* Separación entre el título y las tarjetas */
+    text-align: center;
+    font-weight: bold;
+}
+
+.name-card {
+    width: 100%;
+    max-width: 420px;}
+
+.formulary-box input {
+    font-size: 16px;
+}
+
+/* Estilo para el texto dentro del input cuando está vacío */
+.formulary-box input::placeholder {
+    color: #9ca3af; /* Gris claro */
+    font-style: italic;
+}
+
+.attribute-header {
+    font-size: 20px;
+    justify-content: space-between;
+    display: flex;
+    align-items: left;
+    font-weight: bold;
+    color: #19362b;
+}
+
+.attribute-value {
+  background-color: #08251a;
+  color: #ffffff;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-size: 18px;
+  text-align: right;
+}
+
+.slider {
+    width: 100%;
+    accent-color: #19362b;
+    cursor: pointer;
+}
