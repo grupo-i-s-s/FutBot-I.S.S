@@ -25,3 +25,7 @@ def get_registration(
         )
         .first()
     )
+
+
+def delete_registration(db: Session, registration: LeagueRegistration) -> None:
+    db.delete(registration)
