@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { login } from './api'
 import './LoginPage.css'
+import { Link } from 'react-router'
 
 export default function LoginPage(){
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
-
+    
     async function handleSubmit(event) {
         event.preventDefault()
         const response = await login(email, password)
@@ -52,9 +53,9 @@ export default function LoginPage(){
                     <button type="submit" className="login-button">
                         Iniciar Sesión
                     </button>
+
+                    <Link to="/registro" className="Registro">Registrarme</Link>
                 </form>
-                <p>Email escrito: {email}</p>
-                <p>Password escrito: {password}</p>
             </section>
             
         </main>
