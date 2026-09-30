@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { crearLiga } from './CreateLeaguePage.jsx'
+import { crearLiga } from './api.js'
 
 
 export default function CrearLiga(){

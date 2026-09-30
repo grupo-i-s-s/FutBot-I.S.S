@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 
 from app.dependencies import CurrentClub, Database
-from app.schemas.league import (LeagueLobbyRead, CreateLeagueRequest, CreateLeagueResponse,)
+from app.schemas.league_schemas import (LeagueLobbyRead, CreateLeagueRequest, CreateLeagueResponse,)
 from app.services import league_service
 
 league_router = APIRouter(prefix="/leagues", tags=["leagues"])

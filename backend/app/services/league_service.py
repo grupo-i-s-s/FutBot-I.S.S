@@ -4,7 +4,7 @@ from datetime import datetime
 
 from app.models.league_model import League
 from app.repository import league_repository
-from app.schemas.league import CreateLeagueRequest
+from app.schemas.league_schemas import CreateLeagueRequest
 
 
 def get_league_lobby(db: Session, league_id: int) -> League:
