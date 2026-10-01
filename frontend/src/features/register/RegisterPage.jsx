@@ -2,6 +2,8 @@
 import './RegisterPage.css'
 import { useState } from 'react'
 import { register } from './api'
+import { Link } from 'react-router'
+
 
 export default function RegisterPage() {
 
@@ -105,6 +107,9 @@ export default function RegisterPage() {
                         <button type="submit" className="register-button">
                             Registrar Club
                         </button>
+
+                        <Link to="/login" className="Registro">Iniciar Sesión</Link>
+                        
                     </form>
                 </section>
         </main>

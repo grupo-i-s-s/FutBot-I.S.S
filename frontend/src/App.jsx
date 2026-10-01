@@ -4,6 +4,8 @@ import RegisterPage from './features/register/RegisterPage.jsx'
 import FriendlyMatches from './features/friendly-matches/Matches.jsx'
 import MyClubPage from './features/my-club/MyClubPage.jsx'
 import NotFoundPage from './features/not-found/NotFoundPage.jsx'
+import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx'
+import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx'
 
 export default function App() {
     return (
@@ -14,6 +16,8 @@ export default function App() {
             <Route path="/mi-club" element={<MyClubPage />} />
             <Route path = "partidos-disponibles" element={<FriendlyMatches/>}/>
             <Route path="*" element={<NotFoundPage />} />
+            <Route path="/crear-liga" element={<CrearLiga />} />
+            <Route path="/crear-liga-privada" element={<CreatePrivateLeague />} />
         </Routes>
     )
 }
