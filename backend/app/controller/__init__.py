@@ -5,6 +5,7 @@ from app.controller.health_controller import health_router
 from app.controller.player_controller import player_router
 from app.controller.league_controller import league_router
 from app.controller.matches_controller import matches_router
+from app.controller.behaviour_controller import behaviour_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -12,3 +13,4 @@ api_router.include_router(health_router)
 api_router.include_router(player_router)
 api_router.include_router(league_router)
 api_router.include_router(matches_router)
+api_router.include_router(behaviour_router)

@@ -35,3 +35,19 @@ def get_default_behaviour(db: Session, club_id: int) -> Behavior | None:
         .order_by(Behavior.id)
         .limit(1)
     )
+
+
+def get_all_behaviours(db: Session, club_id: int) -> list[Behavior]:
+    query = (
+        select(Behavior)
+        .where(Behavior.club_id == club_id, Behavior.is_deleted.is_(False))
+        .order_by(Behavior.id)
+    )
+    return list(db.scalars(query).all())
+
+
+def get_behaviour_by_id(db:Session, club_id: int, behaviour_id: int) -> Behavior | None:
+        return db.scalar(
+        select(Behavior)
+        .where(Behavior.club_id == club_id, Behavior.is_deleted.is_(False), Behavior.id == behaviour_id)
+    )
