@@ -50,3 +50,9 @@ class PlayerRead(BaseModel):
     control: int
     speed: int
     strength: int
+
+
+class PlayerBehaviourUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    behaviour_id: StrictInt = Field(alias="behaviourId", gt=0)

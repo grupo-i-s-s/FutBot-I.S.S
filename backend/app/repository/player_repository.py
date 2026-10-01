@@ -1,5 +1,6 @@
 from typing import List
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.behaviour_model import Behavior
@@ -32,3 +33,18 @@ def create_player(db: Session, player: Player) -> Player:
     db.flush()
 
     return player
+
+
+def get_player_by_id(db: Session, club_id: int, player_id: int) -> Player | None:
+    return db.scalar(
+        select(Player).where(
+            Player.id == player_id,
+            Player.club_id == club_id,
+            Player.is_deleted.is_(False),
+        )
+    )
+
+
+def set_player_behaviour(db: Session, player: Player, behaviour_id: int) -> None:
+    player.behavior_id = behaviour_id
+    db.flush()
