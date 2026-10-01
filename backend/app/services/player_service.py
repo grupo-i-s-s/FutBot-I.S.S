@@ -28,3 +28,25 @@ def create_player(db: Session, club_id: int, data: PlayerCreate) -> Player:
         raise
 
     return created
+
+
+def assign_behaviour(
+    db: Session, club_id: int, player_id: int, behaviour_id: int
+) -> Player:
+    player = player_repository.get_player_by_id(db, club_id, player_id)
+    if player is None:
+        raise AppError("PLAYER_NOT_FOUND", "El jugador no existe en tu club.")
+
+    behaviour = behaviour_repository.get_behaviour_by_id(db, club_id, behaviour_id)
+    if behaviour is None:
+        raise AppError("BEHAVIOUR_NOT_FOUND", "El comportamiento no existe en tu club.")
+
+    try:
+        player_repository.set_player_behaviour(db, player, behaviour.id)
+        db.commit()
+        db.refresh(player)
+    except Exception:
+        db.rollback()
+        raise
+
+    return player
