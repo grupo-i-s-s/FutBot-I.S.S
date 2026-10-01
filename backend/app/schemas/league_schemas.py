@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,12 +40,38 @@ class LeaveLeagueResponse(BaseModel):
     league_id: int = Field(serialization_alias="leagueId")
 
 
-class CreateLeagueResponse(BaseModel):
-    message: str 
-    
+class LeagueType(str, Enum):
+    PUBLIC = "PUBLIC"
+    PRIVATE = "PRIVATE"
+
+
+class RoundInterval(str, Enum):
+    CONTINUOUS = "CONTINUOUS"
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+
+
 class CreateLeagueRequest(BaseModel):
-    name: str
-    min_teams:int 
-    max_teams:int
-    start_date: datetime 
-    round_interval: str
+    name: str = Field(..., min_length=1, max_length=50)
+    type: LeagueType
+    min_teams: int = Field(..., alias="minTeams", ge=3)
+    max_teams: int = Field(..., alias="maxTeams", ge=3)
+    start_datetime: datetime = Field(..., alias="startDateTime")
+    round_interval: RoundInterval = Field(..., alias="roundInterval")
+    access_code: Optional[str] = Field(None, alias="accessCode")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @model_validator(mode="after")
+    def validate_league_config(self):
+        if self.min_teams > self.max_teams:
+            raise ValueError("minTeams no puede ser mayor que maxTeams.")
+        if self.type == LeagueType.PRIVATE and not self.access_code:
+            raise ValueError(
+                "Las ligas privadas requieren un código de acceso (accessCode)."
+            )
+        return self
+
+
+class CreateLeagueResponse(BaseModel):
+    message: str
