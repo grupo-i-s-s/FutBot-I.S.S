@@ -27,7 +27,6 @@ class LeagueLobbyRead(BaseModel):
 
 class LeaveLeagueResponse(BaseModel):
     model_config = ConfigDict()
-
     message: str
     league_id: int = Field(serialization_alias="leagueId")
 
