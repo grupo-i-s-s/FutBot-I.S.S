@@ -18,3 +18,8 @@ class Player(Base):
     control: Mapped[int] = mapped_column(Integer)
     speed: Mapped[int] = mapped_column(Integer)
     strength: Mapped[int] = mapped_column(Integer)
+
+    behaviour_id: Mapped[int | None] = mapped_column(
+        ForeignKey("behaviours.id", ondelete="SET NULL"),
+        nullable=True,
+    )

@@ -11,15 +11,20 @@ export default function App() {
 
     async function checkConnection() {
       setStatus('checking')
+
       try {
         const response = await fetch('/api/health/ready', {
           signal: controller.signal,
         })
+
         if (!response.ok) throw new Error('Servicio no disponible')
+
         const data = await response.json()
+
         if (data.status !== 'ok' || data.database !== 'ok') {
           throw new Error('Respuesta inesperada')
         }
+
         if (active) setStatus('ready')
       } catch {
         if (active) setStatus('error')
@@ -29,6 +34,7 @@ export default function App() {
     }
 
     checkConnection()
+
     return () => {
       active = false
       clearTimeout(timeout)
@@ -50,12 +56,24 @@ export default function App() {
 
   return (
     <main className="mx-auto my-[12vh] w-[calc(100%_-_40px)] max-w-[620px] rounded-[20px] border border-frame bg-white p-[clamp(24px,5vw,48px)]">
-      <p className="text-xs leading-relaxed font-bold tracking-[0.12em]">ENTORNO DE DESARROLLO</p>
+      <p className="text-xs leading-relaxed font-bold tracking-[0.12em]">
+        ENTORNO DE DESARROLLO
+      </p>
+
       <h1 className="my-4 text-5xl leading-normal font-bold">FutBot</h1>
-      <p className="leading-relaxed">La base del proyecto está en marcha.</p>
-      <div className={`my-7 rounded-lg p-5 leading-relaxed ${statusClasses[status]}`} role="status" aria-live="polite">
+
+      <p className="leading-relaxed">
+        La base del proyecto está en marcha.
+      </p>
+
+      <div
+        className={`my-7 rounded-lg p-5 leading-relaxed ${statusClasses[status]}`}
+        role="status"
+        aria-live="polite"
+      >
         {messages[status]}
       </div>
+
       <button
         className="cursor-pointer rounded-lg bg-brand px-5 py-3 text-white focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#c37b08] disabled:cursor-wait disabled:opacity-65"
         disabled={status === 'checking'}

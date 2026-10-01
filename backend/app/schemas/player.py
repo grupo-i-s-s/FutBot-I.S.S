@@ -31,3 +31,11 @@ class PlayerRead(BaseModel):
     control: int
     speed: int
     strength: int
+
+
+class PlayerBehaviourUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    behaviour_id: StrictInt = Field(alias="behaviourId")
+
+    
