@@ -55,3 +55,9 @@
     font-weight: 600;
     cursor: pointer;
 }
+
+.Registro{
+    display: flex;
+    justify-content: center;
+    color: 19362b;
+}
