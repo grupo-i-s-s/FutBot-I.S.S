@@ -34,6 +34,7 @@ error_status = {
     "SESSION_INVALID": 401,
     "CSRF_INVALID": 403,
     "BEHAVIOUR_NOT_FOUND": 404,
+    "PLAYER_NOT_FOUND": 404,
     "ACCOUNT_INCOMPLETE": 409,
 }
 

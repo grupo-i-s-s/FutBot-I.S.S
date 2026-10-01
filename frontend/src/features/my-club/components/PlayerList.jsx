@@ -3,8 +3,9 @@ import {Avatar, AvatarFallback} from '@/components/ui/avatar';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
 import {Item, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item';
+import { BehaviorSelector } from './BehaviorSelector';
 
-export default function PlayerList({players}) {
+export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
     return (
         <Card>
             <CardHeader>
@@ -43,6 +44,11 @@ export default function PlayerList({players}) {
                                             <span className="sr-only">Comportamiento: </span>
                                             {player.behaviourName}
                                         </ItemDescription>
+                                        <BehaviorSelector
+                                            player={player}
+                                            behaviours={behaviours}
+                                            onBehaviourAssigned={onBehaviourAssigned}
+                                        />
                                     </ItemContent>
                                 </Item>
                             </li>
