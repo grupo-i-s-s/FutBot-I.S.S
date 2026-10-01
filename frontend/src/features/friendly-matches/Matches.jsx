@@ -35,7 +35,7 @@ export default function MatchesPage() {
                             <span className = "match-date">
                                 {partido.fecha}
                             </span>
-                            <Button className = "join-button" onClick={() => handleJoinMatch(partido.idPartido, partido.idEquipoA)}>
+                            <Button className = "join-button" onClick={() => handleJoinMatch(partido.idPartido, 2)}>
                                 Unirse
                             </Button>
                         </div>
