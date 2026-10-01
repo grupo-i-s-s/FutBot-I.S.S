@@ -3,6 +3,14 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class LeagueCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    name: str = Field(min_length=3, max_length=50)
+    min_teams: int = Field(alias="minTeams", ge=3)
+    max_teams: int = Field(alias="maxTeams", ge=3)
+    start_datetime: datetime = Field(alias="startDatetime")
+
+
 class LeagueRegistrationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
