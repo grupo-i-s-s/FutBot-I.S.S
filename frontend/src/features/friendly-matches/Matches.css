@@ -1,0 +1,67 @@
+.Friendly-Matches {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 20px;
+    background-color: #1a1c1d; 
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.main-card{
+    background-color: #e6d8bf;
+    border-radius: 24px;       
+    padding: 40px;        
+    border: 1px solid #c7c18d;
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.page-title {
+    color: #0f172a;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 32px;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 650px;
+}
+
+.match-box {
+    background-color: #1e2330; 
+    border-radius: 12px;
+    padding: 16px 24px;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+.match-title {
+    color: #e2e8f0;
+    font-weight: 500;
+    font-size: 16px;
+}
+
+.match-date {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.join-button {
+    background-color: #059669;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}

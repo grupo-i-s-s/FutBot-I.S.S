@@ -29,3 +29,14 @@ class LeaveLeagueResponse(BaseModel):
     model_config = ConfigDict()
     message: str
     league_id: int = Field(serialization_alias="leagueId")
+
+
+class CreateLeagueResponse(BaseModel):
+    message: str 
+    
+class CreateLeagueRequest(BaseModel):
+    name: str
+    min_teams:int 
+    max_teams:int
+    start_date: datetime 
+    round_interval: str

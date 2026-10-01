@@ -16,9 +16,7 @@ class League(Base):
     start_datetime: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
-    end_datetime: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    round_interval: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
 
     registrations: Mapped[list["LeagueRegistration"]] = relationship(
