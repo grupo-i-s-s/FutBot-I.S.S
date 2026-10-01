@@ -50,3 +50,41 @@ def test_player_boolean_is_not_accepted_as_integer():
             speed=60,
             strength=60,
         )
+
+
+def test_player_attributes_must_sum_300():
+    with pytest.raises(ValidationError, match="300"):
+        PlayerCreate(
+            name="Jugador",
+            power=60,
+            agility=60,
+            control=60,
+            speed=60,
+            strength=50,
+        )
+
+
+def test_player_name_cannot_be_blank():
+    with pytest.raises(ValidationError):
+        PlayerCreate(
+            name="   ",
+            power=60,
+            agility=60,
+            control=60,
+            speed=60,
+            strength=60,
+        )
+
+
+def test_player_valid_payload_strips_name():
+    player = PlayerCreate(
+        name="  Jugador  ",
+        power=60,
+        agility=60,
+        control=60,
+        speed=60,
+        strength=60,
+    )
+
+    assert player.name == "Jugador"
+

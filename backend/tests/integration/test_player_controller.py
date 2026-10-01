@@ -1,38 +1,45 @@
-
-from unittest.mock import MagicMock
-
 from fastapi.testclient import TestClient
 
-from app.dependencies import get_current_user_and_club
+from app.config import settings
+from app.dependencies import get_current_club
 from app.main import app
-from app.models.auth_model import Club, User
-from app.models.player import Player
+from app.models.auth_model import Club
+from app.models.player_model import Player
 from app.services import player_service
 
+BROWSER_HEADERS = {
+    "Origin": next(iter(settings.allowed_origins)),
+    "X-Futbot-Request": "1",
+}
 
-def mock_get_current_user_and_club():
-    dummy_user = User(
-        id=1,
-        name="Test User",
-        email="test@example.com",
-        username="testuser",
-        password_hash="dummy",
-    )
 
-    dummy_club = Club(
-        id=1,
-        user_id=1,
-        name="Club Test",
-        avatar="avatar.png",
-    )
+def mock_get_current_club() -> Club:
+    return Club(id=1, user_id=1, name="Club Test", avatar="avatar.png")
 
-    return dummy_user, dummy_club
+
+def post_player(json: dict):
+    app.dependency_overrides[get_current_club] = mock_get_current_club
+    try:
+        with TestClient(app) as client:
+            return client.post("/players", json=json, headers=BROWSER_HEADERS)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def patch_player_behaviour(json: dict):
+    app.dependency_overrides[get_current_club] = mock_get_current_club
+    try:
+        with TestClient(app) as client:
+            return client.patch("/players/1/behaviour", json=json, headers=BROWSER_HEADERS)
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_create_player_endpoint_success(monkeypatch):
     created_player = Player(
         id=1,
         club_id=1,
+        behavior_id=1,
         name="Dibu Martinez",
         power=60,
         agility=60,
@@ -40,120 +47,114 @@ def test_create_player_endpoint_success(monkeypatch):
         speed=60,
         strength=60,
     )
-
-    def mock_create_player(db, club_id, data):
-        return created_player
-
     monkeypatch.setattr(
         player_service,
         "create_player",
-        mock_create_player,
+        lambda db, club_id, data: created_player,
     )
 
-    app.dependency_overrides[get_current_user_and_club] = (
-        mock_get_current_user_and_club
-    )
+    response = post_player({
+        "name": "Dibu Martinez",
+        "power": 60,
+        "agility": 60,
+        "control": 60,
+        "speed": 60,
+        "strength": 60,
+    })
 
-    try:
-        with TestClient(app) as client:
-            response = client.post(
-                "/players",
-                json={
-                    "name": "Dibu Martinez",
-                    "power": 60,
-                    "agility": 60,
-                    "control": 60,
-                    "speed": 60,
-                    "strength": 60,
-                },
-            )
-
-        assert response.status_code == 201
-
-        data = response.json()
-        assert data["name"] == "Dibu Martinez"
-        assert data["clubId"] == 1
-        assert data["power"] == 60
-        assert data["agility"] == 60
-        assert data["control"] == 60
-        assert data["speed"] == 60
-        assert data["strength"] == 60
-        assert data["id"] == 1
-
-    finally:
-        app.dependency_overrides.clear()
+    assert response.status_code == 201
+    data = response.json()
+    assert data["id"] == 1
+    assert data["clubId"] == 1
+    assert data["behaviorId"] == 1
+    assert data["name"] == "Dibu Martinez"
+    for attribute in ("power", "agility", "control", "speed", "strength"):
+        assert data[attribute] == 60
 
 
 def test_create_player_rejects_out_of_range_pacss():
-    app.dependency_overrides[get_current_user_and_club] = (
-        mock_get_current_user_and_club
-    )
+    response = post_player({
+        "name": "Invalido",
+        "power": 10,
+        "agility": 75,
+        "control": 75,
+        "speed": 70,
+        "strength": 70,
+    })
 
-    try:
-        with TestClient(app) as client:
-            response = client.post(
-                "/players",
-                json={
-                    "name": "Invalido",
-                    "power": 10,
-                    "agility": 75,
-                    "control": 75,
-                    "speed": 70,
-                    "strength": 70,
-                },
-            )
-
-        assert response.status_code in (400, 422)
-
-    finally:
-        app.dependency_overrides.clear()
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_create_player_rejects_sum_different_from_300():
-    app.dependency_overrides[get_current_user_and_club] = (
-        mock_get_current_user_and_club
-    )
+    response = post_player({
+        "name": "Invalido",
+        "power": 60,
+        "agility": 60,
+        "control": 60,
+        "speed": 60,
+        "strength": 50,
+    })
 
-    try:
-        with TestClient(app) as client:
-            response = client.post(
-                "/players",
-                json={
-                    "name": "Invalido",
-                    "power": 60,
-                    "agility": 60,
-                    "control": 60,
-                    "speed": 60,
-                    "strength": 50,
-                },
-            )
-
-        assert response.status_code == 400
-
-    finally:
-        app.dependency_overrides.clear()
+    assert response.status_code == 400
+    error = response.json()["error"]
+    assert error["code"] == "VALIDATION_ERROR"
+    assert "300" in error["fields"]["form"]
 
 
 def test_create_player_rejects_boolean_or_float():
-    app.dependency_overrides[get_current_user_and_club] = (
-        mock_get_current_user_and_club
+    response = post_player({
+        "name": "Invalido",
+        "power": True,
+        "agility": 60.5,
+        "control": 60,
+        "speed": 60,
+        "strength": 60,
+    })
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_create_player_requires_session():
+    with TestClient(app) as client:
+        response = client.post(
+            "/players",
+            json={
+                "name": "Sin sesion",
+                "power": 60,
+                "agility": 60,
+                "control": 60,
+                "speed": 60,
+                "strength": 60,
+            },
+            headers=BROWSER_HEADERS,
+        )
+
+    assert response.status_code == 401
+
+
+def test_assign_behaviour_endpoint_returns_updated_player(monkeypatch):
+    updated_player = Player(
+        id=1, club_id=1, behavior_id=7, name="Dibu Martinez",
+        power=60, agility=60, control=60, speed=60, strength=60,
     )
+    calls = []
 
-    try:
-        with TestClient(app) as client:
-            response = client.post(
-                "/players",
-                json={
-                    "name": "Invalido",
-                    "power": True,
-                    "agility": 60.5,
-                    "control": 60,
-                    "speed": 60,
-                    "strength": 60,
-                },
-            )
+    def fake_assign(db, club_id, player_id, behaviour_id):
+        calls.append((club_id, player_id, behaviour_id))
+        return updated_player
 
-        assert response.status_code in (400, 422)
+    monkeypatch.setattr(player_service, "assign_behaviour", fake_assign)
+    response = patch_player_behaviour({"behaviourId": 7})
 
-    finally:
-        app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert response.json()["behaviorId"] == 7
+    assert calls == [(1, 1, 7)]
+
+
+def test_assign_behaviour_rejects_invalid_input():
+    response = patch_player_behaviour({"behaviourId": 0})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"

@@ -1,48 +1,52 @@
-from datetime import datetime, timezone
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from typing import Annotated
+
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
-from app.models.auth_model import AuthSession, Club, User
-from app.security import hash_session_token
+from app.errors import AppError
+from app.models.auth_model import Club
+from app.repository import user_repository
+from app.services.auth_service import (
+    Identity,
+    authenticate
+)
 
-security = HTTPBearer()
+Database = Annotated[Session, Depends(get_db)]
 
 
-def get_current_user_and_club(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
-) -> tuple[User, Club]:
-    token = credentials.credentials
-    token_hashed = hash_session_token(token)
-    now = datetime.now(timezone.utc)
+def require_browser_write(request: Request) -> None:
+    if request.method in {"GET", "HEAD", "OPTIONS"}:
+        return
 
-    stmt = select(AuthSession).where(
-        AuthSession.token_hash == token_hashed,
-        AuthSession.expires_at > now,
-    )
-    session = db.scalar(stmt)
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Sesión inválida o expirada",
-        )
+    origin = request.headers.get("origin")
+    marker = request.headers.get("x-futbot-request")
 
-    user = db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario no encontrado",
-        )
+    if origin not in settings.allowed_origins or marker != "1":
+        raise AppError(
+            "CSRF_INVALID",
+            "No se pudo validar el origen de la solicitud.")
 
-    club_stmt = select(Club).where(Club.user_id == user.id)
-    club = db.scalar(club_stmt)
-    if not club:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="El usuario no posee un club asignado",
-        )
 
-    return user, club
+def get_current_identity(request: Request, db: Database) -> Identity:
+    token = request.cookies.get(settings.cookie_name)
+
+    return authenticate(db, token)
+
+
+CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
+
+
+def get_current_club(identity: CurrentIdentity, db: Database) -> Club:
+    club = user_repository.get_club(db, identity.user_id)
+
+    if club is None:
+        raise AppError(
+            "ACCOUNT_INCOMPLETE",
+            "La cuenta no tiene un club asociado.")
+
+    return club
+
+
+CurrentClub = Annotated[Club, Depends(get_current_club)]
