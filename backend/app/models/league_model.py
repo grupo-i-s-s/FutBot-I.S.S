@@ -11,6 +11,7 @@ class League(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
+    type: Mapped[str] = mapped_column(String(20), nullable=False)
     min_teams: Mapped[int] = mapped_column(Integer, nullable=False)
     max_teams: Mapped[int] = mapped_column(Integer, nullable=False)
     start_datetime: Mapped[datetime] = mapped_column(
