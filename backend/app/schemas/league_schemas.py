@@ -40,3 +40,20 @@ class CreateLeagueRequest(BaseModel):
     max_teams:int
     start_date: datetime 
     round_interval: str
+
+class LeagueJoinRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    club_id: int = Field(
+        validation_alias="clubId",
+        serialization_alias="clubId"
+    )
+    line_up: list = Field(
+        validation_alias="lineUp",
+        serialization_alias="lineUp"
+    )
+    access_code: str | None = Field(
+        default=None,
+        validation_alias="accessCode",
+        serialization_alias="accessCode"
+    )

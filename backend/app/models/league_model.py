@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -18,6 +18,11 @@ class League(Base):
     )
     round_interval: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+
+    access_code: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
 
     registrations: Mapped[list["LeagueRegistration"]] = relationship(
         "LeagueRegistration", back_populates="league", cascade="all, delete-orphan"
@@ -47,5 +52,7 @@ class LeagueRegistration(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+    line_up: Mapped[dict | list] = mapped_column(JSON, nullable=False)
 
     league: Mapped["League"] = relationship("League", back_populates="registrations")

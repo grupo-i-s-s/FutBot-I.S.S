@@ -8,6 +8,7 @@ import CreatePlayerPage from './features/create-players/CreatePlayersPage.jsx'
 import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx'
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx'
 import ChangePasswordPage from './features/change-password/ChangePasswordPage.jsx'
+import InscripcionLigaPage from './features/inscripcion-liga/InscripcionLigaPage.jsx'
 
 export default function App() {
     return (
@@ -17,11 +18,12 @@ export default function App() {
             <Route path="/registro" element={<RegisterPage />} />
             <Route path="/mi-club" element={<MyClubPage />} />
             <Route path="/crear-jugador" element={<CreatePlayerPage />} />
-            <Route path = "partidos-disponibles" element={<FriendlyMatches/>}/>
+            <Route path="partidos-disponibles" element={<FriendlyMatches />} />
             <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
-            <Route path="*" element={<NotFoundPage />} />
             <Route path="/crear-liga" element={<CrearLiga />} />
             <Route path="/crear-liga-privada" element={<CreatePrivateLeague />} />
+            <Route path="/inscripcion-liga" element={<InscripcionLigaPage />} />
+            <Route path="*" element={<NotFoundPage />} />
         </Routes>
     )
 }
