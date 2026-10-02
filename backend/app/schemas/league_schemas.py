@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -17,9 +17,12 @@ class LeagueLobbyRead(BaseModel):
 
     id: int
     name: str
+    is_private: bool = Field(serialization_alias="isPrivate")
+    creator_club_id: Optional[int] = Field(None, serialization_alias="creatorClubId")
     min_teams: int = Field(serialization_alias="minTeams")
     max_teams: int = Field(serialization_alias="maxTeams")
     start_datetime: datetime = Field(serialization_alias="startDatetime")
+    round_interval: str = Field(serialization_alias="roundInterval")
     end_datetime: Optional[datetime] = Field(None, serialization_alias="endDatetime")
     status: str
     registrations: list[LeagueRegistrationRead] = Field(default_factory=list)
@@ -41,3 +44,6 @@ class CreateLeagueRequest(BaseModel):
     max_teams:int
     start_date: datetime 
     round_interval: str
+
+class CreatePrivateLeagueRequest(CreateLeagueRequest):
+    password: str
