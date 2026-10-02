@@ -58,7 +58,6 @@ class CreateLeagueRequest(BaseModel):
     max_teams: int = Field(..., alias="maxTeams", ge=3)
     start_datetime: datetime = Field(..., alias="startDateTime")
     round_interval: RoundInterval = Field(..., alias="roundInterval")
-    access_code: Optional[str] = Field(None, alias="accessCode")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -66,10 +65,6 @@ class CreateLeagueRequest(BaseModel):
     def validate_league_config(self):
         if self.min_teams > self.max_teams:
             raise ValueError("minTeams no puede ser mayor que maxTeams.")
-        if self.type == LeagueType.PRIVATE and not self.access_code:
-            raise ValueError(
-                "Las ligas privadas requieren un código de acceso (accessCode)."
-            )
         return self
 
 

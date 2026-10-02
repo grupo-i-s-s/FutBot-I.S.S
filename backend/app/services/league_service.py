@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
 from datetime import datetime, timezone
@@ -19,7 +20,12 @@ def get_league_lobby(db: Session, league_id: int) -> League:
 
 def create_league(db: Session, data: CreateLeagueRequest) -> dict[str, str]:
     now_utc = datetime.now(timezone.utc)
-    if data.start_datetime <= now_utc:
+
+    start_dt = data.start_datetime
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
+
+    if start_dt <= now_utc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Configuración invalida.",
@@ -29,18 +35,18 @@ def create_league(db: Session, data: CreateLeagueRequest) -> dict[str, str]:
         league_repository.create_league(
             db=db,
             name=data.name,
-            league_type=data.type.value,
+            type=data.type.value,
             min_teams=data.min_teams,
             max_teams=data.max_teams,
-            start_datetime=data.start_datetime,
+            start_datetime=start_dt,
             round_interval=data.round_interval.value,
         )
         db.commit()
-    except IntegrityError:
+    except Exception as e:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Configuración inválida",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno: {str(e)}",
         )
 
     return {"message": "Liga creada correctanente"}
