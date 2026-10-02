@@ -12,16 +12,21 @@ from app.services.auth_service import (
     Identity,
     authenticate
 )
+from starlette.requests import HTTPConnection
+
 
 Database = Annotated[Session, Depends(get_db)]
 
 
-def require_browser_write(request: Request) -> None:
-    if request.method in {"GET", "HEAD", "OPTIONS"}:
+def require_browser_write(connection: HTTPConnection) -> None:
+    if connection.scope["type"]=="websocket":
+        return  
+
+    if connection.scope["method"] in {"GET", "HEAD", "OPTIONS"}:
         return
 
-    origin = request.headers.get("origin")
-    marker = request.headers.get("x-futbot-request")
+    origin = connection.headers.get("origin")
+    marker = connection.headers.get("x-futbot-request")
 
     if origin not in settings.allowed_origins or marker != "1":
         raise AppError(
