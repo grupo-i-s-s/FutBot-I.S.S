@@ -1,6 +1,6 @@
 from typing import Optional
-from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, joinedload, selectinload
 from datetime import datetime
 
 from app.models.league_model import League, LeagueRegistration
