@@ -6,12 +6,12 @@ export default function CrearLiga(){
     const [name, setName] = useState('')
     const [minTeams, setMinTeams] = useState(3)
     const [maxTeams, setMaxTeams] = useState('')
-    const [startDate, setstartDate] = useState('')
+    const [startDateTime, setstartDateTime] = useState('')
     const [roundInterval, setroundInterval] = useState('CONTINUOUS')
     
     async function handleSubmit(event) {
         event.preventDefault()
-        const response = await crearLiga(name, minTeams, maxTeams, startDate, roundInterval)
+        const response = await crearLiga(name, "PUBLIC", minTeams, maxTeams, startDateTime,  roundInterval)
         console.log(response)
         console.log(response.message)
     }
@@ -80,8 +80,8 @@ export default function CrearLiga(){
                         <input
                             id="start-date"
                             type="datetime-local"
-                            value={startDate}
-                            onChange={(event) => setstartDate(event.target.value)}
+                            value={startDateTime}
+                            onChange={(event) => setstartDateTime(event.target.value)}
                             required>
                         </input>
                     </div>

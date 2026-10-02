@@ -18,19 +18,6 @@ def get_league_lobby(db: Session, league_id: int) -> League:
 
 
 def create_league(db: Session, data: CreateLeagueRequest) -> dict[str, str]:
-    league = league_repository.create_league(
-        db,
-        name=data.name,
-        min_teams=data.min_teams,
-        max_teams=data.max_teams,
-        start_date=data.start_date,
-        round_interval=data.round_interval,
-    )
-    db.commit()
-    return {"message": "Liga creada correctamente."}
-
-
-def create_league(db: Session, data: CreateLeagueRequest) -> dict[str, str]:
     now_utc = datetime.now(timezone.utc)
     if data.start_datetime <= now_utc:
         raise HTTPException(
@@ -45,9 +32,8 @@ def create_league(db: Session, data: CreateLeagueRequest) -> dict[str, str]:
             league_type=data.type.value,
             min_teams=data.min_teams,
             max_teams=data.max_teams,
-            start_date=data.start_datetime,
+            start_datetime=data.start_datetime,
             round_interval=data.round_interval.value,
-            access_code=data.access_code,
         )
         db.commit()
     except IntegrityError:
