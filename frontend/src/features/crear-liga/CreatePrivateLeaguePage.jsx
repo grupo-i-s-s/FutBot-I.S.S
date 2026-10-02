@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { crearLigaPrivada } from './apiPrivate.js'
 
 
 export default function CreatePrivateLeague(){
@@ -8,12 +9,28 @@ export default function CreatePrivateLeague(){
     const [startDate, setstartDate] = useState('')
     const [roundInterval, setroundInterval] = useState('CONTINUOUS')
     const [password, setPassword] = useState('')
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [error, setError] = useState('')
+    const [success, setSuccess] = useState('')
 
     async function handleSubmit(event) {
         event.preventDefault()
-        const response = await crearLiga(name, password, minTeams, maxTeams, startDate, roundInterval)
-        console.log(response)
-        console.log(response.message)
+        if (isSubmitting) return
+        
+        setIsSubmitting(true)
+        setError('')
+        setSuccess('')
+        
+        try {
+            const response = await crearLiga(
+                name, minTeams, maxTeams, startDate, roundInterval
+            )
+            setSuccess(response.message)
+        } catch (err) {
+            setError(err.message || 'No se pudo crear la liga.')
+        } finally {
+            setIsSubmitting(false)
+        }
     }
     
 
