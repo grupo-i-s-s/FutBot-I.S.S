@@ -1,8 +1,13 @@
 from fastapi import APIRouter, status
 
 from app.dependencies import CurrentClub, Database
-from app.schemas.league_schemas import (LeagueLobbyRead, CreateLeagueRequest, CreateLeagueResponse,
-                                        LeaveLeagueResponse, )
+from app.schemas.league_schemas import (
+    CreateLeagueRequest,
+    CreateLeagueResponse,
+    LeagueListResponse,
+    LeagueLobbyRead,
+    LeaveLeagueResponse,
+)
 from app.services import league_service
 
 league_router = APIRouter(prefix="/leagues", tags=["leagues"])
@@ -29,3 +34,9 @@ def leave_league(id: int, club: CurrentClub, db: Database):
 )
 def create_league(db: Database, data:CreateLeagueRequest):
     return league_service.create_league(db=db, data=data)
+
+
+@league_router.get("", response_model=LeagueListResponse)
+def get_leagues(club: CurrentClub, db: Database, name: str | None = None):
+    leagues = league_service.list_leagues(db=db, club_id=club.id, name=name)
+    return {"items": leagues}
