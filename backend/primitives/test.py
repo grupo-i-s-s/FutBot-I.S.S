@@ -1,49 +1,80 @@
 import pygame
 import pymunk.pygame_util
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from dotenv import load_dotenv  # Importamos la librería
 
-# Importamos tu clase orquestadora
-from match_simulation import Partido
+# 1. CARGAMOS LAS VARIABLES DE ENTORNO
+load_dotenv()  # Esto lee tu archivo .env y lo mete en la memoria
 
-# 1. Instanciamos tu partido (ya crea la cancha, jugadores y pelota)
-mi_partido = Partido()
+# 2. AHORA SÍ IMPORTAMOS LA BASE DE DATOS
+# Como load_dotenv ya hizo su trabajo, database.py va a encontrar a POSTGRES_USER
+from app.database import engine
+from app.models.player_model import Player
 
-# 2. Configuramos Pygame
-pygame.init()
-# Como tu cancha tiene 100 de ancho y 60 de alto, la multiplicamos por 10 para la ventana
-pantalla = pygame.display.set_mode((1000, 600))
-pygame.display.set_caption("Test Visual de la Clase Partido")
-reloj = pygame.time.Clock()
+from primitives.match_simulation import Partido, Team
 
-# Configuramos Pymunk para que dibuje y le aplicamos un zoom x10
-opciones_dibujo = pymunk.pygame_util.DrawOptions(pantalla)
-opciones_dibujo.transform = pymunk.Transform.scaling(10.0)
 
-fps = 60
-dt = 1.0 / fps
-corriendo = 0.0
+def get_jugadores_por_club(db: Session, id_club: int):
+    """Busca en la BD todos los jugadores activos de un club específico."""
+    stmt = select(Player).where(Player.club_id == id_club, Player.is_deleted == False)
+    return list(db.scalars(stmt).all())
 
-print("Iniciando el partido... Cerrá la ventana para salir.")
 
-while corriendo < 800:
-    # A. Chequear si cerraste la ventana
-    for evento in pygame.event.get():
-        if evento.type == pygame.QUIT:
-            corriendo = False
+def probar_simulacion():
+    # 1. CONSULTA A LA BASE DE DATOS
+    print("Conectando a la base de datos...")
+    with Session(engine) as db:
+        # Reemplazá el 1 y el 2 por IDs de clubes que sepas que existen en tu tabla clubs
+        jugadores_local = get_jugadores_por_club(db, 1)
+        jugadores_visita = get_jugadores_por_club(db, 2)
 
-    # B. EL CEREBRO: Llamamos a tu método maestro.
-    # Esto mueve a los 6 jugadores, avanza la física y chequea los goles.
-    mi_partido.run_match(dt)
+        # Armamos tus clases Team con las listas de objetos Player reales
+        team_local = Team(name="Equipo Local (ID 1)", players=jugadores_local)
+        team_visita = Team(name="Equipo Visitante (ID 2)", players=jugadores_visita)
 
-    # Opcional: Imprimir el marcador si alguien metió gol
-    # (Podrías agregar un print acá para ver los goles en consola)
+        print(
+            f"Equipos cargados: {len(team_local.players)} jug. vs {len(team_visita.players)} jug."
+        )
 
-    # C. RENDERIZADO VISUAL
-    pantalla.fill((34, 139, 34))  # Fondo verde
-    # Le pedimos a Pymunk que dibuje el espacio que está adentro de tu mundo
-    mi_partido.world.space.debug_draw(opciones_dibujo)
-    pygame.display.flip()
+    # 2. INSTANCIAMOS EL PARTIDO CON LOS DATOS REALES
+    # Recordá que el __init__ de tu clase Partido ahora debe recibir (team_local, team_visita)
+    mi_partido = Partido(team_local, team_visita)
 
-    # D. Control de velocidad
-    reloj.tick(fps)
+    # 3. CONFIGURAMOS PYGAME
+    pygame.init()
+    pantalla = pygame.display.set_mode((1000, 600))
+    pygame.display.set_caption("Test Visual de Fútbol con SQLAlchemy")
+    reloj = pygame.time.Clock()
 
-pygame.quit()
+    opciones_dibujo = pymunk.pygame_util.DrawOptions(pantalla)
+    opciones_dibujo.transform = pymunk.Transform.scaling(10.0)
+
+    fps = 60
+    dt = 1.0 / fps
+    corriendo = True
+
+    print("Iniciando el partido... Cerrá la ventana para salir.")
+
+    while corriendo:
+        # A. Eventos
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                corriendo = False
+
+        # B. Lógica (El Cerebro)
+        mi_partido.run_match(dt)
+
+        # C. Renderizado Visual
+        pantalla.fill((34, 139, 34))
+        mi_partido.world.space.debug_draw(opciones_dibujo)
+        pygame.display.flip()
+
+        # D. Control de velocidad
+        reloj.tick(fps)
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    probar_simulacion()

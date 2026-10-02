@@ -1,7 +1,10 @@
 import pymunk
-from physics import Field, create_world, step
-from kick import kick
-from run_to import run_to
+from primitives.physics import Field, create_world, step
+from primitives.kick import kick
+from primitives.run_to import run_to
+from app.repository.user_repository import get_club
+from app.repository.player_repository import get_by_id
+from app.models.player_model import Player
 
 width = 100.00
 height = 60.0
@@ -11,8 +14,14 @@ line_up = [(10, 20), (10, 40), (30, 30), (90, 10), (90, 40), (70, 30)]
 ball_pos = (50, 30)
 
 
+class Team:
+    def __init__(self, name, players: list[Player]):
+        self.name = name
+        self.players = players
+
+
 class Partido:
-    def __init__(self):
+    def __init__(self, local_team, visitor_team):
         self.cord = Field(width, height, goal_width)
         self.init_players_pos = line_up
         self.init_ball_pos = ball_pos
@@ -21,6 +30,9 @@ class Partido:
         self.world = create_world(
             self.cord, self.init_players_pos, self.init_ball_pos
         )  # Esto me devuelve un world que tiene cancha, espacio, pelota y lista de jugadores
+
+        self.local_team = local_team
+        self.visitor_team = visitor_team
 
         self.scorer = {"LOCAL": 0, "VISITANTE": 0}
         self.time = 0.00
