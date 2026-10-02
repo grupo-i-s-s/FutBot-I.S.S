@@ -1,6 +1,7 @@
 from typing import List
 
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.models.player_model import Player
 
@@ -28,3 +29,11 @@ def create_player(db: Session, player: Player) -> Player:
     db.flush()
 
     return player
+
+
+
+def get_by_id(db: Session, id: int) -> Player:
+    player = db.get(Player, id)
+
+    return player
+

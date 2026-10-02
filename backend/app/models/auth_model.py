@@ -1,6 +1,6 @@
 from datetime import datetime
-from sqlalchemy import (DateTime, ForeignKey, String, UniqueConstraint)
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -9,7 +9,7 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         UniqueConstraint("email", name="uq_users_email"),
-        UniqueConstraint("username", name="uq_users_username")
+        UniqueConstraint("username", name="uq_users_username"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -35,6 +35,7 @@ class Club(Base):
         default=False,
         server_default="false",
     )
+    players: Mapped[list["Player"]] = relationship(back_populates="club")
 
 
 class AuthSession(Base):
