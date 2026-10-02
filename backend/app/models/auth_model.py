@@ -35,6 +35,7 @@ class Club(Base):
         default=False,
         server_default="false",
     )
+    players: Mapped[list["Player"]] = relationship(back_populates="club")
 
 
 class AuthSession(Base):

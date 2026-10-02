@@ -37,3 +37,5 @@ class Player(Base):
     speed: Mapped[int] = mapped_column(nullable=False)
     strength: Mapped[int] = mapped_column(nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+
+    club: Mapped["Club"] = relationship(back_populates="players")
