@@ -1,7 +1,7 @@
 from typing import List
 
 from sqlalchemy.orm import Session
-from sqlalchemy.orm import select
+from sqlalchemy import select
 
 from app.models.player_model import Player
 
