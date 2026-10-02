@@ -36,3 +36,22 @@ def get_registration(
 
 def delete_registration(db: Session, registration: LeagueRegistration) -> None:
     db.delete(registration)
+
+
+def get_all_available_leagues(db: Session, name: str | None = None) -> list[League]:
+    registered_count = (
+        select(func.count(LeagueRegistration.id))
+        .where(LeagueRegistration.league_id == League.id)
+        .correlate(League)
+        .scalar_subquery()
+    )
+    query = (
+        select(League)
+        .options(selectinload(League.registrations))
+        .where(League.status == "open", registered_count < League.max_teams)
+        .order_by(League.id)
+    )
+    if name:
+        query = query.where(League.name.icontains(name, autoescape=True))
+
+    return list(db.scalars(query).all())
