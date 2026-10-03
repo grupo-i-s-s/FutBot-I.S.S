@@ -6,7 +6,7 @@ from primitives.behaviours import resolve_behaviour
 from primitives.match_simulation import Match, PlayerProfile, Team
 
 
-def build_match(db: Session, match_id: int) -> Match:
+def build_match(db: Session, match_id: int, *, duration_ms: int | None = None) -> Match:
     match = matches_repository.get_by_id(db, match_id)
 
     if match is None:
@@ -62,4 +62,6 @@ def build_match(db: Session, match_id: int) -> Match:
             name=names[match.visitor_id],
             players=tuple(profile(row) for row in visitor_rows),
         ),
+        match_id=match_id,
+        duration_ms=match.duration_ms if duration_ms is None else duration_ms,
     )

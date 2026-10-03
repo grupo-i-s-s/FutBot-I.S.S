@@ -29,7 +29,7 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
         raise AppError("MATCH_SELF_JOIN", "No podés unirte a tu propio partido.")
     if match.visitor_id is not None:
         raise AppError("MATCH_FULL", "El partido ya tiene visitante.")
-    if match.init_date <= datetime.now(timezone.utc):
+    if match.status != "WAITING" or match.init_date <= datetime.now(timezone.utc):
         raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
 
     match.visitor_id = club_id
