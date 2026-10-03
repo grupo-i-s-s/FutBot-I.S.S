@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from primitives import match_simulation
@@ -174,3 +176,47 @@ def test_invalid_behaviour_action_leaves_player_idle_and_match_continues(monkeyp
     assert match.time == pytest.approx(1 / 30)
     assert all(tuple(player.velocity) == (0, 0) for player in match.world.players)
     assert match.scorer == {"LOCAL": 0, "VISITANTE": 0}
+
+
+def test_match_finishes_exactly_at_duration_and_freezes_result(monkeypatch):
+    match = match_simulation.Match(team(1), team(2), match_id=42, duration_ms=50)
+    steps = []
+    monkeypatch.setattr(match_simulation, "step", lambda world, dt: steps.append(dt) or "LEFT")
+
+    match.run_match(1 / 30)
+    match.run_match(1 / 30)
+    final = match.snapshot(3, "now")
+    match.run_match(10)
+
+    assert steps == pytest.approx([1 / 30, 0.05 - 1 / 30])
+    assert match.time == 0.05
+    assert match.finished and match.status == "FINISHED"
+    assert final["matchId"] == 42
+    assert final["state"]["clockMs"] == 50
+    assert final["state"]["teams"][0]["score"] == 2
+    assert match.snapshot(3, "now") == final
+    assert json.loads(json.dumps(final)) == final
+
+
+@pytest.mark.parametrize("duration", [0, -1, True, 1.5])
+def test_invalid_duration_is_rejected(duration):
+    with pytest.raises(ValueError, match="duración"):
+        match_simulation.Match(team(1), team(2), duration_ms=duration)
+
+
+def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
+    match = match_simulation.Match(team(1), team(2), match_id=42, duration_ms=1000)
+    match.run_match(1 / 30)
+    match.scorer["VISITANTE"] = 2
+    match.next_kick_at[10] = 0.5
+    match.world.ball.position = (60, 40)
+    match.world.ball.velocity = (10, -2)
+    match.world.ball.angle = 0.3
+    match.world.ball.angular_velocity = 0.2
+
+    restored = match_simulation.Match.from_checkpoint(json.loads(json.dumps(match.checkpoint())))
+
+    assert restored.snapshot(4, "now") == match.snapshot(4, "now")
+    assert restored.checkpoint() == match.checkpoint()
+    restored.run_match(1 / 30)
+    assert restored.time == pytest.approx(2 / 30)

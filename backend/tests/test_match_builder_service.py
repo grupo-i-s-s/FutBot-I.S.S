@@ -31,7 +31,7 @@ def roster(club_id: int, count: int = 3) -> list[tuple[SimpleNamespace, SimpleNa
 
 
 def test_builder_uses_clubs_from_match_and_maps_real_player_ids(monkeypatch):
-    match = SimpleNamespace(creator_id=7, visitor_id=9)
+    match = SimpleNamespace(creator_id=7, visitor_id=9, duration_ms=300_000)
     queried_clubs = []
     monkeypatch.setattr(matches_repository, "get_by_id", lambda db, match_id: match)
 
@@ -48,6 +48,7 @@ def test_builder_uses_clubs_from_match_and_maps_real_player_ids(monkeypatch):
 
     partido = build_match(Mock(), 42)
 
+    assert partido.match_id == 42
     assert queried_clubs == [7, 9]
     assert [player.id for player in partido.player_profiles] == [70, 71, 72, 90, 91, 92]
     assert [player.club_id for player in partido.player_profiles] == [7, 7, 7, 9, 9, 9]
@@ -64,7 +65,7 @@ def test_builder_rejects_incomplete_lineup(monkeypatch):
     monkeypatch.setattr(
         matches_repository,
         "get_by_id",
-        lambda db, match_id: SimpleNamespace(creator_id=7, visitor_id=9),
+        lambda db, match_id: SimpleNamespace(creator_id=7, visitor_id=9, duration_ms=300_000),
     )
     monkeypatch.setattr(
         matches_repository,
@@ -82,7 +83,7 @@ def test_builder_freezes_assigned_behaviour_and_supports_old_defaults(monkeypatc
     rows = {club_id: roster(club_id) for club_id in (7, 9)}
     rows[7][0][1].name = "Defensivo"
     rows[7][0][1].code = LEGACY_CODE
-    monkeypatch.setattr(matches_repository, "get_by_id", lambda *_: SimpleNamespace(creator_id=7, visitor_id=9))
+    monkeypatch.setattr(matches_repository, "get_by_id", lambda *_: SimpleNamespace(creator_id=7, visitor_id=9, duration_ms=300_000))
     monkeypatch.setattr(matches_repository, "get_starting_players", lambda db, club_id: rows[club_id])
     monkeypatch.setattr(matches_repository, "get_club_names", lambda *_: {7: "Local", 9: "Visitante"})
 
@@ -95,7 +96,7 @@ def test_builder_freezes_assigned_behaviour_and_supports_old_defaults(monkeypatc
 def test_builder_rejects_unsupported_behaviour_code(monkeypatch):
     rows = roster(7)
     rows[0][1].code = "raise RuntimeError('no ejecutar')"
-    monkeypatch.setattr(matches_repository, "get_by_id", lambda *_: SimpleNamespace(creator_id=7, visitor_id=9))
+    monkeypatch.setattr(matches_repository, "get_by_id", lambda *_: SimpleNamespace(creator_id=7, visitor_id=9, duration_ms=300_000))
     monkeypatch.setattr(matches_repository, "get_starting_players", lambda db, club_id: rows if club_id == 7 else roster(9))
     monkeypatch.setattr(matches_repository, "get_club_names", lambda *_: {7: "Local", 9: "Visitante"})
 

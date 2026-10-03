@@ -139,7 +139,9 @@ def test_join_ignores_no_client_club_and_uses_authenticated_club(match_client, m
     (SimpleNamespace(match_id=3, creator_id=1, visitor_id=2,
                      init_date=datetime.now(timezone.utc) + timedelta(hours=1)), "MATCH_FULL"),
     (SimpleNamespace(match_id=3, creator_id=1, visitor_id=None,
-                     init_date=datetime.now(timezone.utc) - timedelta(hours=1)), "MATCH_STARTED"),
+                     status="WAITING", init_date=datetime.now(timezone.utc) - timedelta(hours=1)), "MATCH_STARTED"),
+    (SimpleNamespace(match_id=3, creator_id=1, visitor_id=None,
+                     status="FINISHED", init_date=datetime.now(timezone.utc) + timedelta(hours=1)), "MATCH_STARTED"),
 ])
 def test_join_rejects_invalid_matches(monkeypatch, match, code):
     db = Mock()
@@ -156,6 +158,7 @@ def test_join_sets_visitor_once(monkeypatch):
     db = Mock()
     match = SimpleNamespace(
         match_id=3, creator_id=1, visitor_id=None,
+        status="WAITING",
         init_date=datetime.now(timezone.utc) + timedelta(hours=1),
     )
     monkeypatch.setattr(matches_repository, "get_by_id_for_update", lambda *_: match)
@@ -169,14 +172,18 @@ def test_join_sets_visitor_once(monkeypatch):
 
 def test_stream_stays_open_until_client_sends_data(monkeypatch):
     monkeypatch.setattr(
-        match_stream_controller, "authorize_with_db", lambda *_: StreamAccess("session")
+        match_stream_controller, "authorize_with_db", lambda *_: StreamAccess("session", 7)
     )
+    monkeypatch.setattr(match_stream_controller, "snapshot_with_db", lambda *_: {
+        "sequence": 0, "state": {"status": "WAITING"},
+    })
 
     with TestClient(app) as client:
         with client.websocket_connect(
             "/matches/3/stream",
             headers={"Origin": next(iter(settings.allowed_origins))},
         ) as socket:
+            assert socket.receive_json()["state"]["status"] == "WAITING"
             socket.send_text("unexpected input")
             with pytest.raises(WebSocketDisconnect) as error:
                 socket.receive_text()
