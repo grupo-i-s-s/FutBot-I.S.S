@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { createFriendlyMatch, joinFriendlyMatch, listFriendlyMatches } from './api.js'
-import { useMatchConnection } from './hooks/useMatchConnection.js'
 import './Matches.css'
 
 export default function MatchesPage() {
@@ -10,10 +10,9 @@ export default function MatchesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [joiningId, setJoiningId] = useState(null)
-  const [activeMatchId, setActiveMatchId] = useState(null)
+  const navigate = useNavigate()
   const [startDateTime, setStartDateTime] = useState('')
   const [creating, setCreating] = useState(false)
-  const connectionStatus = useMatchConnection(activeMatchId)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -34,7 +33,7 @@ export default function MatchesPage() {
     try {
       await joinFriendlyMatch(matchId)
       setMatches((current) => current.filter((match) => match.matchId !== matchId))
-      setActiveMatchId(matchId)
+      navigate(`/partidos/${matchId}`)
     } catch (cause) {
       setError(cause.message)
     } finally {
@@ -50,7 +49,7 @@ export default function MatchesPage() {
       const date = new Date(startDateTime)
       if (Number.isNaN(date.getTime())) throw new Error('Elegí una fecha válida.')
       const created = await createFriendlyMatch(date.toISOString())
-      setActiveMatchId(created.matchId)
+      navigate(`/partidos/${created.matchId}`)
       setStartDateTime('')
     } catch (cause) {
       setError(cause.message)
@@ -77,7 +76,6 @@ export default function MatchesPage() {
             {creating ? 'Creando...' : 'Crear amistoso'}
           </Button>
         </form>
-        {activeMatchId && <p>Partido {activeMatchId}: conexión {connectionStatus}</p>}
         {loading ? (
           <p>Cargando partidos...</p>
         ) : matches.length === 0 ? (
