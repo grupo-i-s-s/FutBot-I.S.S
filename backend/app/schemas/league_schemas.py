@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Literal, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from enum import Enum
+from typing import Optional
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class LeagueRegistrationRead(BaseModel):
@@ -52,12 +53,30 @@ class CreateLeagueResponse(BaseModel):
     message: str
 
 
+class RoundInterval(str, Enum):
+    CONTINUOUS = "CONTINUOUS"
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+
+
 class CreateLeagueRequest(BaseModel):
-    name: str
-    min_teams: int
-    max_teams: int
-    start_date: datetime
-    round_interval: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str = Field(min_length=1, max_length=50)
+    min_teams: int = Field(alias="minTeams", ge=3)
+    max_teams: int = Field(alias="maxTeams", ge=3)
+    start_date: datetime = Field(
+        validation_alias=AliasChoices(
+            "start_date", "start_datetime", "startDateTime", "startDatetime"
+        )
+    )
+    round_interval: RoundInterval = Field(alias="roundInterval")
+
+    @model_validator(mode="after")
+    def validate_league_config(self):
+        if self.min_teams > self.max_teams:
+            raise ValueError("minTeams no puede ser mayor que maxTeams.")
+        return self
 
 
 class CreatePrivateLeagueRequest(CreateLeagueRequest):

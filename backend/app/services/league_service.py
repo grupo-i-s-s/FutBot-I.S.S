@@ -1,9 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from datetime import datetime
-
 from datetime import datetime, timezone
-from app.models.league_model import League
 from app.repository import league_repository
 from app.schemas.league_schemas import CreateLeagueRequest, CreatePrivateLeagueRequest
 from app.errors import AppError
@@ -86,14 +83,21 @@ def _create_league(
     if data.round_interval not in {"CONTINUOUS", "DAILY", "WEEKLY"}:
         raise AppError("VALIDATION_ERROR", "La frecuencia de rondas no es válida.")
 
+    start_dt = data.start_date
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
+
+    if start_dt <= datetime.now(timezone.utc):
+        raise AppError("VALIDATION_ERROR", "La fecha de inicio debe ser futura.")
+
     try:
         league_repository.create_league(
             db=db,
             name=name,
             min_teams=data.min_teams,
             max_teams=data.max_teams,
-            start_date=data.start_date,
-            round_interval=data.round_interval,
+            start_date=start_dt,
+            round_interval=data.round_interval.value,
             is_private=is_private,
             password_hash=password_hash,
             creator_club_id=creator_club_id,
@@ -110,7 +114,7 @@ def _create_league(
                 "LEAGUE_DUPLICATE", "Ya existe una liga con ese nombre."
             ) from exc
         raise
-    return {"message": "Liga creada exitosasmente."}
+    return {"message": "Liga creada exitosamente."}
 
 
 def create_league(
@@ -137,6 +141,7 @@ def create_private_league(
         password_hash=hash_password(data.password),
         creator_club_id=creator_club_id,
     )
+
 
 def leave_league(db: Session, league_id: int, club_id: int) -> dict:
     league = league_repository.get_league_by_id(db, league_id)
