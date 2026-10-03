@@ -50,3 +50,7 @@ def assign_behaviour(
         raise
 
     return player
+
+
+def get_players(db: Session, club_id: int) -> list[Player]:
+    return player_repository.get_players_by_club(db, club_id)

@@ -1,29 +1,40 @@
-import {Users} from 'lucide-react';
-import {Avatar, AvatarFallback} from '@/components/ui/avatar';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
-import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
-import {Item, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item';
-import { BehaviorSelector } from './BehaviorSelector';
+import { Users } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
+import { BehaviorSelector } from './BehaviorSelector'
 
-export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
+const PACSS_ATTRIBUTES = [
+    ['Power', 'power'],
+    ['Agility', 'agility'],
+    ['Control', 'control'],
+    ['Speed', 'speed'],
+    ['Strength', 'strength'],
+]
+
+export default function PlayerList({ players, behaviours, onBehaviourAssigned }) {
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <Users className="size-5" aria-hidden="true"/>
+                    <Users className="size-5" aria-hidden="true" />
                     Jugadores
                 </CardTitle>
                 <CardDescription>{players.length} jugadores en el plantel</CardDescription>
             </CardHeader>
+
             <CardContent>
                 {players.length === 0 ? (
                     <Empty className="border">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
-                                <Users/>
+                                <Users />
                             </EmptyMedia>
                             <EmptyTitle>Sin jugadores</EmptyTitle>
-                            <EmptyDescription>El club todavía no tiene jugadores.</EmptyDescription>
+                            <EmptyDescription>
+                                El club todavía no tiene jugadores.
+                            </EmptyDescription>
                         </EmptyHeader>
                     </Empty>
                 ) : (
@@ -38,12 +49,27 @@ export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
                                             </AvatarFallback>
                                         </Avatar>
                                     </ItemMedia>
+
                                     <ItemContent className="min-w-0">
-                                        <ItemTitle className="truncate">{player.name}</ItemTitle>
-                                        <ItemDescription>
-                                            <span className="sr-only">Comportamiento: </span>
+                                        <ItemTitle className="truncate">
+                                            {player.name}
+                                        </ItemTitle>
+
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-sm">
+                                            {PACSS_ATTRIBUTES.map(([label, key]) => (
+                                                <span key={key}>
+                                                    <strong>{label}:</strong> {player[key]}
+                                                </span>
+                                            ))}
+                                        </div>
+
+                                        <ItemDescription className="mt-2">
+                                            <span className="font-medium">
+                                                Comportamiento:
+                                            </span>{' '}
                                             {player.behaviourName}
                                         </ItemDescription>
+
                                         <BehaviorSelector
                                             player={player}
                                             behaviours={behaviours}
@@ -57,5 +83,5 @@ export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
                 )}
             </CardContent>
         </Card>
-    );
+    )
 }

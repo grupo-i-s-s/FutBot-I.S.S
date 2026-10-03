@@ -56,3 +56,6 @@ class PlayerBehaviourUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     behaviour_id: StrictInt = Field(alias="behaviourId", gt=0)
+
+class PlayerListResponse(BaseModel):
+    items: list[PlayerRead]
