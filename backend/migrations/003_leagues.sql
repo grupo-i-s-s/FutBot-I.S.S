@@ -10,7 +10,7 @@ CREATE TABLE leagues (
     start_datetime TIMESTAMPTZ NOT NULL,
     round_interval VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'open',
-    creator_club_id INTEGER;
+    creator_club_id INTEGER
 );
 
 CREATE TABLE league_registrations (

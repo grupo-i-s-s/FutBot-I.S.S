@@ -17,7 +17,7 @@ def get_league_lobby(id: int, club: CurrentClub, db: Database):
     "/public", response_model=CreateLeagueResponse, status_code=status.HTTP_201_CREATED
 
 )
-def create_league(db: Database, data:CreateLeagueRequest, creator_club_id: CurrentClub):
+def create_league(db: Database, data:CreateLeagueRequest, club: CurrentClub):
     return league_service.create_league(db=db, data=data, creator_club_id=club.id)
 
 @league_router.post(

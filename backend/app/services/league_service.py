@@ -18,7 +18,7 @@ def get_league_lobby(db: Session, league_id: int) -> League:
         )
     return league
 
-def _create_league(db: Session, data: CreateLeagueRequest, *, is_private: bool, password_hash: str|None) -> dict[str, str]:
+def _create_league(db: Session, data: CreateLeagueRequest, *, is_private: bool, password_hash: str|None, creator_club_id: int) -> dict[str, str]:
     name = data.name.strip()
 
     if not name or len(name) > 50:
@@ -42,7 +42,8 @@ def _create_league(db: Session, data: CreateLeagueRequest, *, is_private: bool, 
             start_date=data.start_date,
             round_interval=data.round_interval,
             is_private=is_private,
-            password_hash=password_hash
+            password_hash=password_hash,
+            creator_club_id=creator_club_id
         )
         db.commit()
 
@@ -62,13 +63,13 @@ def _create_league(db: Session, data: CreateLeagueRequest, *, is_private: bool, 
 
     
 
-def create_league(db: Session, data:CreateLeagueRequest) -> dict[str, str]:
+def create_league(db: Session, data:CreateLeagueRequest, creator_club_id:int) -> dict[str, str]:
     return _create_league(
-        db=db, data= data, is_private=False, password_hash=None
+        db=db, data= data, is_private=False, password_hash=None, creator_club_id=creator_club_id
     )
 
-def create_private_league(db: Session, data:CreatePrivateLeagueRequest) -> dict[str, str]:
+def create_private_league(db: Session, data:CreatePrivateLeagueRequest, creator_club_id:int) -> dict[str, str]:
     if not data.password.strip():
         raise AppError("VALIDATION_ERROR", "La liga privada necesita contraseña.")
     return _create_league( 
-        db=db, data=data, is_private=True, password_hash=hash_password(data.password))
+        db=db, data=data, is_private=True, password_hash=hash_password(data.password), creator_club_id=creator_club_id)
