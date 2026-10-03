@@ -8,13 +8,29 @@ export default function CrearLiga(){
     const [maxTeams, setMaxTeams] = useState('')
     const [startDate, setstartDate] = useState('')
     const [roundInterval, setroundInterval] = useState('CONTINUOUS')
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [error, setError] = useState('')
+    const [success, setSuccess] = useState('')
     
     async function handleSubmit(event) {
-        event.preventDefault()
-        const response = await crearLiga(name, minTeams, maxTeams, startDate, roundInterval)
-        console.log(response)
-        console.log(response.message)
+    event.preventDefault()
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    setError('')
+    setSuccess('')
+
+    try {
+        const response = await crearLiga(
+            name, minTeams, maxTeams, startDate, roundInterval
+        )
+        setSuccess(response.message)
+    } catch (err) {
+        setError(err.message || 'No se pudo crear la liga pública.')
+    } finally {
+        setIsSubmitting(false)
     }
+}
     
 
     return(
@@ -102,9 +118,10 @@ export default function CrearLiga(){
                             </select>
                     </div>
 
-                    <button type="submit" className="login-button">
-                        Crear Liga
+                    <button type="submit" className="login-button" disabled={isSubmitting}>
+                        {isSubmitting ? "Creando..." : "Crear liga"}
                     </button>
+                    
 
                 </form>
             </section>

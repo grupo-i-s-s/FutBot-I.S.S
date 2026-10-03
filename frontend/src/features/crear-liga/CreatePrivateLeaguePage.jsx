@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { crearLigaPrivada } from './apiPrivate.js'
+import { Link } from 'react-router'
 
 
 export default function CreatePrivateLeague(){
@@ -9,25 +10,35 @@ export default function CreatePrivateLeague(){
     const [startDate, setstartDate] = useState('')
     const [roundInterval, setroundInterval] = useState('CONTINUOUS')
     const [password, setPassword] = useState('')
+    const [repeatPassword, setRepeatPassword] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
+    const [needsLogin, setNeedsLogin] = useState(false)
 
     async function handleSubmit(event) {
         event.preventDefault()
         if (isSubmitting) return
         
-        setIsSubmitting(true)
         setError('')
+        setNeedsLogin(false)
         setSuccess('')
+
+        if(password !== repeatPassword) {
+            setError('Las contraseñas no coinciden. Reintentar.')
+            return
+        }
+
+        setIsSubmitting(true)
         
         try {
-            const response = await crearLiga(
-                name, minTeams, maxTeams, startDate, roundInterval
+            const response = await crearLigaPrivada(
+                name,password, minTeams, maxTeams, startDate, roundInterval
             )
             setSuccess(response.message)
         } catch (err) {
-            setError(err.message || 'No se pudo crear la liga.')
+            setError(err.message || 'No se pudo crear la liga privada.')
+            setNeedsLogin(err.status==401)
         } finally {
             setIsSubmitting(false)
         }
@@ -67,7 +78,20 @@ export default function CreatePrivateLeague(){
                             type="password"
                             placeholder="Ingrese su contraseña"
                             value={password}
-                            onChange={(event) => setPassword(event.target.value)}>
+                            onChange={(event) => setPassword(event.target.value)}
+                            required>
+                        </input>
+                    </div>
+
+                    <div className = "formulary-box">
+                        <label htmlFor="user-password-confirm">Confirmar Contraseña</label>
+                        <input  
+                            id="user-password-confirm"
+                            type="password" 
+                            placeholder="Confimar-contraseña" 
+                            value = {repeatPassword} 
+                            onChange = {(event) => setRepeatPassword(event.target.value)}
+                            required>
                         </input>
                     </div>
 
@@ -133,10 +157,20 @@ export default function CreatePrivateLeague(){
                             </select>
                     </div>
 
-                    <button type="submit" className="login-button">
-                        Crear Liga
+                    <button
+                        type="submit"
+                        className="login-button"
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? 'Creando…' : 'Crear liga'}
                     </button>
-
+                    {error && <p role="alert">{error}</p>}
+                    {needsLogin && (
+                        <Link to="/login">
+                            Iniciar sesión
+                        </Link>
+                    )}
+                    {success && <p role="status">{success}</p>}
                 </form>
             </section>
             
