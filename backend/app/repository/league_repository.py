@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 from datetime import datetime
 from app.models.auth_model import Club
 
@@ -9,7 +9,7 @@ from app.models.league_model import League, LeagueRegistration
 def get_league_by_id(db: Session, league_id: int) -> Optional[League]:
     return (
         db.query(League)
-        .options(joinedload(League.registrations))
+        .options(selectinload(League.registrations))
         .filter(League.id == league_id)
         .with_for_update()
         .first()

@@ -6,6 +6,7 @@ from app.schemas.league_schemas import (
     CreateLeagueRequest,
     CreatePrivateLeagueRequest,
     CreateLeagueResponse,
+    LeaveLeagueResponse,
 )
 from app.services import league_service
 
