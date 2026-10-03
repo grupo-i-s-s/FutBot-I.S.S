@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.repository import matches_repository
+from primitives.behaviours import resolve_behaviour
 from primitives.match_simulation import Match, PlayerProfile, Team
 
 
@@ -31,24 +32,34 @@ def build_match(db: Session, match_id: int) -> Match:
         db, (match.creator_id, match.visitor_id)
     )
 
-    def profile(player) -> PlayerProfile:
+    def profile(row) -> PlayerProfile:
+        player, behaviour = row
+        try:
+            mode = resolve_behaviour(behaviour.code, behaviour.name)
+        except ValueError as exc:
+            raise AppError(
+                "MATCH_INVALID_BEHAVIOUR",
+                f"El jugador {player.name} tiene un comportamiento incompatible.",
+            ) from exc
         return PlayerProfile(
             id=player.id,
             club_id=player.club_id,
             name=player.name,
             speed=player.speed,
             power=player.power,
+            behaviour_id=behaviour.id,
+            behaviour_mode=mode,
         )
 
     return Match(
         Team(
             club_id=match.creator_id,
             name=names[match.creator_id],
-            players=tuple(profile(player) for player in local_rows),
+            players=tuple(profile(row) for row in local_rows),
         ),
         Team(
             club_id=match.visitor_id,
             name=names[match.visitor_id],
-            players=tuple(profile(player) for player in visitor_rows),
+            players=tuple(profile(row) for row in visitor_rows),
         ),
     )
