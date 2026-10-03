@@ -27,18 +27,26 @@ import ClubAvatar from './ClubAvatar';
 
 const MAX_NAME_LENGTH = 50;
 
-export default function ClubSettingsDialog({club, isOpen, onOpenChange, onSave}) {
+export default function ClubSettingsDialog({
+    club, isOpen, onOpenChange, onSave, isSaving, saveError
+}) {
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
-                {/* Se monta al abrir: el formulario arranca con los datos actuales del club. */}
-                {isOpen && <ClubSettingsForm club={club} onSave={onSave}/>}
+                {isOpen && (
+                    <ClubSettingsForm
+                        club={club}
+                        onSave={onSave}
+                        isSaving={isSaving}
+                        saveError={saveError}
+                    />
+                )}
             </DialogContent>
         </Dialog>
-    );
+    )
 }
 
-function ClubSettingsForm({club, onSave}) {
+function ClubSettingsForm({club, onSave, isSaving, saveError}) {
     const [clubName, setClubName] = useState(club.name);
     const [avatar, setAvatar] = useState(club.avatar);
     const [isFriendlyAvailable, setIsFriendlyAvailable] = useState(club.friendlyAvailable);
@@ -46,6 +54,7 @@ function ClubSettingsForm({club, onSave}) {
 
     function handleSubmit(event) {
         event.preventDefault();
+        if (isSaving) return
         const trimmedName = clubName.trim();
         if (!trimmedName) {
             setNameError('Ingresá el nombre del club.');
@@ -123,10 +132,29 @@ function ClubSettingsForm({club, onSave}) {
                 </Field>
             </FieldGroup>
 
+            {saveError && (
+                <p role="alert" className="text-sm text-destructive">
+                    {saveError}
+                </p>
+            )}
+
             <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline"/>}>Cancelar</DialogClose>
-                <Button type="submit">Guardar cambios</Button>
+                <DialogClose
+                    render={
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isSaving}
+                        />
+                    }
+                >
+                    Cancelar
+                </DialogClose>
+                
+                <Button type="submit" disabled={isSaving}>
+                    {isSaving ? 'Guardando…' : 'Guardar cambios'}
+                </Button>
             </DialogFooter>
-        </form>
+                    </form>
     );
 }

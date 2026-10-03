@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getMyClub, listBehaviours, listPlayers } from '../api'
+import { getMyClub, listBehaviours, listMyLeagues, listPlayers } from '../api'
 
 function withBehaviourName(players, behaviours) {
     const behaviourNames = new Map(behaviours.map((behaviour) => [behaviour.id, behaviour.name]))
@@ -18,6 +18,7 @@ export function useMyClub() {
     const [players, setPlayers] = useState([])
     const [behaviours, setBehaviours] = useState([])
     const [attempt, setAttempt] = useState(0)
+    const [leagues, setLeagues] = useState([])
 
     useEffect(() => {
         const controller = new AbortController()
@@ -27,18 +28,21 @@ export function useMyClub() {
             setStatus('loading')
             setError(null)
             try {
-                const [clubData, playerData, behaviourData] = await Promise.all([
+                const [clubData, playerData, behaviourData, leagueData] = await Promise.all([
                     getMyClub(options),
                     listPlayers(options),
                     listBehaviours(options),
+                    listMyLeagues(options),
                 ])
-                setClub(clubData)
-                setBehaviours(behaviourData?.items ?? [])
-                setPlayers(withBehaviourName(playerData?.items ?? [], behaviourData?.items ?? []))
-                setStatus('ready')
+                if (controller.signal.aborted) return
+                    setClub(clubData)
+                    setBehaviours(behaviourData.items)
+                    setPlayers(withBehaviourName(playerData.items, behaviourData.items))
+                    setLeagues(leagueData.items)
+                    setStatus('ready')
             } catch (loadError) {
                 // Una petición cancelada al desmontar no es un error para mostrar.
-                if (loadError.name === 'AbortError') return
+               if (controller.signal.aborted || loadError.name === 'AbortError') return
                 setError(loadError)
                 setStatus('error')
             }
@@ -57,5 +61,5 @@ export function useMyClub() {
         ))
     }
 
-    return { status, error, club, players, behaviours, reload, setClub, updatePlayer }
+    return { status, error, club, players, behaviours, leagues, reload, setClub, updatePlayer }
 }

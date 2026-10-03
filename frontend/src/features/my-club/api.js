@@ -19,3 +19,14 @@ export function assignPlayerBehaviour(playerId, behaviourId) {
         body: { behaviourId },
     })
 }
+
+export function updateMyClub(changes) {
+    return request('/club/me', {
+        method: 'PATCH',
+        body: changes,
+    })
+}
+
+export function listMyLeagues(options) {
+    return request('/club/me/leagues', options)
+}
