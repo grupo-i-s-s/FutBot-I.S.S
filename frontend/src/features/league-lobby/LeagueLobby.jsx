@@ -3,7 +3,6 @@ import './LeagueLobby.css';
 
 export function LeagueLobby() {
 
-  const lobby = 1;
   return (
     <div className="lobby-container">
       <header className="lobby-header">
