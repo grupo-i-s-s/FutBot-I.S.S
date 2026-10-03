@@ -9,10 +9,10 @@ from app.models.matches_model import Matches
 from app.models.player_model import Player
 
 
-def get_starting_players(db: Session, club_id: int) -> list[Player]:
+def get_starting_players(db: Session, club_id: int) -> list[tuple[Player, Behavior]]:
     return list(
-        db.scalars(
-            select(Player)
+        db.execute(
+            select(Player, Behavior)
             .join(Behavior, Player.behavior_id == Behavior.id)
             .where(
                 Player.club_id == club_id,
@@ -22,7 +22,7 @@ def get_starting_players(db: Session, club_id: int) -> list[Player]:
             )
             .order_by(Player.id)
             .limit(3)
-        )
+        ).all()
     )
 
 
