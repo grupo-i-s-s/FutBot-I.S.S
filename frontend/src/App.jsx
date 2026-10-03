@@ -5,7 +5,6 @@ import FriendlyMatches from './features/friendly-matches/Matches.jsx'
 import MyClubPage from './features/my-club/MyClubPage.jsx'
 import NotFoundPage from './features/not-found/NotFoundPage.jsx'
 import CreatePlayerPage from './features/create-players/CreatePlayersPage.jsx'
-import CreatePlayerPage from './features/create-players/CreatePlayersPage.jsx'
 import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx'
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx'
 import { LeagueLobby } from './features/lobby-league/CreateLeagueLobby.jsx'
@@ -22,8 +21,6 @@ export default function App() {
             <Route path="/crear-jugador" element={<CreatePlayerPage />} />
             <Route path = "partidos-disponibles" element={<FriendlyMatches/>}/>
             <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
-            <Route path = "partidos-disponibles" element={<FriendlyMatches/>}/>
-            <Route path="/crear-jugador" element={<CreatePlayerPage />} />
             <Route path="/crear-liga" element={<CrearLiga />} />
             <Route path="/crear-liga-privada" element={<CreatePrivateLeague />} />
             <Route path="/leagues/:id/lobby" element={<LeagueLobby />}/>
