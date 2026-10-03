@@ -42,6 +42,8 @@ error_status = {
     "MATCH_FULL": 409,
     "MATCH_STARTED": 409,
     "MATCH_INVALID_DATE": 400,
+    "MATCH_NO_VISITOR": 409,
+    "MATCH_INVALID_LINEUP": 409,
 }
 
 
