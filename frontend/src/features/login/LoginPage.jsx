@@ -1,17 +1,27 @@
 import { useState } from 'react'
 import { login } from './api'
 import './LoginPage.css'
+import { Link, useNavigate } from 'react-router'
 
 export default function LoginPage(){
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
-
+    const [error, setError] = useState('')
+    const navigate = useNavigate()
+    
     async function handleSubmit(event) {
-        event.preventDefault()
-        const response = await login(email, password)
-        console.log(response)
-        console.log(response.status)
+    event.preventDefault()
+    setError('')
+
+    try {
+        await login(email, password)
+        navigate('/crear-liga')
+    } catch (err) {
+        const fieldErrors = Object.values(err.fields ?? {}).join(' ')
+
+        setError(fieldErrors || err.message || 'No se pudo iniciar sesión.')
     }
+}
 
     return(
         <main className="login-page">
@@ -52,9 +62,9 @@ export default function LoginPage(){
                     <button type="submit" className="login-button">
                         Iniciar Sesión
                     </button>
+                    {error && <p role="alert">{error}</p>}
+                    <Link to="/registro" className="Registro">Registrarme</Link>
                 </form>
-                <p>Email escrito: {email}</p>
-                <p>Password escrito: {password}</p>
             </section>
             
         </main>

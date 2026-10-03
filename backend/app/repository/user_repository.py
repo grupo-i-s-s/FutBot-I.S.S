@@ -26,10 +26,8 @@ def get_club(db: Session, user_id: int) -> Club | None:
     return db.scalar(select(Club).where(Club.user_id == user_id))
 
 
-def create_user(db: Session, *, name: str, username: str, email: str, password_hash: str) -> User:
+def create_user(db: Session, *, email: str, password_hash: str) -> User:
     user = User(
-        name=name,
-        username=username,
         email=email,
         password_hash=password_hash,
     )

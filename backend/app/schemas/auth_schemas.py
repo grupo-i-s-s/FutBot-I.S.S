@@ -18,13 +18,6 @@ class InputSchema(BaseModel):
 
 
 class RegisterRequest(InputSchema):
-    name: Name
-
-    username: str = Field(
-        min_length=3,
-        max_length=30,
-        pattern=r"^[a-z0-9_]+$",
-    )
 
     email: EmailStr = Field(max_length=254)
 
@@ -36,7 +29,7 @@ class RegisterRequest(InputSchema):
 
     avatar: str = Field(min_length=1, max_length=100)
 
-    @field_validator("username", mode="before")
+    @field_validator("club_name", mode="before")
     @classmethod
     def normalize_username(cls, value):
         if isinstance(value, str):
@@ -83,8 +76,6 @@ class ChangePasswordRequest(InputSchema):
 
 class UserResponse(BaseModel):
     id: int
-    name: str
-    username: str
     email: str
 
     club_id: int = Field(
