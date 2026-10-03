@@ -44,22 +44,21 @@ def session_error() -> AppError:
 
 def duplicate_error(field: str) -> AppError:
     if field == "email":
-        message = "El email ya está registrado."
+        messages = {"email": "El email ya está registrado.", "clubName": "Ya existe un club con ese nombre."}
+        message = messages[field]
     else:
         message = "El nombre de usuario ya está registrado."
 
     return AppError(
         "ACCOUNT_DUPLICATE",
         message,
-        {field: message}
+        {field: message},
     )
 
 
 def public_user(user: User, club: Club) -> UserResponse:
     return UserResponse(
         id=user.id,
-        name=user.name,
-        username=user.username,
         email=user.email,
         club_id=club.id
     )
@@ -72,15 +71,8 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
         if existing_email:
             raise duplicate_error("email")
 
-        existing_username = user_repository.get_by_username(db, data.username)
-
-        if existing_username:
-            raise duplicate_error("username")
-
         user = user_repository.create_user(
             db,
-            name=data.name,
-            username=data.username,
             email=str(data.email),
             password_hash=hash_password(data.password)
         )
@@ -112,8 +104,8 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
         if constraint == "uq_users_email":
             raise duplicate_error("email") from exc
 
-        if constraint == "uq_users_username":
-            raise duplicate_error("username") from exc
+        if constraint == "clubs_name_key":
+            raise duplicate_error("clubName") from exc
 
         raise
 
