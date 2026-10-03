@@ -6,20 +6,27 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.errors import AppError
+from app.models.auth_model import Club
+from app.repository import user_repository
 from app.services.auth_service import (
     Identity,
     authenticate
 )
+from starlette.requests import HTTPConnection
+
 
 Database = Annotated[Session, Depends(get_db)]
 
 
-def require_browser_write(request: Request) -> None:
-    if request.method in {"GET", "HEAD", "OPTIONS"}:
+def require_browser_write(connection: HTTPConnection) -> None:
+    if connection.scope["type"]=="websocket":
+        return  
+
+    if connection.scope["method"] in {"GET", "HEAD", "OPTIONS"}:
         return
 
-    origin = request.headers.get("origin")
-    marker = request.headers.get("x-futbot-request")
+    origin = connection.headers.get("origin")
+    marker = connection.headers.get("x-futbot-request")
 
     if origin not in settings.allowed_origins or marker != "1":
         raise AppError(
@@ -34,3 +41,17 @@ def get_current_identity(request: Request, db: Database) -> Identity:
 
 
 CurrentIdentity = Annotated[Identity, Depends(get_current_identity)]
+
+
+def get_current_club(identity: CurrentIdentity, db: Database) -> Club:
+    club = user_repository.get_club(db, identity.user_id)
+
+    if club is None:
+        raise AppError(
+            "ACCOUNT_INCOMPLETE",
+            "La cuenta no tiene un club asociado.")
+
+    return club
+
+
+CurrentClub = Annotated[Club, Depends(get_current_club)]

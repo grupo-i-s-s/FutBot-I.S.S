@@ -12,3 +12,10 @@ export function listPlayers(options) {
 export function listBehaviours(options) {
     return request('/behaviours', options)
 }
+
+export function assignPlayerBehaviour(playerId, behaviourId) {
+    return request(`/players/${playerId}/behaviour`, {
+        method: 'PATCH',
+        body: { behaviourId },
+    })
+}
