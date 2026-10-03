@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from math import isfinite
 
 import pymunk
@@ -18,6 +18,7 @@ ball_pos = (50, 30)
 SCORER_BY_SIDE = {"LEFT": "LOCAL", "RIGHT": "VISITANTE"}
 KICK_RANGE = 2.5
 KICK_COOLDOWN_SECONDS = 0.5
+DEFAULT_DURATION_MS = 300_000
 logger = logging.getLogger(__name__)
 
 
@@ -40,7 +41,14 @@ class Team:
 
 
 class Match:
-    def __init__(self, local_team: Team, visitor_team: Team):
+    def __init__(
+        self, local_team: Team, visitor_team: Team,
+        *, match_id: int | None = None, duration_ms: int = DEFAULT_DURATION_MS,
+    ):
+        if type(duration_ms) is not int or duration_ms <= 0:
+            raise ValueError("La duración debe ser un entero positivo en milisegundos.")
+        self.match_id = match_id
+        self.duration_ms = duration_ms
         if len(local_team.players) != 3 or len(visitor_team.players) != 3:
             raise ValueError("Cada equipo necesita exactamente tres titulares.")
 
@@ -79,6 +87,80 @@ class Match:
 
         self.scorer = {"LOCAL": 0, "VISITANTE": 0}
         self.time = 0.0
+
+    @property
+    def finished(self) -> bool:
+        return self.time >= self.duration_ms / 1000
+
+    @property
+    def status(self) -> str:
+        return "FINISHED" if self.finished else "RUNNING"
+
+    def snapshot(self, sequence: int, sent_at: str) -> dict:
+        """Estado público completo; no contiene cuerpos ni objetos de Pymunk."""
+        return {
+            "schemaVersion": 1, "type": "match.snapshot", "matchId": self.match_id,
+            "sequence": sequence, "sentAt": sent_at,
+            "state": {
+                "status": self.status,
+                "clockMs": min(round(self.time * 1000), self.duration_ms),
+                "durationMs": self.duration_ms,
+                "field": {"width": width, "height": height, "goalWidth": goal_width},
+                "teams": [
+                    {"id": team.club_id, "name": team.name, "side": side,
+                     "score": self.scorer[score_key], "color": color}
+                    for team, side, score_key, color in (
+                        (self.local_team, "LEFT", "LOCAL", "#2563eb"),
+                        (self.visitor_team, "RIGHT", "VISITANTE", "#dc2626"),
+                    )
+                ],
+                "players": [{**player, "radius": 1.4} for player in self.get_players_state()],
+                "ball": {"x": float(self.world.ball.position.x),
+                         "y": float(self.world.ball.position.y), "radius": 0.5},
+            },
+        }
+
+    def checkpoint(self) -> dict:
+        """Estado privado para retomar desde el último snapshot confirmado."""
+        return {
+            "version": 1, "match_id": self.match_id, "duration_ms": self.duration_ms,
+            "local_team": asdict(self.local_team), "visitor_team": asdict(self.visitor_team),
+            "time": self.time, "scorer": dict(self.scorer),
+            "next_kick_at": {str(key): value for key, value in self.next_kick_at.items()},
+            "bodies": [
+                {"position": list(body.position), "velocity": list(body.velocity),
+                 "angle": body.angle, "angular_velocity": body.angular_velocity}
+                for body in (*self.world.players, self.world.ball)
+            ],
+        }
+
+    @classmethod
+    def from_checkpoint(cls, data: dict) -> "Match":
+        if data["version"] != 1:
+            raise ValueError("Versión de checkpoint incompatible.")
+
+        def team_from_data(team: dict) -> Team:
+            return Team(team["club_id"], team["name"], tuple(
+                PlayerProfile(**{**player, "behaviour_mode": BehaviourMode(player["behaviour_mode"])})
+                for player in team["players"]
+            ))
+
+        match = cls(
+            team_from_data(data["local_team"]), team_from_data(data["visitor_team"]),
+            match_id=data["match_id"], duration_ms=data["duration_ms"],
+        )
+        match.time = data["time"]
+        match.scorer = dict(data["scorer"])
+        match.next_kick_at = {int(key): value for key, value in data["next_kick_at"].items()}
+        for body, state in zip((*match.world.players, match.world.ball), data["bodies"], strict=True):
+            body.position = state["position"]
+            body.velocity = state["velocity"]
+            body.angle = state["angle"]
+            body.angular_velocity = state["angular_velocity"]
+        match.world.space.reindex_shapes_for_body(match.world.ball)
+        for body in match.world.players:
+            match.world.space.reindex_shapes_for_body(body)
+        return match
 
     def get_players_state(self) -> list[dict]:
         return [
@@ -153,6 +235,10 @@ class Match:
     def run_match(self, dt: float) -> None:
         if not isfinite(dt) or dt <= 0:
             raise ValueError("dt debe ser positivo y finito")
+        if self.finished:
+            return
+        duration = self.duration_ms / 1000
+        dt = min(dt, duration - self.time)
         shots = []
         for player, profile in (
             zip(self.world.players, self.player_profiles, strict=True)
@@ -174,9 +260,12 @@ class Match:
                 self.next_kick_at[profile.id] = self.time + KICK_COOLDOWN_SECONDS
 
         scoring_side = step(self.world, dt)
-        self.time += dt
+        self.time = min(duration, self.time + dt)
+        # Evita un paso adicional por error de acumulación de floats.
+        if duration - self.time < 1e-9:
+            self.time = duration
 
         if scoring_side is not None:
             self.scorer[SCORER_BY_SIDE[scoring_side]] += 1
             self.restart()
-            print("Goles", self.scorer)
+            logger.info("Partido %s: goles %s", self.match_id, self.scorer)
