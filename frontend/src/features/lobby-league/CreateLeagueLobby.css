@@ -1,0 +1,129 @@
+.lobby-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #1f2937;
+}
+
+.lobby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.lobby-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.status {
+  background-color: #3b82f6;
+  color: white;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.lobby-card {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.lobby-card h2, .lobby-card h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #374151;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.info-item span {
+  display: block;
+  font-size: 17;
+  color: #6b7280;
+}
+
+.info-item strong {
+  font-size: 15;
+  color: #111827;
+}
+
+.player-list {
+  font-size: 15;
+}
+
+.player-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.player-item:last-child {
+  border-bottom: none;
+}
+
+.player-name {
+  font-weight: 500;
+}
+
+.host-badge {
+  background-color: #f59e0b;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.empty-players {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.lobby-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.leave-league {
+    max-width: 155px;
+    background-color: #e13c4a;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-copy:hover {
+  background-color: #059669;
+}
+
+.lobby-status {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.2rem;
+  color: #4b5563;
+}
+
+.lobby-status.error {
+  color: #ef4444;
+}
