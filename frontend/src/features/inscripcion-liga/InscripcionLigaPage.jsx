@@ -62,12 +62,10 @@ export default function InscripcionLigaPage({ league }) {
 
             console.log(response)
         } catch (err) {
-            if (err?.status === 403) {
-                setError('El código de acceso es inválido.')
-            } else if (err?.status === 409) {
+            if (err?.status === 409) {
                 setError(
                     err.message ||
-                    'No hay cupos disponibles o el club ya está inscripto.'
+                    'No hay cupos disponibles, el código es incorrecto o el club ya está inscripto.'
                 )
             } else if (err?.status === 400) {
                 setError(

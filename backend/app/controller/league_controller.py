@@ -38,21 +38,25 @@ def join_league(
         line_up=body.line_up,
         access_code=body.access_code,
     )
-def leave_league(id: int, club: CurrentClub, db: Database):
-    return league_service.leave_league(db=db, league_id=id, club_id=club.id)
+
 
 @league_router.post(
-    "/public", response_model=CreateLeagueResponse, status_code=status.HTTP_201_CREATED
-
+    "/{id}/leave",
+    response_model=LeaveLeagueResponse,
+    status_code=status.HTTP_200_OK,
 )
-def create_league(db: Database, data:CreateLeagueRequest):
-    return league_service.create_league(db=db, data=data)
+def leave_league(id: int, club: CurrentClub, db: Database):
+    return league_service.leave_league(
+        db=db,
+        league_id=id,
+        club_id=club.id,
+    )
+
 
 @league_router.post(
-    "/{id}/join",
+    "/public",
+    response_model=CreateLeagueResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def join_league(id: int, body: LeagueJoinRequest, club: CurrentClub, db: Database):
-    return league_service.join_league(
-        db=db, league_id=id, club_id=body.club_id, line_up=body.line_up
-    )
+def create_league(db: Database, data: CreateLeagueRequest):
+    return league_service.create_league(db=db, data=data)

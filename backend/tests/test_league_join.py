@@ -225,3 +225,63 @@ def test_join_league_rejects_when_full(db_session):
         ).count()
 
         assert registration_count == 2
+
+
+def test_join_league_keeps_registered_line_up(db_session):
+    with TestClient(app) as client:
+        club = register_and_get_club(
+            client,
+            db_session,
+            "lineup_snapshot",
+        )
+
+        login_response = client.post(
+            "/auth/login",
+            json={
+                "email": "test_squad_lineup_snapshot@example.com",
+                "password": "password-segura",
+            },
+            headers=BROWSER_HEADERS,
+        )
+
+        assert login_response.status_code == 200
+
+        league = League(
+            name="Liga Test Line Up Snapshot",
+            min_teams=2,
+            max_teams=4,
+            start_datetime=datetime.now(timezone.utc) + timedelta(days=1),
+            round_interval="daily",
+            status="open",
+        )
+
+        db_session.add(league)
+        db_session.flush()
+
+        original_line_up = [1, 2, 3, 4, 5, 6]
+
+        response = client.post(
+            f"/leagues/{league.id}/join",
+            json={
+                "clubId": club.id,
+                "lineUp": original_line_up,
+            },
+            headers=BROWSER_HEADERS,
+        )
+
+        assert response.status_code == 201
+
+        registration = db_session.scalar(
+            select(LeagueRegistration).where(
+                LeagueRegistration.league_id == league.id,
+                LeagueRegistration.club_id == club.id,
+            )
+        )
+
+        assert registration is not None
+
+        original_line_up.append(99)
+
+        db_session.refresh(registration)
+
+        assert registration.line_up == [1, 2, 3, 4, 5, 6]
