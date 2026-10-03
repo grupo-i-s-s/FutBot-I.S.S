@@ -2,8 +2,6 @@ import pymunk
 from primitives.physics import Field, create_world, step
 from primitives.kick import kick
 from primitives.run_to import run_to
-from app.repository.user_repository import get_club
-from app.repository.player_repository import get_by_id
 from app.models.player_model import Player
 
 width = 100.00
@@ -22,6 +20,10 @@ class Team:
 
 class Partido:
     def __init__(self, local_team, visitor_team):
+        if len(local_team.players) < 3 or len(visitor_team.players) < 3:
+            raise ValueError("Cada equipo necesita al menos tres jugadores activos.")
+
+        self.player_profiles = local_team.players[:3] + visitor_team.players[:3]
         self.cord = Field(width, height, goal_width)
         self.init_players_pos = line_up
         self.init_ball_pos = ball_pos
@@ -37,31 +39,31 @@ class Partido:
         self.scorer = {"LOCAL": 0, "VISITANTE": 0}
         self.time = 0.00
 
-    def restart(
-        self,
-    ):  # Falta agregar logica de restaurar player pos inicial, a lo mejor es mejor el caos
+    def restart(self):
         self.world.ball.position = self.init_ball_pos
         self.world.ball.velocity = (0, 0)
+        for body, position in zip(self.world.players, self.init_players_pos):
+            body.position = position
+            body.velocity = (0, 0)
 
-    def run_behaviour(self, player: pymunk.Body, dt):
-        run_to(player, self.world.ball.position, 50, dt)
-        kick(player, self.world.ball, (100.0, 30), 30, 15)
+    def run_behaviour(self, player: pymunk.Body, profile: Player, target_goal, dt):
+        run_to(player, self.world.ball.position, profile.speed, dt)
+        kick(player, self.world.ball, target_goal, profile.power / 2, 15)
 
     def run_match(self, dt: float):
-        ball_pos = self.world.ball.position
-
-        for player in (
-            self.world.players[:3] + self.world.players[-3:]
-        ):  # Me recorre los primeros 3 playes y despues los ultimos 3. Asegurar cargar primero un equipo y despues otro
-            self.run_behaviour(player, dt)
+        for index, (player, profile) in enumerate(
+            zip(self.world.players, self.player_profiles)
+        ):
+            target_goal = (width, height / 2) if index < 3 else (0, height / 2)
+            self.run_behaviour(player, profile, target_goal, dt)
 
         next_step = step(self.world, dt)
         self.time += dt
 
         if next_step:
             if next_step == "RIGHT":
-                self.scorer["LOCAL"] += 1
-            if next_step == "LEFT":
                 self.scorer["VISITANTE"] += 1
+            if next_step == "LEFT":
+                self.scorer["LOCAL"] += 1
             self.restart()
             print("Goles", self.scorer)
