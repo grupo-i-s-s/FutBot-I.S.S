@@ -43,7 +43,7 @@ def create_league(
 
 
 def get_clubs_by_ids(db: Session, club_ids: list[int]) -> list[Club]:
-    if not clubids:
+    if not club_ids:
         return []
 
     return db.query(Club).filter(Club.id.in_(club_ids)).all()
