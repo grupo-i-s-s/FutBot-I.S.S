@@ -26,6 +26,15 @@ def post_player(json: dict):
         app.dependency_overrides.clear()
 
 
+def patch_player_behaviour(json: dict):
+    app.dependency_overrides[get_current_club] = mock_get_current_club
+    try:
+        with TestClient(app) as client:
+            return client.patch("/players/1/behaviour", json=json, headers=BROWSER_HEADERS)
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_create_player_endpoint_success(monkeypatch):
     created_player = Player(
         id=1,
@@ -123,3 +132,29 @@ def test_create_player_requires_session():
         )
 
     assert response.status_code == 401
+
+
+def test_assign_behaviour_endpoint_returns_updated_player(monkeypatch):
+    updated_player = Player(
+        id=1, club_id=1, behavior_id=7, name="Dibu Martinez",
+        power=60, agility=60, control=60, speed=60, strength=60,
+    )
+    calls = []
+
+    def fake_assign(db, club_id, player_id, behaviour_id):
+        calls.append((club_id, player_id, behaviour_id))
+        return updated_player
+
+    monkeypatch.setattr(player_service, "assign_behaviour", fake_assign)
+    response = patch_player_behaviour({"behaviourId": 7})
+
+    assert response.status_code == 200
+    assert response.json()["behaviorId"] == 7
+    assert calls == [(1, 1, 7)]
+
+
+def test_assign_behaviour_rejects_invalid_input():
+    response = patch_player_behaviour({"behaviourId": 0})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"

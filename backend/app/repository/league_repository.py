@@ -11,6 +11,7 @@ def get_league_by_id(db: Session, league_id: int) -> Optional[League]:
         db.query(League)
         .options(joinedload(League.registrations))
         .filter(League.id == league_id)
+        .with_for_update()
         .first()
     )
 
@@ -48,3 +49,19 @@ def get_clubs_by_ids(db: Session, club_ids: list[int]) -> list[Club]:
         return []
 
     return db.query(Club).filter(Club.id.in_(club_ids)).all()
+
+def get_registration(
+    db: Session, league_id: int, club_id: int
+) -> Optional[LeagueRegistration]:
+    return (
+        db.query(LeagueRegistration)
+        .filter(
+            LeagueRegistration.league_id == league_id,
+            LeagueRegistration.club_id == club_id,
+        )
+        .first()
+    )
+
+
+def delete_registration(db: Session, registration: LeagueRegistration) -> None:
+    db.delete(registration)

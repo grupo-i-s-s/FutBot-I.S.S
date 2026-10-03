@@ -7,7 +7,7 @@ function withBehaviourName(players, behaviours) {
     return players.map((player) => ({
         ...player,
         behaviourName:
-            player.behaviour?.name ?? behaviourNames.get(player.behaviourId) ?? 'Sin comportamiento',
+            player.behaviour?.name ?? behaviourNames.get(player.behaviorId) ?? 'Sin comportamiento',
     }))
 }
 
@@ -16,6 +16,7 @@ export function useMyClub() {
     const [error, setError] = useState(null)
     const [club, setClub] = useState(null)
     const [players, setPlayers] = useState([])
+    const [behaviours, setBehaviours] = useState([])
     const [attempt, setAttempt] = useState(0)
 
     useEffect(() => {
@@ -32,6 +33,7 @@ export function useMyClub() {
                     listBehaviours(options),
                 ])
                 setClub(clubData)
+                setBehaviours(behaviourData?.items ?? [])
                 setPlayers(withBehaviourName(playerData?.items ?? [], behaviourData?.items ?? []))
                 setStatus('ready')
             } catch (loadError) {
@@ -48,5 +50,12 @@ export function useMyClub() {
 
     const reload = useCallback(() => setAttempt((value) => value + 1), [])
 
-    return { status, error, club, players, reload, setClub }
+    function updatePlayer(updatedPlayer) {
+        const [namedPlayer] = withBehaviourName([updatedPlayer], behaviours)
+        setPlayers((current) => current.map((player) =>
+            player.id === namedPlayer.id ? namedPlayer : player
+        ))
+    }
+
+    return { status, error, club, players, behaviours, reload, setClub, updatePlayer }
 }

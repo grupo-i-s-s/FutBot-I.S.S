@@ -84,9 +84,9 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
             avatar=data.avatar
         )
 
-        behaviour = behaviour_repository.create_default_behaviour(db, club.id)
+        behaviours = behaviour_repository.create_default_behaviours(db, club.id)
 
-        players = player_repository.create_default_players(db, club.id, behaviour.id)
+        player_repository.create_default_players(db, club.id, behaviours)
 
 
         result = public_user(user, club)
