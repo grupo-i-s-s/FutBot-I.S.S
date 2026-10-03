@@ -12,9 +12,6 @@ export default function RegisterPage() {
     const[repeatPassword, setRepeatPassword] = useState('')
     const[avatar, setAvatar]  = useState('')
     const[clubName, setClubName] = useState('')
-    const[userName, setUserName] = useState('')
-    const [name, setName] = useState();
-
     
     async function handleSubmit(event) {
         event.preventDefault()
@@ -30,26 +27,6 @@ export default function RegisterPage() {
                 <section className="user_register-card">
                     <h1 className="register-title">Registro Usuario</h1>
                     <form onSubmit={handleSubmit}> 
-                        <div className="formulary-box">
-                            <label htmlFor="name">Nombre</label>
-                            <input  
-                                    id="user-name" 
-                                    type="text" 
-                                    placeholder="Tu nombre" 
-                                    value = {name}
-                                    onChange = {(event) => setName(event.target.value)}>
-                            </input>
-                        </div>
-                        <div className="formulary-box">
-                            <label htmlFor="user-name">Nombre de Usuario</label>
-                            <input
-                                id="user-name"
-                                type="text"
-                                placeholder="Nombre de usuario"
-                                value = {userName}
-                                onChange = {(event) => setUserName(event.target.value)}>
-                            </input>
-                        </div>
                         <div className="formulary-box">
                             <label htmlFor="club-name">Nombre del Club</label>
                                    <input  
