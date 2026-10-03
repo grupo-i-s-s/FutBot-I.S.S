@@ -44,6 +44,9 @@ def probar_simulacion(match_id: int) -> None:
 
         # B. Lógica (El Cerebro)
         mi_partido.run_match(dt)
+        if mi_partido.finished:
+            print("Partido finalizado:", mi_partido.scorer)
+            corriendo = False
 
         # C. Renderizado Visual
         pantalla.fill((34, 139, 34))
