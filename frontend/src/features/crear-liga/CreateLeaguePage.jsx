@@ -26,7 +26,9 @@ export default function CrearLiga(){
         )
         setSuccess(response.message)
     } catch (err) {
-        setError(err.message || 'No se pudo crear la liga pública.')
+        const fieldErrors = Object.values(err.fields ?? {}).join(' ')
+
+        setError(fieldErrors || err.message || 'No se pudo crear la liga pública.')
     } finally {
         setIsSubmitting(false)
     }
@@ -121,7 +123,8 @@ export default function CrearLiga(){
                     <button type="submit" className="login-button" disabled={isSubmitting}>
                         {isSubmitting ? "Creando..." : "Crear liga"}
                     </button>
-                    
+                    {error && <p role="alert">{error}</p>}
+                    {success && <p role="status">{success}</p>}
 
                 </form>
             </section>
