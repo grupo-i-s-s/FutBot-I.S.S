@@ -33,6 +33,9 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
         raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
 
     match.visitor_id = club_id
+    # El snapshot de espera cambia al incorporarse el rival. Los espectadores
+    # descartan secuencias repetidas, por lo que esta transición también cuenta.
+    match.sequence += 1
     db.commit()
     return {"message": "Te uniste al partido.", "match_id": match.match_id}
 

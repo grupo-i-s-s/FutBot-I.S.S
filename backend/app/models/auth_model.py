@@ -3,6 +3,7 @@ from sqlalchemy import (DateTime, ForeignKey, String, UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.player_model import Player
 
 
 class User(Base):
@@ -32,7 +33,7 @@ class Club(Base):
         default=False,
         server_default="false",
     )
-    players: Mapped[list["Player"]] = relationship(back_populates="club")
+    players: Mapped[list[Player]] = relationship(back_populates="club")
 
 
 class AuthSession(Base):
