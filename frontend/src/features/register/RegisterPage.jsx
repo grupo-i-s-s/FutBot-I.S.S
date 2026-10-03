@@ -12,13 +12,24 @@ export default function RegisterPage() {
     const[repeatPassword, setRepeatPassword] = useState('')
     const[avatar, setAvatar]  = useState('')
     const[clubName, setClubName] = useState('')
+    const [error, setError] = useState('')
+    const [success, setSuccess] = useState('')
     
     async function handleSubmit(event) {
-        event.preventDefault()
-        const response = await register(name, userName, email, clubName, password, repeatPassword, avatar)
-        console.log(response)
-        console.log(response.status)
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+
+    try {
+        await register(email, clubName, password, repeatPassword, avatar)
+        setSuccess('Cuenta registrada. Ya podés iniciar sesión.')
+    } catch (err) {
+        const fields = Object.values(err.fields || {})
+        setError(
+            fields.join(' ') || err.message || 'No se pudo registrar la cuenta.'
+        )
     }
+}
 
 
     return (
@@ -84,7 +95,8 @@ export default function RegisterPage() {
                         <button type="submit" className="register-button">
                             Registrar Club
                         </button>
-
+                        {error && <p role="alert">{error}</p>}
+                        {success && <p role="status">{success}</p>}
                         <Link to="/login" className="Registro">Iniciar Sesión</Link>
                         
                     </form>
