@@ -158,3 +158,145 @@ def test_assign_behaviour_rejects_invalid_input():
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+def get_players():
+    app.dependency_overrides[get_current_club] = mock_get_current_club
+    try:
+        with TestClient(app) as client:
+            return client.get("/players", headers=BROWSER_HEADERS)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_players_returns_players_from_service(monkeypatch):
+    players = [
+        Player(
+            id=1,
+            club_id=1,
+            behavior_id=1,
+            name="Dibu Martinez",
+            power=60,
+            agility=60,
+            control=60,
+            speed=60,
+            strength=60,
+        )
+    ]
+
+    monkeypatch.setattr(
+        player_service,
+        "get_players",
+        lambda db, club_id: players,
+    )
+
+    response = get_players()
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "items" in data
+    assert len(data["items"]) == 1
+    assert data["items"][0]["id"] == 1
+    assert data["items"][0]["clubId"] == 1
+    assert data["items"][0]["behaviorId"] == 1
+    assert data["items"][0]["name"] == "Dibu Martinez"
+
+    for attribute in ("power", "agility", "control", "speed", "strength"):
+        assert data["items"][0][attribute] == 60
+
+
+def test_get_players_returns_empty_list_when_club_has_no_players(monkeypatch):
+    monkeypatch.setattr(
+        player_service,
+        "get_players",
+        lambda db, club_id: [],
+    )
+
+    response = get_players()
+
+    assert response.status_code == 200
+    assert response.json() == {"items": []}
+
+
+def test_get_players_requires_session():
+    with TestClient(app) as client:
+        response = client.get(
+            "/players",
+            headers=BROWSER_HEADERS,
+        )
+
+    assert response.status_code == 401
+
+def test_get_players_only_returns_players_from_current_club(monkeypatch):
+    club_players = [
+        Player(
+            id=1,
+            club_id=1,
+            behavior_id=1,
+            name="Jugador Club 1",
+            power=60,
+            agility=60,
+            control=60,
+            speed=60,
+            strength=60,
+        )
+    ]
+
+    def fake_get_players(db, club_id):
+        assert club_id == 1
+        return club_players
+
+    monkeypatch.setattr(player_service, "get_players", fake_get_players)
+
+    response = get_players()
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["clubId"] == 1
+
+def test_get_players_includes_created_player(monkeypatch):
+    created_player = Player(
+        id=2,
+        club_id=1,
+        behavior_id=1,
+        name="Jugador Nuevo",
+        power=60,
+        agility=60,
+        control=60,
+        speed=60,
+        strength=60,
+    )
+
+    monkeypatch.setattr(
+        player_service,
+        "create_player",
+        lambda db, club_id, data: created_player,
+    )
+    monkeypatch.setattr(
+        player_service,
+        "get_players",
+        lambda db, club_id: [created_player],
+    )
+
+    create_response = post_player({
+        "name": "Jugador Nuevo",
+        "power": 60,
+        "agility": 60,
+        "control": 60,
+        "speed": 60,
+        "strength": 60,
+    })
+
+    assert create_response.status_code == 201
+
+    list_response = get_players()
+
+    assert list_response.status_code == 200
+
+    items = list_response.json()["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == 2
+    assert items[0]["clubId"] == 1
+    assert items[0]["name"] == "Jugador Nuevo"
