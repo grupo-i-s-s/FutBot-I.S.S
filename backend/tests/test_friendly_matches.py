@@ -158,6 +158,7 @@ def test_join_sets_visitor_once(monkeypatch):
     db = Mock()
     match = SimpleNamespace(
         match_id=3, creator_id=1, visitor_id=None,
+        sequence=0,
         status="WAITING",
         init_date=datetime.now(timezone.utc) + timedelta(hours=1),
     )
@@ -166,6 +167,7 @@ def test_join_sets_visitor_once(monkeypatch):
     result = matches_service.join_match(db, 3, 7)
 
     assert match.visitor_id == 7
+    assert match.sequence == 1
     assert result["match_id"] == 3
     db.commit.assert_called_once()
 
