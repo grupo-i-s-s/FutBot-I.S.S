@@ -38,6 +38,7 @@ def create_league(
         password_hash=password_hash,
     )
     db.add(league)
+    league.registrations.append(LeagueRegistration(club_id=creator_club_id))
     db.flush()
     return league
 
