@@ -11,6 +11,7 @@ import TeamSettings from './components/TeamSettings'
 import { useMyClub } from './hooks/useMyClub'
 import { updateMyClub } from './api'
 
+
 const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12 xl:w-[calc(100%_-_560px)]'
 
 export default function MyClubPage() {

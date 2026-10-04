@@ -1,7 +1,7 @@
 from typing import List
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.models.behaviour_model import Behavior
 from app.models.player_model import Player
@@ -58,3 +58,10 @@ def get_players_by_club(db: Session, club_id: int) -> List[Player]:
             )
         ).all()
     )
+
+
+def get_by_id(db: Session, id: int) -> Player:
+    player = db.get(Player, id)
+
+    return player
+

@@ -11,10 +11,6 @@ def get_by_email(db: Session, email: str, *, lock: bool = False) -> User | None:
     return db.scalar(query)
 
 
-def get_by_username(db: Session, username: str) -> User | None:
-    return db.scalar(select(User).where(User.username == username))
-
-
 def get_by_id(db: Session, user_id: int, *, lock: bool = False) -> User | None:
     query = select(User).where(User.id == user_id)
     if lock:
