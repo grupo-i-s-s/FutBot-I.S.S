@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint
@@ -69,22 +69,27 @@ class LeagueRegistration(Base):
         Integer,
         ForeignKey("leagues.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     club_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("clubs.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
 
     line_up: Mapped[dict | list] = mapped_column(
         JSON,
         nullable=False,
+        default=list,
+        server_default="[]",
     )
 
     league: Mapped["League"] = relationship(

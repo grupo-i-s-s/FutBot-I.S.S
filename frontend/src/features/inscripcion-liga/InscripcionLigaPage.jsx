@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,32 +15,51 @@ import {
     getLeagueLobby,
 } from './api.js'
 
-export default function InscripcionLigaPage({ league }) {
+export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
+    const { id } = useParams()
+    const [searchParams] = useSearchParams()
+    const leagueId = id || searchParams.get('leagueId')
+    const navigate = useNavigate()
+    const [league, setLeague] = useState(suppliedLeague || null)
     const [team, setTeam] = useState(null)
     const [loading, setLoading] = useState(true)
     const [joining, setJoining] = useState(false)
     const [error, setError] = useState('')
     const [accessCode, setAccessCode] = useState('')
-    const [joined, setJoined] = useState(false)
-    const [lobby, setLobby] = useState(null)
 
     useEffect(() => {
+        const controller = new AbortController()
         async function loadTeam() {
+            setLeague(suppliedLeague || null)
+            setTeam(null)
+            setAccessCode('')
+            if (!suppliedLeague && !leagueId) {
+                setLoading(false)
+                return
+            }
             try {
                 setLoading(true)
                 setError('')
-
-                const data = await getDefaultTeam()
-                setTeam(data)
+                const [data, selectedLeague] = await Promise.all([
+                    getDefaultTeam({ signal: controller.signal }),
+                    suppliedLeague || getLeagueLobby(leagueId, { signal: controller.signal }),
+                ])
+                if (!controller.signal.aborted) {
+                    setTeam(data)
+                    setLeague(selectedLeague)
+                }
             } catch (err) {
-                setError(err?.message ?? 'No se pudo cargar tu equipo.')
+                if (!controller.signal.aborted) {
+                    setError(err?.message ?? 'No se pudo cargar la liga o tu equipo.')
+                }
             } finally {
-                setLoading(false)
+                if (!controller.signal.aborted) setLoading(false)
             }
         }
 
         loadTeam()
-    }, [])
+        return () => controller.abort()
+    }, [leagueId, suppliedLeague])
 
     async function handleJoin() {
         if (joining) return
@@ -48,19 +68,13 @@ export default function InscripcionLigaPage({ league }) {
             setJoining(true)
             setError('')
 
-            const response = await joinLeague(
+            await joinLeague(
                 league.id,
                 team.clubId,
                 team.lineUp,
-                league.type === 'PRIVATE' ? accessCode : undefined
+                (league.isPrivate || league.type === 'PRIVATE') ? accessCode : undefined
             )
-
-            const lobbyData = await getLeagueLobby(league.id)
-
-            setLobby(lobbyData)
-            setJoined(true)
-
-            console.log(response)
+            navigate(`/leagues/${league.id}/lobby`)
         } catch (err) {
             if (err?.status === 409) {
                 setError(
@@ -83,19 +97,20 @@ export default function InscripcionLigaPage({ league }) {
         }
     }
 
+    if (loading) {
+        return <p role="status">Cargando la liga y tu equipo...</p>
+    }
+
     if (!league) {
         return (
             <Alert variant="destructive">
-                <AlertTitle>No se seleccionó ninguna liga</AlertTitle>
+                <AlertTitle>{error ? 'No se pudo cargar la liga' : 'No se seleccionó ninguna liga'}</AlertTitle>
                 <AlertDescription>
-                    Debés seleccionar una liga para poder inscribirte.
+                    {error || 'Debés seleccionar una liga para poder inscribirte.'}
+                    {' '}<Link to="/ligas-disponibles">Ver ligas disponibles</Link>
                 </AlertDescription>
             </Alert>
         )
-    }
-
-    if (loading) {
-        return <p>Cargando tu equipo...</p>
     }
 
     if (!team) {
@@ -110,7 +125,7 @@ export default function InscripcionLigaPage({ league }) {
         )
     }
 
-    if (joined) {
+    if (league.isRegistered) {
         return (
             <Card>
                 <CardHeader>
@@ -121,11 +136,7 @@ export default function InscripcionLigaPage({ league }) {
                 </CardHeader>
 
                 <CardContent>
-                    <h2 className="font-semibold">Lobby</h2>
-
-                    <pre className="mt-2 rounded-md bg-muted p-4 text-sm">
-                        {JSON.stringify(lobby, null, 2)}
-                    </pre>
+                    <Link to={`/leagues/${league.id}/lobby`}>Ver lobby</Link>
                 </CardContent>
             </Card>
         )
@@ -147,12 +158,12 @@ export default function InscripcionLigaPage({ league }) {
                         Equipo que se inscribirá
                     </h2>
 
-                    <pre className="mt-2 rounded-md bg-muted p-4 text-sm">
-                        {JSON.stringify(team, null, 2)}
-                    </pre>
+                    <ul className="mt-2 space-y-1">
+                        {team.players.map((player) => <li key={player.id}>{player.name}</li>)}
+                    </ul>
                 </div>
 
-                {league.type === 'PRIVATE' && (
+                {(league.isPrivate || league.type === 'PRIVATE') && (
                     <div className="space-y-2">
                         <label
                             htmlFor="access-code"
@@ -163,7 +174,7 @@ export default function InscripcionLigaPage({ league }) {
 
                         <input
                             id="access-code"
-                            type="text"
+                            type="password"
                             value={accessCode}
                             onChange={(event) =>
                                 setAccessCode(event.target.value)
@@ -188,7 +199,7 @@ export default function InscripcionLigaPage({ league }) {
 
                 <Button
                     onClick={handleJoin}
-                    disabled={joining}
+                    disabled={joining || team.lineUp.length === 0}
                 >
                     {joining
                         ? 'Inscribiendo...'
@@ -198,7 +209,3 @@ export default function InscripcionLigaPage({ league }) {
         </Card>
     )
 }
-
-
-
-

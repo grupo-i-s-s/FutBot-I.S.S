@@ -9,6 +9,7 @@ import LeagueList from './components/LeagueList'
 import PlayerList from './components/PlayerList'
 import { useMyClub } from './hooks/useMyClub'
 import { MOCK_JOINED_LEAGUES } from './mockData'
+import { Link } from 'react-router'
 
 const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12'
 
@@ -75,6 +76,12 @@ export default function MyClubPage() {
                 onBehaviourAssigned={updatePlayer}
             />
             <LeagueList leagues={MOCK_JOINED_LEAGUES} isMock />
+            <Link
+                to="/ligas-disponibles"
+                className="inline-block font-semibold text-brand underline"
+            >
+                Explorar ligas disponibles
+            </Link>
 
             <ClubSettingsDialog
                 club={club}

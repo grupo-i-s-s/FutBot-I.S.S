@@ -106,11 +106,7 @@ def fake_registration(monkeypatch):
     monkeypatch.setattr(repo, "get_by_email", lambda *a, **k: None)
     monkeypatch.setattr(
         repo, "create_user",
-        lambda *a, **k: User(
-    id=1,
-    email=k["email"],
-    password_hash="x",
-),
+        lambda *a, **k: User(id=1, email=k["email"], password_hash="x"),
     )
     monkeypatch.setattr(
         repo, "create_club",
@@ -188,8 +184,8 @@ def register_and_get_club(client: TestClient, session: Session, suffix: str) -> 
     assert response.status_code == 201, response.text
 
     return session.scalar(
-    select(Club).join(User, User.id == Club.user_id).where(User.email == payload["email"])
-)
+        select(Club).join(User, User.id == Club.user_id).where(User.email == payload["email"])
+    )
 
 
 def test_register_endpoint_persists_default_behaviours_and_players(db_session):

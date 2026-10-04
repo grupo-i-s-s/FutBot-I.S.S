@@ -1,7 +1,12 @@
 import { request } from '@/api/http.js'
 
-export function getDefaultTeam(options) {
-    return request('/team/default', options)
+export async function getDefaultTeam(options) {
+    const [identity, response] = await Promise.all([
+        request('/auth/me', options),
+        request('/players', options),
+    ])
+    const players = response.items.slice(0, 6)
+    return { clubId: identity.clubId, lineUp: players.map((player) => player.id), players }
 }
 
 export function joinLeague(leagueId, clubId, lineUp, accessCode) {

@@ -86,14 +86,16 @@ def test_creation_registers_creator_and_returns_lobby(league_client, monkeypatch
     assert "password_hash" not in body
 
 
-def test_creation_accepts_camel_case_fields_and_normalizes_naive_date(league_client):
+@pytest.mark.parametrize("visibility", ["public", "private"])
+def test_creation_accepts_camel_case_fields_and_normalizes_naive_date(league_client, visibility):
     client, db, _ = league_client
-    response = client.post("/leagues/public", json={
+    response = client.post(f"/leagues/{visibility}", json={
         "name": "Liga compatible",
         "minTeams": 3,
         "maxTeams": 8,
         "startDateTime": (datetime.now(timezone.utc) + timedelta(days=1)).replace(tzinfo=None).isoformat(),
         "roundInterval": "WEEKLY",
+        "password": "clave",
     })
     assert response.status_code == 201
     assert db.add.call_args.args[0].start_datetime.tzinfo == timezone.utc

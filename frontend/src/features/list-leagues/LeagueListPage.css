@@ -1,0 +1,67 @@
+.leagues-page .leagues-card {
+    max-width: 640px;
+}
+
+.leagues-page .leagues-results {
+    margin-top: 28px;
+}
+
+.leagues-page .leagues-list {
+    display: grid;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.leagues-page .league-item {
+    padding: 20px;
+    border: 1px solid #d5e1d5;
+    border-radius: 12px;
+    color: #19362b;
+    overflow-wrap: anywhere;
+}
+
+.leagues-page .league-name {
+    margin-bottom: 12px;
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.leagues-page .league-item p + p {
+    margin-top: 6px;
+}
+
+.leagues-page .league-membership {
+    color: #164b35;
+    font-weight: 600;
+}
+
+.leagues-page .leagues-message {
+    text-align: center;
+    color: #19362b;
+}
+
+.leagues-page .leagues-error {
+    text-align: center;
+    color: #a12622;
+}
+
+.leagues-page .leagues-link {
+    display: block;
+    margin-top: 24px;
+    text-align: center;
+    color: #164b35;
+    text-decoration: underline;
+}
+
+.leagues-page :is(input, button, a):focus-visible {
+    outline: 2px solid #164b35;
+    outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+    .leagues-page .leagues-card {
+        padding: 24px 16px;
+    }
+}

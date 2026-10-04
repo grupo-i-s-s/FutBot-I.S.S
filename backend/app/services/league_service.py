@@ -2,9 +2,13 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
 from app.repository import league_repository
-from app.schemas.league_schemas import CreateLeagueRequest, CreatePrivateLeagueRequest
+from app.schemas.league_schemas import (
+    CreateLeagueRequest,
+    CreatePrivateLeagueRequest,
+    LeagueRead,
+)
 from app.errors import AppError
-from app.security import hash_password
+from app.security import hash_password, verify_password
 from sqlalchemy.exc import IntegrityError
 
 
@@ -172,7 +176,7 @@ def leave_league(db: Session, league_id: int, club_id: int) -> dict:
     db.commit()
     return {
         "message": "Has salido de la liga exitosamente.",
-        "leagueId": league_id,
+        "league_id": league_id,
     }
 
 
@@ -191,8 +195,13 @@ def join_league(
             detail="La liga no existe.",
         )
 
-    if league.access_code is not None:
-        if access_code != league.access_code:
+    if league.is_private or league.access_code is not None:
+        valid_access = False
+        if access_code and league.password_hash:
+            valid_access = verify_password(access_code, league.password_hash)
+        elif access_code and league.access_code is not None:
+            valid_access = access_code == league.access_code
+        if not valid_access:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="El código de acceso es incorrecto.",
@@ -242,3 +251,32 @@ def join_league(
         "leagueId": league_id,
         "clubId": club_id,
     }
+
+
+def list_leagues(db: Session, club_id: int, name: str | None = None) -> list[LeagueRead]:
+    normalized_name = name.strip() if name is not None else None
+    leagues = league_repository.get_all_available_leagues(db, name=normalized_name)
+
+    items = []
+    for league in leagues:
+        registered_count = len(league.registrations)
+        is_member = any(
+            registration.club_id == club_id
+            for registration in league.registrations
+        )
+        items.append(
+            LeagueRead(
+                id=league.id,
+                name=league.name,
+                start_datetime=league.start_datetime,
+                round_interval=league.round_interval,
+                status=league.status,
+                min_teams=league.min_teams,
+                max_teams=league.max_teams,
+                registered_count=registered_count,
+                available_slots=league.max_teams - registered_count,
+                is_member=is_member,
+            )
+        )
+
+    return items
