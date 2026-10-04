@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router'
+import HomePage from './features/home-page/homePage.jsx'
 import LoginPage from './features/login/LoginPage.jsx'
 import RegisterPage from './features/register/RegisterPage.jsx'
 import FriendlyMatches from './features/friendly-matches/Matches.jsx'
@@ -10,11 +11,11 @@ import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.j
 import { LeagueLobby } from './features/lobby-league/CreateLeagueLobby.jsx'
 import ChangePasswordPage from './features/change-password/ChangePasswordPage.jsx'
 
-
 export default function App() {
     return (
         <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="/home" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/registro" element={<RegisterPage />} />
             <Route path="/mi-club" element={<MyClubPage />} />
