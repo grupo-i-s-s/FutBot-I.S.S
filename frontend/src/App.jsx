@@ -9,6 +9,7 @@ import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx'
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx'
 import { LeagueLobby } from './features/lobby-league/CreateLeagueLobby.jsx'
 import ChangePasswordPage from './features/change-password/ChangePasswordPage.jsx'
+import BehaviourDetailPage from './features/behaviours/BehaviourDetailPage.jsx'
 import BehaviourList from './features/behaviours/components/BehaviourList.jsx'
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="/crear-jugador" element={<CreatePlayerPage />} />
             <Route path="partidos-disponibles" element={<FriendlyMatches />} />
             <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
+            <Route path="/behaviours/:behaviourId" element={<BehaviourDetailPage />} />
             <Route path="/crear-liga" element={<CrearLiga />} />
             <Route path="/crear-liga-privada" element={<CreatePrivateLeague />} />
             <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
