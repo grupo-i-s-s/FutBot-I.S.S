@@ -2,10 +2,11 @@ from fastapi import APIRouter, status
 
 from app.dependencies import CurrentClub, Database
 from app.schemas.league_schemas import (
-    LeagueLobbyRead,
     CreateLeagueRequest,
-    CreatePrivateLeagueRequest,
     CreateLeagueResponse,
+    CreatePrivateLeagueRequest,
+    LeagueListResponse,
+    LeagueLobbyRead,
     LeaveLeagueResponse,
 )
 from app.services import league_service
@@ -24,7 +25,6 @@ def get_league_lobby(id: int, club: CurrentClub, db: Database):
     )
 
 
-
 @league_router.post(
     "/{id}/leave",
     response_model=LeaveLeagueResponse,
@@ -32,6 +32,7 @@ def get_league_lobby(id: int, club: CurrentClub, db: Database):
 )
 def leave_league(id: int, club: CurrentClub, db: Database):
     return league_service.leave_league(db=db, league_id=id, club_id=club.id)
+
 
 @league_router.post(
     "/public", response_model=CreateLeagueResponse, status_code=status.HTTP_201_CREATED
@@ -49,3 +50,9 @@ def create_private_league(
     return league_service.create_private_league(
         db=db, data=data, creator_club_id=club.id
     )
+
+
+@league_router.get("", response_model=LeagueListResponse)
+def get_leagues(club: CurrentClub, db: Database, name: str | None = None):
+    leagues = league_service.list_leagues(db=db, club_id=club.id, name=name)
+    return {"items": leagues}

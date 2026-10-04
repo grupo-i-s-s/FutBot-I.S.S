@@ -81,3 +81,22 @@ class CreateLeagueRequest(BaseModel):
 
 class CreatePrivateLeagueRequest(CreateLeagueRequest):
     password: str
+
+
+class LeagueRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    start_datetime: datetime = Field(serialization_alias="startDatetime")
+    round_interval: str = Field(serialization_alias="roundInterval")
+    status: str
+    min_teams: int = Field(serialization_alias="minTeams")
+    max_teams: int = Field(serialization_alias="maxTeams")
+    registered_count: int = Field(serialization_alias="registeredCount")
+    available_slots: int = Field(serialization_alias="availableSlots")
+    is_member: bool = Field(serialization_alias="isMember")
+
+
+class LeagueListResponse(BaseModel):
+    items: list[LeagueRead]
