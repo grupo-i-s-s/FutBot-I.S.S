@@ -121,3 +121,79 @@ def test_listing_requires_session(league_database_client):
     response = client.get("/leagues")
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "SESSION_INVALID"
+
+
+@pytest.mark.parametrize("kind", ["public", "private", "legacy"])
+def test_join_updates_listing_and_lobby_for_newly_created_league(league_database_client, kind):
+    client, db = league_database_client
+    prefix = uuid4().hex[:10]
+
+    def register_and_login(label):
+        credentials = {"email": f"{prefix}_{label}@example.com", "password": "password-segura"}
+        response = client.post("/auth/register", json={
+            **credentials, "passwordConfirmation": credentials["password"],
+            "clubName": f"{prefix} {label}", "avatar": "avatar-1",
+        })
+        assert response.status_code == 201, response.text
+        assert client.post("/auth/login", json=credentials).status_code == 200
+        return response.json()["clubId"]
+
+    creator_id = register_and_login("creator")
+    name = f"Merge Join {prefix}"
+    response = client.post(f"/leagues/{'private' if kind == 'private' else 'public'}", json={
+        "name": name, "minTeams": 3, "maxTeams": 3,
+        "startDatetime": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        "roundInterval": "DAILY", "password": "clave-de-liga",
+    })
+    assert response.status_code == 201, response.text
+    league = db.scalar(select(League).where(League.name == name))
+    assert league.registrations[0].line_up == []
+    if kind == "legacy":
+        league.access_code = "clave-de-liga"
+        db.commit()
+
+    club_id = register_and_login("member")
+    players = client.get("/players").json()["items"]
+    line_up = [player["id"] for player in players]
+    assert len(line_up) == 6
+    payload = {"clubId": club_id, "lineUp": line_up}
+    listed = client.get("/leagues", params={"name": name}).json()["items"][0]
+    assert listed["isMember"] is False
+    assert listed["registeredCount"] == 1
+
+    wrong_club = client.post(f"/leagues/{league.id}/join", json={**payload, "clubId": creator_id})
+    assert wrong_club.status_code == 403
+    if kind in {"private", "legacy"}:
+        for access in ({}, {"accessCode": "incorrecto"}):
+            response = client.post(f"/leagues/{league.id}/join", json={**payload, **access})
+            assert response.status_code == 409
+        payload["accessCode"] = "clave-de-liga"
+
+    response = client.post(f"/leagues/{league.id}/join", json=payload)
+    assert response.status_code == 201, response.text
+    assert response.json()["clubId"] == club_id
+    registration = db.scalar(select(LeagueRegistration).where(
+        LeagueRegistration.league_id == league.id, LeagueRegistration.club_id == club_id,
+    ))
+    assert registration.line_up == line_up
+    assert registration.joined_at.tzinfo is not None
+    assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 409
+    listed = client.get("/leagues", params={"name": name}).json()["items"][0]
+    assert listed["isMember"] is True
+    assert listed["registeredCount"] == 2
+    assert listed["availableSlots"] == 1
+    lobby = client.get(f"/leagues/{league.id}/lobby").json()
+    assert lobby["registeredTeams"] == 2
+    assert lobby["isRegistered"] is True
+    assert {club["id"] for club in lobby["clubs"]} == {creator_id, club_id}
+    assert client.post(f"/leagues/{league.id}/leave").status_code == 200
+    assert client.get("/leagues", params={"name": name}).json()["items"][0]["isMember"] is False
+    league.status = "closed"
+    db.commit()
+    assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 409
+    league.status = "open"
+    league.start_datetime = datetime.now(timezone.utc) - timedelta(days=1)
+    db.commit()
+    assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 409
+    assert client.post("/auth/logout").status_code == 204
+    assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 401

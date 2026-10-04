@@ -104,7 +104,6 @@ def fake_registration(monkeypatch):
 
     repo = auth_service.user_repository
     monkeypatch.setattr(repo, "get_by_email", lambda *a, **k: None)
-    monkeypatch.setattr(repo, "get_by_username", lambda *a, **k: None)
     monkeypatch.setattr(
         repo, "create_user",
         lambda *a, **k: User(id=1, email=k["email"], password_hash="x"),

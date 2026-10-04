@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.dependencies import CurrentClub, Database
 from app.schemas.league_schemas import (
@@ -8,6 +8,7 @@ from app.schemas.league_schemas import (
     LeagueListResponse,
     LeagueLobbyRead,
     LeaveLeagueResponse,
+    LeagueJoinRequest,
 )
 from app.services import league_service
 
@@ -26,23 +27,60 @@ def get_league_lobby(id: int, club: CurrentClub, db: Database):
 
 
 @league_router.post(
+    "/{id}/join",
+    status_code=status.HTTP_201_CREATED,
+)
+def join_league(
+    id: int,
+    body: LeagueJoinRequest,
+    club: CurrentClub,
+    db: Database,
+):
+    if body.club_id != club.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El club indicado no corresponde al club autenticado.",
+        )
+
+    return league_service.join_league(
+        db=db,
+        league_id=id,
+        club_id=club.id,
+        line_up=body.line_up,
+        access_code=body.access_code,
+    )
+
+
+@league_router.post(
     "/{id}/leave",
     response_model=LeaveLeagueResponse,
     status_code=status.HTTP_200_OK,
 )
 def leave_league(id: int, club: CurrentClub, db: Database):
-    return league_service.leave_league(db=db, league_id=id, club_id=club.id)
+    return league_service.leave_league(
+        db=db,
+        league_id=id,
+        club_id=club.id,
+    )
 
 
 @league_router.post(
-    "/public", response_model=CreateLeagueResponse, status_code=status.HTTP_201_CREATED
+    "/public",
+    response_model=CreateLeagueResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 def create_league(db: Database, data: CreateLeagueRequest, club: CurrentClub):
-    return league_service.create_league(db=db, data=data, creator_club_id=club.id)
+    return league_service.create_league(
+        db=db,
+        data=data,
+        creator_club_id=club.id,
+    )
 
 
 @league_router.post(
-    "/private", response_model=CreateLeagueResponse, status_code=status.HTTP_201_CREATED
+    "/private",
+    response_model=CreateLeagueResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 def create_private_league(
     db: Database, data: CreatePrivateLeagueRequest, club: CurrentClub

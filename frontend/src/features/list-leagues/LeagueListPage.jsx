@@ -150,6 +150,14 @@ export default function LeagueListPage() {
                                             Tu club ya está inscripto.
                                         </p>
                                     )}
+                                    <Link
+                                        to={league.isMember
+                                            ? `/leagues/${league.id}/lobby`
+                                            : `/leagues/${league.id}/join`}
+                                        className="leagues-link"
+                                    >
+                                        {league.isMember ? 'Ver lobby' : 'Inscribirse'}
+                                    </Link>
                                 </li>
                             ))}
                         </ul>

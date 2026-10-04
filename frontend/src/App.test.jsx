@@ -77,3 +77,42 @@ it('retains the lobby route and displays the creator registration from develop',
     expect(screen.getByText('Tu club está inscripto.')).toBeInTheDocument()
     expect(fetchMock.mock.calls[0][0]).toBe('/api/leagues/42/lobby')
 })
+
+it.each([false, true])('joins a league from the listing and opens its lobby (private: %s)', async (isPrivate) => {
+    let joined = false
+    const league = {
+        id: 42, name: 'Liga para inscripción', isPrivate, isMember: false,
+        registeredCount: 1, availableSlots: 7, maxTeams: 8, status: 'open',
+    }
+    const fetchMock = vi.fn(async (url, options) => {
+        let response
+        if (url === '/api/leagues') response = { items: [league] }
+        else if (url === '/api/auth/me') response = { clubId: 8 }
+        else if (url === '/api/players') response = { items: [{ id: 51, name: 'Jugadora del club' }] }
+        else if (url === '/api/leagues/42/join') {
+            joined = true
+            response = { message: 'Te has unido a la liga exitosamente.' }
+        } else if (url === '/api/leagues/42/lobby') response = {
+            ...league, minTeams: 3, isRegistered: joined,
+            remainingSlots: joined ? 6 : 7, registeredTeams: joined ? 2 : 1,
+            creatorClub: { id: 7, name: 'Club creador' },
+            clubs: joined ? [{ id: 7, name: 'Club creador' }, { id: 8, name: 'Mi club' }] : [],
+        }
+        else throw new Error(`Unexpected request: ${url}`)
+        return { ok: true, status: options.method === 'POST' ? 201 : 200, json: async () => response }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<MemoryRouter initialEntries={['/ligas-disponibles']}><App /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('link', { name: 'Inscribirse' }))
+    expect(await screen.findByText('Jugadora del club')).toBeInTheDocument()
+    if (isPrivate) {
+        fireEvent.change(screen.getByLabelText('Código de acceso'), { target: { value: 'clave-de-liga' } })
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar inscripción' }))
+    expect(await screen.findByText('Tu club está inscripto.')).toBeInTheDocument()
+    expect(screen.getByText('Mi club')).toBeInTheDocument()
+    const [, options] = fetchMock.mock.calls.find(([url]) => url.endsWith('/join'))
+    expect(JSON.parse(options.body)).toEqual({
+        clubId: 8, lineUp: [51], ...(isPrivate ? { accessCode: 'clave-de-liga' } : {}),
+    })
+})

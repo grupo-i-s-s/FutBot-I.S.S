@@ -8,7 +8,7 @@ from app.schemas.league_schemas import (
     LeagueRead,
 )
 from app.errors import AppError
-from app.security import hash_password
+from app.security import hash_password, verify_password
 from sqlalchemy.exc import IntegrityError
 
 
@@ -177,6 +177,79 @@ def leave_league(db: Session, league_id: int, club_id: int) -> dict:
     return {
         "message": "Has salido de la liga exitosamente.",
         "league_id": league_id,
+    }
+
+
+def join_league(
+    db: Session,
+    league_id: int,
+    club_id: int,
+    line_up: list | dict,
+    access_code: str | None = None,
+) -> dict:
+    league = league_repository.get_league_for_join(db, league_id)
+
+    if not league:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La liga no existe.",
+        )
+
+    if league.is_private or league.access_code is not None:
+        valid_access = False
+        if access_code and league.password_hash:
+            valid_access = verify_password(access_code, league.password_hash)
+        elif access_code and league.access_code is not None:
+            valid_access = access_code == league.access_code
+        if not valid_access:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El código de acceso es incorrecto.",
+            )
+
+    now_utc = datetime.now(timezone.utc)
+
+    if league.status != "open" or (
+        league.start_datetime and league.start_datetime <= now_utc
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No es posible unirse a una liga que ya ha comenzado o no está abierta.",
+        )
+
+    registration_count = league_repository.count_registrations(
+        db, league_id
+    )
+
+    if registration_count >= league.max_teams:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La liga ha alcanzado el límite máximo de equipos.",
+        )
+
+    existing_registration = league_repository.get_registration(
+        db, league_id, club_id
+    )
+
+    if existing_registration:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El club ya se encuentra inscripto en esta liga.",
+        )
+
+    league_repository.create_registration(
+        db,
+        league_id,
+        club_id,
+        line_up,
+    )
+
+    db.commit()
+
+    return {
+        "message": "Te has unido a la liga exitosamente.",
+        "leagueId": league_id,
+        "clubId": club_id,
     }
 
 
