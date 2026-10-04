@@ -1,10 +1,21 @@
 from fastapi import APIRouter, status
 
 from app.dependencies import CurrentClub, Database
-from app.schemas.player import PlayerBehaviourUpdate, PlayerCreate, PlayerRead
+from app.schemas.player import (
+    PlayerBehaviourUpdate,
+    PlayerCreate,
+    PlayerListResponse,
+    PlayerRead,
+)
 from app.services import player_service
 
 player_router = APIRouter(prefix="/players", tags=["players"])
+
+
+@player_router.get("", response_model=PlayerListResponse, status_code=status.HTTP_200_OK)
+def list_players(club: CurrentClub, db: Database):
+    players = player_service.get_players(db=db, club_id=club.id)
+    return {"items": players}
 
 
 @player_router.post("", response_model=PlayerRead, status_code=status.HTTP_201_CREATED)

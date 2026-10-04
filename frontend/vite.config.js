@@ -1,31 +1,32 @@
-import { defineConfig } from 'vite'
+import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { fileURLToPath, URL } from 'node:url'
+import {fileURLToPath, URL} from 'node:url'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    plugins: [react(), tailwindcss()],
+    resolve: {
+        alias: {
+            '@': fileURLToPath(new URL('./src', import.meta.url)),
+        },
     },
-  },
-  server: {
-    host: '0.0.0.0',
-    port: 5173,
-    strictPort: true,
-    watch: {
-      usePolling: process.env.VITE_USE_POLLING === 'true',
+    server: {
+        host: '0.0.0.0',
+        port: 5173,
+        strictPort: true,
+        watch: {
+            usePolling: process.env.VITE_USE_POLLING === 'true',
+        },
+        proxy: {
+            '/api': {
+                target: process.env.API_PROXY_TARGET || 'http://localhost:8000',
+                changeOrigin: true,
+                ws: true,
+                rewrite: (path) => path.replace(/^\/api/, ''),
+            },
+        },
     },
-    proxy: {
-      '/api': {
-        target: process.env.API_PROXY_TARGET || 'http://localhost:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
+    test: {
+        environment: 'jsdom',
     },
-  },
-  test: {
-    environment: 'jsdom',
-  },
 })
