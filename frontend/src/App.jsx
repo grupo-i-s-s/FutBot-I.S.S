@@ -23,7 +23,6 @@ export default function App() {
             <Route path="/registro" element={<RegisterPage />} />
             <Route path="/mi-club" element={<MyClubPage />} />
             <Route path="/crear-jugador" element={<CreatePlayerPage />} />
-            <Route path = "partidos-disponibles" element={<FriendlyMatches/>}/>
             <Route path="/partidos/:matchId" element={<MatchPage />} />
             <Route path="partidos-disponibles" element={<FriendlyMatches />} />
             <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
