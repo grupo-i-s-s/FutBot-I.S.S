@@ -29,11 +29,13 @@ describe('PlayerList', () => {
         )
 
         expect(screen.getByText('Marta')).toBeInTheDocument()
-        expect(screen.getByText('Power: 80')).toBeInTheDocument()
-        expect(screen.getByText('Agility: 75')).toBeInTheDocument()
-        expect(screen.getByText('Control: 90')).toBeInTheDocument()
-        expect(screen.getByText('Speed: 85')).toBeInTheDocument()
-        expect(screen.getByText('Strength: 78')).toBeInTheDocument()
+        for (const [attribute, value] of [
+            ['Power', 80], ['Agility', 75], ['Control', 90],
+            ['Speed', 85], ['Strength', 78],
+        ]) {
+            expect(screen.getByText(`${attribute}:`).parentElement)
+                .toHaveTextContent(`${attribute}: ${value}`)
+        }
         expect(screen.getByText('Ofensivo')).toBeInTheDocument()
     })
 

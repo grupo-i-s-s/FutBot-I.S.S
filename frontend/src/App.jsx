@@ -10,7 +10,10 @@ import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx'
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx'
 import { LeagueLobby } from './features/lobby-league/CreateLeagueLobby.jsx'
 import ChangePasswordPage from './features/change-password/ChangePasswordPage.jsx'
-
+import InscripcionLigaPage from './features/inscripcion-liga/InscripcionLigaPage.jsx'
+import BehaviourDetailPage from './features/behaviours/BehaviourDetailPage.jsx'
+import BehaviourList from './features/behaviours/components/BehaviourList.jsx'
+import LeagueListPage from './features/list-leagues/LeagueListPage.jsx'
 
 export default function App() {
     return (
@@ -22,10 +25,16 @@ export default function App() {
             <Route path="/crear-jugador" element={<CreatePlayerPage />} />
             <Route path = "partidos-disponibles" element={<FriendlyMatches/>}/>
             <Route path="/partidos/:matchId" element={<MatchPage />} />
+            <Route path="partidos-disponibles" element={<FriendlyMatches />} />
             <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
+            <Route path="/behaviours/:behaviourId" element={<BehaviourDetailPage />} />
+            <Route path="/ligas-disponibles" element={<LeagueListPage />} />
+            <Route path="/inscripcion-liga" element={<InscripcionLigaPage />} />
+            <Route path="/leagues/:id/join" element={<InscripcionLigaPage />} />
             <Route path="/crear-liga" element={<CrearLiga />} />
             <Route path="/crear-liga-privada" element={<CreatePrivateLeague />} />
-            <Route path="/leagues/:id/lobby" element={<LeagueLobby />}/>
+            <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
+            <Route path="/behaviours" element={<BehaviourList />} />
             <Route path="*" element={<NotFoundPage />} />
         </Routes>
     )

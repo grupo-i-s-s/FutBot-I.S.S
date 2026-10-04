@@ -4,29 +4,31 @@ import tailwindcss from '@tailwindcss/vite'
 import {fileURLToPath, URL} from 'node:url'
 
 export default defineConfig({
-    plugins: [react(), tailwindcss()],
-    resolve: {
-        alias: {
-            '@': fileURLToPath(new URL('./src', import.meta.url)),
-        },
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
-    server: {
-        host: '0.0.0.0',
-        port: 5173,
-        strictPort: true,
-        watch: {
-            usePolling: process.env.VITE_USE_POLLING === 'true',
-        },
-        proxy: {
-            '/api': {
-                target: process.env.API_PROXY_TARGET || 'http://localhost:8000',
-                changeOrigin: true,
-                ws: true,
-                rewrite: (path) => path.replace(/^\/api/, ''),
-            },
-        },
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
+    watch: {
+      usePolling: process.env.VITE_USE_POLLING === 'true',
     },
-    test: {
-        environment: 'jsdom',
+    proxy: {
+      '/api': {
+        target: process.env.API_PROXY_TARGET || 'http://localhost:8000',
+        changeOrigin: true,
+        ws: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
     },
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/vitest.setup.js',
+  },
 })
