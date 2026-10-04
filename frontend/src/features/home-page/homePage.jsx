@@ -25,7 +25,7 @@ export default function HomePage(){
 
         return () => controller.abort()
     }, [])
-    
+
     return(
         <div className='futbot-home'>
             <header className="home-nav">
@@ -41,10 +41,10 @@ export default function HomePage(){
 
                 <nav className="home-nav-links" aria-label="Cuenta">
                     <Link to="/login" className="home-login">
-                        Iniciar sesión
+                        Cambiar de cuenta 
                     </Link>
                     <Link to="/registro" className="home-register">
-                        Crear cuenta
+                        Crear cuenta Nueva
                     </Link>
                 </nav>
             </header>

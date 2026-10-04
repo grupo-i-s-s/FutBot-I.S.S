@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router'
+import { Navigate, Route, Routes, useLocation } from 'react-router'
 import HomePage from './features/home-page/homePage.jsx'
 import LoginPage from './features/login/LoginPage.jsx'
 import RegisterPage from './features/register/RegisterPage.jsx'
@@ -15,9 +15,16 @@ import InscripcionLigaPage from './features/inscripcion-liga/InscripcionLigaPage
 import BehaviourDetailPage from './features/behaviours/BehaviourDetailPage.jsx'
 import BehaviourList from './features/behaviours/components/BehaviourList.jsx'
 import LeagueListPage from './features/list-leagues/LeagueListPage.jsx'
+import NavBar from './features/nav-bar/navBar.jsx'
 
 export default function App() {
+    const { pathname } = useLocation()
+    const mostrarNavBar = !['/', '/home', '/login', '/registro'].includes(pathname)
+    
     return (
+         <>
+        {mostrarNavBar && <NavBar />}
+
         <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<LoginPage />} />
@@ -39,5 +46,6 @@ export default function App() {
             <Route path="/behaviours" element={<BehaviourList />} />
             <Route path="*" element={<NotFoundPage />} />
         </Routes>
+         </>
     )
 }
