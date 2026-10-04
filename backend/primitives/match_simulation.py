@@ -13,11 +13,17 @@ width = 100.0
 height = 60.0
 goal_width = 15.0
 
-line_up = [(10, 20), (10, 40), (30, 30), (90, 10), (90, 40), (70, 30)]
+line_up = [(18, 18), (18, 42), (30, 30), (82, 18), (82, 42), (70, 30)]
 ball_pos = (50, 30)
 SCORER_BY_SIDE = {"LEFT": "LOCAL", "RIGHT": "VISITANTE"}
 KICK_RANGE = 2.5
 KICK_COOLDOWN_SECONDS = 0.5
+# Los atributos 20–100 se traducen a unidades de cancha por segundo.
+# La pelota debe viajar más rápido que los jugadores para que un remate se libere.
+PLAYER_BASE_SPEED = 8.0
+PLAYER_SPEED_FACTOR = 0.15
+SHOT_BASE_SPEED = 40.0
+SHOT_POWER_FACTOR = 0.6
 DEFAULT_DURATION_MS = 300_000
 logger = logging.getLogger(__name__)
 
@@ -69,9 +75,10 @@ class Match:
         self.cord = Field(width, height, goal_width)
         self.init_players_pos = tuple(line_up)
         self.init_ball_pos = ball_pos
+        self.scorer = {"LOCAL": 0, "VISITANTE": 0}
         self.world = create_world(
             self.cord,
-            list(self.init_players_pos),
+            self.kickoff_positions(),
             self.init_ball_pos,
         )
 
@@ -85,7 +92,6 @@ class Match:
         self.home_positions = dict(zip(ids, self.init_players_pos, strict=True))
         self.next_kick_at: dict[int, float] = {}
 
-        self.scorer = {"LOCAL": 0, "VISITANTE": 0}
         self.time = 0.0
 
     @property
@@ -178,15 +184,26 @@ class Match:
             )
         ]
 
+    def kickoff_positions(self) -> list[tuple[float, float]]:
+        positions = list(self.init_players_pos)
+        # El saque inicial es local; luego alternamos para romper la simetría.
+        local_kickoff = sum(self.scorer.values()) % 2 == 0
+        positions[2 if local_kickoff else 5] = (42 if local_kickoff else 58, 30)
+        return positions
+
     def restart(self) -> None:
         self.next_kick_at.clear()
         self.world.ball.position = self.init_ball_pos
         self.world.ball.velocity = (0, 0)
         for body, position in zip(
-            self.world.players, self.init_players_pos, strict=True
+            self.world.players, self.kickoff_positions(), strict=True
         ):
             body.position = position
             body.velocity = (0, 0)
+        for body in (*self.world.players, self.world.ball):
+            body.angle = 0
+            body.angular_velocity = 0
+            self.world.space.reindex_shapes_for_body(body)
 
     def run_behaviour(
         self,
@@ -196,8 +213,16 @@ class Match:
         dt: float,
     ) -> Action | None:
         ball_position = self.world.ball.position
+        ball_in_own_half = (
+            ball_position.x <= width / 2 if profile.club_id == self.local_team.club_id
+            else ball_position.x >= width / 2
+        )
+        teammates = [teammate for teammate in self.player_profiles
+                     if teammate.club_id == profile.club_id]
+        chasers = [teammate for teammate in teammates
+                   if ball_in_own_half or teammate.behaviour_mode != BehaviourMode.DEFENSIVE]
         closest_teammate = min(
-            (teammate for teammate in self.player_profiles if teammate.club_id == profile.club_id),
+            chasers or teammates,
             key=lambda teammate: (
                 (self.player_bodies[teammate.id].position - ball_position).length,
                 teammate.id,
@@ -209,11 +234,10 @@ class Match:
             home_position=self.home_positions[profile.id],
             opponent_goal=target_goal,
             is_closest_teammate=closest_teammate.id == profile.id,
-            ball_in_own_half=(
-                ball_position.x < width / 2 if profile.club_id == self.local_team.club_id
-                else ball_position.x > width / 2
-            ),
+            ball_in_own_half=ball_in_own_half,
             can_kick=(player.position - ball_position).length <= KICK_RANGE,
+            field_size=(width, height),
+            goal_width=goal_width,
         )
         try:
             action = decide(profile.behaviour_mode, observation)
@@ -222,9 +246,14 @@ class Match:
             x, y = action.move_target
             if not (isfinite(x) and isfinite(y) and 0 <= x <= width and 0 <= y <= height):
                 raise ValueError("Destino de movimiento fuera de la cancha.")
-            if action.kick_target is not None and action.kick_target != target_goal:
-                raise ValueError("La patada debe apuntar al arco rival.")
-            run_to(player, action.move_target, profile.speed, dt)
+            if action.kick_target is not None:
+                shot_x, shot_y = action.kick_target
+                if not (isfinite(shot_x) and isfinite(shot_y)
+                        and shot_x == target_goal[0]
+                        and abs(shot_y - target_goal[1]) <= goal_width / 2 - 1):
+                    raise ValueError("La patada debe apuntar dentro del arco rival.")
+            speed = PLAYER_BASE_SPEED + profile.speed * PLAYER_SPEED_FACTOR
+            run_to(player, action.move_target, speed, dt)
             return action
         except Exception:
             # Un error del programa deja quieto a ese jugador durante este paso.
@@ -256,7 +285,8 @@ class Match:
         # Sólo el candidato más cercano puede patear; el ID desempata de forma estable.
         if shots:
             _, _, player, profile, target = min(shots, key=lambda shot: (shot[0], shot[1]))
-            if kick(player, self.world.ball, target, profile.power / 2, KICK_RANGE):
+            shot_speed = SHOT_BASE_SPEED + profile.power * SHOT_POWER_FACTOR
+            if kick(player, self.world.ball, target, shot_speed, KICK_RANGE):
                 self.next_kick_at[profile.id] = self.time + KICK_COOLDOWN_SECONDS
 
         scoring_side = step(self.world, dt)

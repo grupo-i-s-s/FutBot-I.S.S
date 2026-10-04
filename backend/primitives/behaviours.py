@@ -19,6 +19,8 @@ class Observation:
     is_closest_teammate: bool
     ball_in_own_half: bool
     can_kick: bool
+    field_size: tuple[float, float] = (100, 60)
+    goal_width: float = 15
 
 
 @dataclass(frozen=True)
@@ -27,29 +29,60 @@ class Action:
     kick_target: tuple[float, float] | None = None
 
 
+def _attack_direction(observation: Observation) -> int:
+    return 1 if observation.opponent_goal[0] > observation.home_position[0] else -1
+
+
+def _approach_ball(observation: Observation) -> tuple[float, float]:
+    # Llegar por detrás permite patear hacia adelante, sin amontonarse sobre la pelota.
+    direction = _attack_direction(observation)
+    field_width, field_height = observation.field_size
+    return (
+        max(1.5, min(field_width - 1.5, observation.ball_position[0] - direction * 2)),
+        max(1.5, min(field_height - 1.5, observation.ball_position[1])),
+    )
+
+
+def _shot_target(observation: Observation) -> tuple[float, float] | None:
+    if not observation.can_kick:
+        return None
+    x, center_y = observation.opponent_goal
+    # Elegir un lateral del arco evita que todos los remates recorran el eje central.
+    lane = -1 if observation.home_position[1] < center_y else 1
+    if observation.home_position[1] == center_y:
+        lane = -_attack_direction(observation)
+    return x, center_y + lane * observation.goal_width * 4 / 15
+
+
 def balanced(observation: Observation) -> Action:
     if observation.is_closest_teammate:
-        target = observation.ball_position
+        target = _approach_ball(observation)
     else:
         target = (
             (observation.home_position[0] + observation.ball_position[0]) / 2,
             observation.home_position[1],
         )
-    return Action(target, observation.opponent_goal if observation.can_kick else None)
+    return Action(target, _shot_target(observation))
 
 
 def offensive(observation: Observation) -> Action:
-    return Action(
-        observation.ball_position,
-        observation.opponent_goal if observation.can_kick else None,
-    )
+    if observation.is_closest_teammate:
+        target = _approach_ball(observation)
+    else:
+        direction = _attack_direction(observation)
+        # Los acompañantes se desmarcan por su carril delante de la pelota.
+        target = (
+            max(5, min(observation.field_size[0] - 5, observation.ball_position[0] + direction * 12)),
+            observation.home_position[1],
+        )
+    return Action(target, _shot_target(observation))
 
 
 def defensive(observation: Observation) -> Action:
     chase = observation.ball_in_own_half and observation.is_closest_teammate
     return Action(
-        observation.ball_position if chase else observation.home_position,
-        observation.opponent_goal if observation.can_kick else None,
+        _approach_ball(observation) if chase else observation.home_position,
+        _shot_target(observation),
     )
 
 
