@@ -1,5 +1,19 @@
 import { request } from '@/api/http.js'
 
-export function join_friendly_match(idPartido, idEquipo) {
-    return request('/partidos/unirse', { method: 'POST', body: { idPartido, idEquipo } })
+export function listFriendlyMatches(signal) {
+  return request('/friendly-matches', { signal })
+}
+
+export function createFriendlyMatch(startDateTime) {
+  return request('/friendly-matches', {
+    method: 'POST',
+    body: { startDateTime },
+  })
+}
+
+export function joinFriendlyMatch(matchId) {
+  return request('/friendly-matches/join', {
+    method: 'POST',
+    body: { idPartido: matchId },
+  })
 }

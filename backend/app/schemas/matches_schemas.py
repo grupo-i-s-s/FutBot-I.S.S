@@ -1,14 +1,6 @@
 from datetime import datetime
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    EmailStr,
-    Field,
-    StringConstraints,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class InputSchema(BaseModel):
@@ -16,8 +8,7 @@ class InputSchema(BaseModel):
 
 
 class JoinMatchRequest(InputSchema):
-    match_id: int = Field(alias="idPartido")
-    club_id: int = Field(alias="idEquipo")
+    match_id: int = Field(alias="idPartido", gt=0)
 
 
 class CreateFriendlyMatchRequest(InputSchema):
@@ -27,3 +18,15 @@ class CreateFriendlyMatchRequest(InputSchema):
 
 class CreateFriendlyMatchResponse(BaseModel):
     message: str
+    match_id: int = Field(serialization_alias="matchId")
+
+
+class FriendlyMatchResponse(BaseModel):
+    match_id: int = Field(serialization_alias="matchId")
+    creator_club_name: str = Field(serialization_alias="creatorClubName")
+    start_datetime: datetime = Field(serialization_alias="startDateTime")
+
+
+class JoinMatchResponse(BaseModel):
+    message: str
+    match_id: int = Field(serialization_alias="matchId")
