@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import './Create_friendly_match.css'
-import { create_friendly_match } from './api'
+import { createFriendlyMatch } from './api'
 
 
 export default function CreateFriendlyMatch(){
@@ -14,7 +14,7 @@ export default function CreateFriendlyMatch(){
         setCreateMatch(true);
 
         try{
-            const response = await create_friendly_match(matchTime)
+            const response = await createFriendlyMatch(matchTime)
             console.log("Rta del server", response)
         }
         finally{

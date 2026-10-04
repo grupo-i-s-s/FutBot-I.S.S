@@ -1,45 +1,25 @@
+from argparse import ArgumentParser
+
 import pygame
 import pymunk.pygame_util
-from sqlalchemy import select
 from sqlalchemy.orm import Session
-from dotenv import load_dotenv  # Importamos la librería
+from dotenv import load_dotenv
 
-# 1. CARGAMOS LAS VARIABLES DE ENTORNO
-load_dotenv()  # Esto lee tu archivo .env y lo mete en la memoria
+load_dotenv()
 
-# 2. AHORA SÍ IMPORTAMOS LA BASE DE DATOS
-# Como load_dotenv ya hizo su trabajo, database.py va a encontrar a POSTGRES_USER
 from app.database import engine
-from app.models.player_model import Player
-
-from primitives.match_simulation import Partido, Team
+from app.services.match_builder_service import build_match
 
 
-def get_jugadores_por_club(db: Session, id_club: int):
-    """Busca en la BD todos los jugadores activos de un club específico."""
-    stmt = select(Player).where(Player.club_id == id_club, Player.is_deleted == False)
-    return list(db.scalars(stmt).all())
-
-
-def probar_simulacion():
-    # 1. CONSULTA A LA BASE DE DATOS
+def probar_simulacion(match_id: int) -> None:
     print("Conectando a la base de datos...")
     with Session(engine) as db:
-        # Reemplazá el 1 y el 2 por IDs de clubes que sepas que existen en tu tabla clubs
-        jugadores_local = get_jugadores_por_club(db, 1)
-        jugadores_visita = get_jugadores_por_club(db, 2)
+        mi_partido = build_match(db, match_id)
 
-        # Armamos tus clases Team con las listas de objetos Player reales
-        team_local = Team(name="Equipo Local (ID 1)", players=jugadores_local)
-        team_visita = Team(name="Equipo Visitante (ID 2)", players=jugadores_visita)
-
-        print(
-            f"Equipos cargados: {len(team_local.players)} jug. vs {len(team_visita.players)} jug."
-        )
-
-    # 2. INSTANCIAMOS EL PARTIDO CON LOS DATOS REALES
-    # Recordá que el __init__ de tu clase Partido ahora debe recibir (team_local, team_visita)
-    mi_partido = Partido(team_local, team_visita)
+    print(
+        "Jugadores en cancha:",
+        [(player.id, player.name) for player in mi_partido.player_profiles],
+    )
 
     # 3. CONFIGURAMOS PYGAME
     pygame.init()
@@ -64,6 +44,9 @@ def probar_simulacion():
 
         # B. Lógica (El Cerebro)
         mi_partido.run_match(dt)
+        if mi_partido.finished:
+            print("Partido finalizado:", mi_partido.scorer)
+            corriendo = False
 
         # C. Renderizado Visual
         pantalla.fill((34, 139, 34))
@@ -77,4 +60,7 @@ def probar_simulacion():
 
 
 if __name__ == "__main__":
-    probar_simulacion()
+    parser = ArgumentParser()
+    parser.add_argument("match_id", type=int)
+    args = parser.parse_args()
+    probar_simulacion(args.match_id)

@@ -1,4 +1,4 @@
-"""Pruebas del plantel inicial (comportamiento y jugadores default) creado al registrarse.
+"""Pruebas del plantel inicial (comportamientos y jugadores default) creado al registrarse.
 
 - Las pruebas unitarias usan sesiones simuladas y no necesitan base de datos.
 - Las de integración usan la base configurada, pero trabajan dentro de una
@@ -32,8 +32,6 @@ BROWSER_HEADERS = {
 
 def register_payload(suffix: str = "a") -> dict:
     return {
-        "name": f"Usuario {suffix}",
-        "username": f"test_squad_{suffix}",
         "email": f"test_squad_{suffix}@example.com",
         "password": "password-segura",
         "passwordConfirmation": "password-segura",
@@ -66,27 +64,30 @@ def test_default_player_has_valid_pacss(player):
 
 # --- Repositorios -----------------------------------------------------------
 
-def test_create_default_behaviour_belongs_to_club_and_is_flushed():
+def test_create_default_behaviours_belong_to_club_and_are_flushed():
     db = Mock()
 
-    behavior = behaviour_repository.create_default_behaviour(db, club_id=7)
+    behaviors = behaviour_repository.create_default_behaviours(db, club_id=7)
 
-    assert isinstance(behavior, Behavior)
-    assert behavior.club_id == 7
-    assert behavior.name and behavior.description and behavior.code
-    db.add.assert_called_once_with(behavior)
+    assert len(behaviors) == 3
+    assert all(isinstance(behavior, Behavior) for behavior in behaviors)
+    assert all(behavior.club_id == 7 for behavior in behaviors)
+    assert len({behavior.name for behavior in behaviors}) == 3
+    assert all(behavior.description and behavior.code for behavior in behaviors)
+    db.add_all.assert_called_once_with(behaviors)
     db.flush.assert_called_once_with()
 
 
 def test_create_default_players_assigns_club_and_behaviour():
     db = Mock()
+    behaviors = [Behavior(id=i, club_id=7, name=str(i), description="d", code="c") for i in (3, 4, 5)]
 
-    players = player_repository.create_default_players(db, club_id=7, behaviour_id=3)
+    players = player_repository.create_default_players(db, club_id=7, behaviors=behaviors)
 
     assert len(players) == len(player_repository.DEFAULT_PLAYERS)
     assert all(isinstance(player, Player) for player in players)
     assert all(player.club_id == 7 for player in players)
-    assert all(player.behavior_id == 3 for player in players)
+    assert [player.behavior_id for player in players] == [3, 3, 4, 4, 5, 5]
     assert [p.name for p in players] == [p["name"] for p in player_repository.DEFAULT_PLAYERS]
     db.add_all.assert_called_once_with(players)
     db.flush.assert_called_once_with()
@@ -103,26 +104,27 @@ def fake_registration(monkeypatch):
 
     repo = auth_service.user_repository
     monkeypatch.setattr(repo, "get_by_email", lambda *a, **k: None)
-    monkeypatch.setattr(repo, "get_by_username", lambda *a, **k: None)
     monkeypatch.setattr(
         repo, "create_user",
-        lambda *a, **k: User(id=1, name=k["name"], username=k["username"],
-                             email=k["email"], password_hash="x"),
+        lambda *a, **k: User(id=1, email=k["email"], password_hash="x"),
     )
     monkeypatch.setattr(
         repo, "create_club",
         lambda *a, **k: Club(id=10, user_id=k["user_id"], name=k["name"], avatar=k["avatar"]),
     )
 
-    def fake_behaviour(session, club_id):
-        calls.append(("behaviour", club_id))
-        return Behavior(id=99, club_id=club_id, name="b", description="d", code="c")
+    def fake_behaviours(session, club_id):
+        calls.append(("behaviours", club_id))
+        return [
+            Behavior(id=i, club_id=club_id, name=str(i), description="d", code="c")
+            for i in (97, 98, 99)
+        ]
 
-    def fake_players(session, club_id, behaviour_id):
-        calls.append(("players", club_id, behaviour_id))
+    def fake_players(session, club_id, behaviors):
+        calls.append(("players", club_id, tuple(behavior.id for behavior in behaviors)))
         return []
 
-    monkeypatch.setattr(auth_service.behaviour_repository, "create_default_behaviour", fake_behaviour)
+    monkeypatch.setattr(auth_service.behaviour_repository, "create_default_behaviours", fake_behaviours)
     monkeypatch.setattr(auth_service.player_repository, "create_default_players", fake_players)
     return db, calls
 
@@ -132,7 +134,7 @@ def test_register_creates_default_squad_before_commit(fake_registration):
 
     auth_service.register(db, RegisterRequest.model_validate(register_payload()))
 
-    assert calls == [("behaviour", 10), ("players", 10, 99), "commit"]
+    assert calls == [("behaviours", 10), ("players", 10, (97, 98, 99)), "commit"]
     db.rollback.assert_not_called()
 
 
@@ -182,23 +184,25 @@ def register_and_get_club(client: TestClient, session: Session, suffix: str) -> 
     assert response.status_code == 201, response.text
 
     return session.scalar(
-        select(Club).join(User, User.id == Club.user_id).where(User.username == payload["username"])
+        select(Club).join(User, User.id == Club.user_id).where(User.email == payload["email"])
     )
 
 
-def test_register_endpoint_persists_default_behaviour_and_players(db_session):
+def test_register_endpoint_persists_default_behaviours_and_players(db_session):
     with TestClient(app) as client:
         club = register_and_get_club(client, db_session, "a")
 
     behaviors = db_session.scalars(select(Behavior).where(Behavior.club_id == club.id)).all()
     players = db_session.scalars(select(Player).where(Player.club_id == club.id)).all()
 
-    assert len(behaviors) == 1
+    assert len(behaviors) == 3
     assert len(players) == 6
     assert {p.name for p in players} == {p["name"] for p in player_repository.DEFAULT_PLAYERS}
-    assert all(p.behavior_id == behaviors[0].id for p in players)
+    assert {behavior.name for behavior in behaviors} == {name for name, _ in behaviour_repository.DEFAULT_BEHAVIOURS}
+    assert {p.behavior_id for p in players} == {behavior.id for behavior in behaviors}
+    assert all(sum(p.behavior_id == behavior.id for p in players) == 2 for behavior in behaviors)
     assert all(not p.is_deleted for p in players)
-    assert not behaviors[0].is_deleted
+    assert all(not behavior.is_deleted for behavior in behaviors)
 
 
 def test_each_club_gets_its_own_default_squad(db_session):
@@ -215,6 +219,7 @@ def test_each_club_gets_its_own_default_squad(db_session):
     players_b, behaviors_b = squad(club_b)
 
     assert len(players_a) == len(players_b) == 6
+    assert len(behaviors_a) == len(behaviors_b) == 3
     assert {p.id for p in players_a}.isdisjoint({p.id for p in players_b})
     assert behaviors_a.isdisjoint(behaviors_b)
     # Cada jugador usa un comportamiento de su propio club.
