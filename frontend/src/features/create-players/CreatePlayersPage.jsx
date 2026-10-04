@@ -1,6 +1,7 @@
 import './CreatePlayersPage.css';
 import { useState } from 'react';
 import { createPlayer } from './api';
+import { useNavigate } from 'react-router'
 
 export default function CreatePlayerPage() {
     const [name, setName] = useState('');
@@ -12,6 +13,7 @@ export default function CreatePlayerPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const navigate = useNavigate()
 
     const totalPoints = power + agility + control + speed + strength;
 
@@ -46,6 +48,7 @@ export default function CreatePlayerPage() {
             );
 
             setSuccess(`¡El jugador ${player.name} se creó correctamente!`);
+            navigate('/mi-club', { replace: true})
         } catch (err) {
             if (err.status === 401) {
                 setError('Tu sesión venció. Iniciá sesión nuevamente.');

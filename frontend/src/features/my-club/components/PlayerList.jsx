@@ -1,9 +1,11 @@
-import { Users } from 'lucide-react'
+import { Users, Plus } from 'lucide-react'
+import { Link } from 'react-router'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
 import { BehaviorSelector } from './BehaviorSelector'
+import { buttonVariants } from '@/components/ui/button'
 
 const PACSS_ATTRIBUTES = [
     ['Power', 'power'],
@@ -22,6 +24,13 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned })
                     Jugadores
                 </CardTitle>
                 <CardDescription>{players.length} jugadores en el plantel</CardDescription>
+
+                <CardAction>
+                    <Link to="/crear-jugador" className={buttonVariants({ size: 'sm' })}>
+                        <Plus className="size-4" aria-hidden="true"/>
+                        Crear Nuevo jugador
+                    </Link>
+                </CardAction>
             </CardHeader>
 
             <CardContent>
