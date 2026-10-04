@@ -32,8 +32,6 @@ BROWSER_HEADERS = {
 
 def register_payload(suffix: str = "a") -> dict:
     return {
-        "name": f"Usuario {suffix}",
-        "username": f"test_squad_{suffix}",
         "email": f"test_squad_{suffix}@example.com",
         "password": "password-segura",
         "passwordConfirmation": "password-segura",
@@ -109,8 +107,7 @@ def fake_registration(monkeypatch):
     monkeypatch.setattr(repo, "get_by_username", lambda *a, **k: None)
     monkeypatch.setattr(
         repo, "create_user",
-        lambda *a, **k: User(id=1, name=k["name"], username=k["username"],
-                             email=k["email"], password_hash="x"),
+        lambda *a, **k: User(id=1, email=k["email"], password_hash="x"),
     )
     monkeypatch.setattr(
         repo, "create_club",
@@ -188,7 +185,7 @@ def register_and_get_club(client: TestClient, session: Session, suffix: str) -> 
     assert response.status_code == 201, response.text
 
     return session.scalar(
-        select(Club).join(User, User.id == Club.user_id).where(User.username == payload["username"])
+        select(Club).join(User, User.id == Club.user_id).where(User.email == payload["email"])
     )
 
 

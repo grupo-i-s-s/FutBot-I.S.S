@@ -48,3 +48,13 @@ def get_player_by_id(db: Session, club_id: int, player_id: int) -> Player | None
 def set_player_behaviour(db: Session, player: Player, behaviour_id: int) -> None:
     player.behavior_id = behaviour_id
     db.flush()
+
+def get_players_by_club(db: Session, club_id: int) -> List[Player]:
+    return list(
+        db.scalars(
+            select(Player).where(
+                Player.club_id == club_id,
+                Player.is_deleted.is_(False),
+            )
+        ).all()
+    )
