@@ -114,6 +114,7 @@ class LeagueRead(BaseModel):
     registered_count: int = Field(serialization_alias="registeredCount")
     available_slots: int = Field(serialization_alias="availableSlots")
     is_member: bool = Field(serialization_alias="isMember")
+    is_private: bool = Field(serialization_alias="isPrivate")
 
 
 class LeagueListResponse(BaseModel):
