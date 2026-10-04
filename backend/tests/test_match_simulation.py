@@ -103,16 +103,20 @@ def test_assigned_behaviours_apply_different_movements():
     modes = (BehaviourMode.BALANCED, BehaviourMode.OFFENSIVE, BehaviourMode.DEFENSIVE)
     match = match_simulation.Match(team(1, modes=modes), team(2))
     match.world.ball.position = (80, 30)
+    # El defensor está más cerca, pero no persigue en la mitad rival.
+    match.world.players[1].position = (60, 42)
+    match.world.players[2].position = (79, 30)
 
     actions = [
         match.run_behaviour(body, profile, (100, 30), 1 / 30)
         for body, profile in zip(match.world.players[:3], match.local_team.players, strict=True)
     ]
 
-    assert [action.move_target for action in actions] == [(45, 20), (80, 30), (30, 30)]
+    assert [action.move_target for action in actions] == [(49, 18), (78, 30), (30, 30)]
     assert match.world.players[0].velocity.x > 0
     assert match.world.players[1].velocity.y < 0
-    assert tuple(match.world.players[2].velocity) == (0, 0)
+    assert match.world.players[2].velocity.x < 0  # Regresa a su posición defensiva.
+    assert match.world.players[2].velocity.y == 0
 
 
 @pytest.mark.parametrize("player_index, position, direction", [(0, (48, 30), 1), (3, (52, 30), -1)])
@@ -220,3 +224,50 @@ def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
     assert restored.checkpoint() == match.checkpoint()
     restored.run_match(1 / 30)
     assert restored.time == pytest.approx(2 / 30)
+
+
+def test_default_roster_produces_goals_for_both_sides_with_real_physics():
+    # Reproduce la demo: tres titulares de atributos 60, dos equilibrados y un ofensivo.
+    modes = (BehaviourMode.BALANCED, BehaviourMode.BALANCED, BehaviourMode.OFFENSIVE)
+    match = match_simulation.Match(team(1, modes=modes), team(2, modes=modes), duration_ms=30000)
+    min_x, max_x = 50, 50
+    for _ in range(900):
+        match.run_match(1 / 30)
+        min_x = min(min_x, match.world.ball.position.x)
+        max_x = max(max_x, match.world.ball.position.x)
+
+    assert match.finished
+    assert match.scorer["LOCAL"] > 0 and match.scorer["VISITANTE"] > 0
+    assert min_x < 10 and max_x > 90
+
+
+def test_kickoff_alternates_without_changing_roster_or_home_positions():
+    match = match_simulation.Match(team(1), team(2))
+    homes = dict(match.home_positions)
+    assert match.world.players[2].position.x == 42
+    assert match.world.players[5].position.x == 70
+
+    match.scorer["LOCAL"] = 1
+    match.restart()
+    assert match.world.players[2].position.x == 30
+    assert match.world.players[5].position.x == 58
+
+    match.scorer["VISITANTE"] = 1
+    match.restart()
+    assert match.world.players[2].position.x == 42
+    assert match.world.players[5].position.x == 70
+    assert match.home_positions == homes
+
+
+def test_invalid_shot_at_own_goal_is_rejected(monkeypatch):
+    match = match_simulation.Match(team(1), team(2))
+    monkeypatch.setattr(match_simulation, "decide", lambda *_: Action((48, 30), (0, 30)))
+    action = match.run_behaviour(match.world.players[0], match.player_profiles[0], (100, 30), 1 / 30)
+    assert action is None
+
+
+def test_player_speed_remains_lower_than_shot_speed_at_attribute_limits():
+    # Incluso el jugador más veloz debe ser más lento que el remate más débil.
+    max_run = match_simulation.PLAYER_BASE_SPEED + 100 * match_simulation.PLAYER_SPEED_FACTOR
+    min_shot = match_simulation.SHOT_BASE_SPEED + 20 * match_simulation.SHOT_POWER_FACTOR
+    assert max_run < min_shot
