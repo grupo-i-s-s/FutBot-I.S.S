@@ -96,7 +96,7 @@ const [saveError, setSaveError] = useState('')
 
                 <aside
                     aria-label="Ligas inscriptas"
-                    className="mt-6 xl:absolute xl:top-0 xl:mt-0 xl:left-[-280px]"
+                    className="mt-6 xl:absolute xl:top-0 xl:mt-0 xl:left-[-280px] xl:w-64"
                 >
                     <LeagueList leagues={leagues} />
                 </aside>

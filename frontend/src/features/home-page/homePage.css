@@ -45,7 +45,6 @@
 
 .home-brand {
     display: flex;
-    align-items: center;
     gap: 10px;
     color: var(--home-green);
     font-size: 18px;
@@ -59,8 +58,8 @@
     display: grid;
     place-items: center;
     color: white;
-    background: var(--home-green);
-    border-radius: 12px;
+    border-radius: 12px;   
+    background: transparent;
 }
 
 .home-nav-links {
@@ -419,68 +418,14 @@
         padding-bottom: 30px;
     }
 }
-
-/* Celular */
-
-@media (max-width: 640px) {
-    .futbot-home {
-        padding: 0 16px;
-    }
-
-    .home-nav {
-        min-height: 76px;
-        gap: 12px;
-    }
-
-    .home-brand {
-        gap: 7px;
-        font-size: 14px;
-        letter-spacing: 1px;
-    }
-
-    .home-brand-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
-    }
-
-    .home-nav-links {
-        gap: 12px;
-        font-size: 11px;
-    }
-
-    .home-register {
-        padding: 9px 10px;
-    }
-
-    .home-grid {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas:
-            "bienvenida"
-            "ligas"
-            "amistosos";
-        padding-top: 24px;
-    }
-
-    .home-title {
-        letter-spacing: -3px;
-    }
-
-    .home-footer {
-        flex-direction: column;
-        justify-content: center;
-        gap: 6px;
-        padding: 18px 0;
-        text-align: center;
-    }
+.home-brand-text {
+    display: flex;
+    flex-direction: column;
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .futbot-home a {
-        transition: none;
-    }
-
-    .home-primary-button:hover {
-        transform: none;
-    }
+.home-brand-club {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--home-muted);
 }
