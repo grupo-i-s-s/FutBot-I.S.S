@@ -62,6 +62,10 @@ export default function AvailableFriendlyMatches(){
                 Ver amistosos
                 <ArrowRight size={17} aria-hidden="true" />
             </Link>
+            <Link to="/crear-partido" className="home-panel-link">
+                Crear Partido Amistoso
+                <ArrowRight size={17} aria-hidden="true" />
+            </Link>
         </aside>
     )
 }

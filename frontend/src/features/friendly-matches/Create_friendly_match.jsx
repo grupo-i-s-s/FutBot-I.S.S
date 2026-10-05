@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import './Create_friendly_match.css'
 import { createFriendlyMatch } from './api'
+import { useNavigate } from 'react-router'
 
 
 export default function CreateFriendlyMatch(){
     const [createMatch, setCreateMatch] = useState(false);
-  
+    const navigate = useNavigate()
     const [matchTime, setMatchTime] = useState(""); 
 
     const handleCreateMatch = async (e) => {
@@ -16,6 +17,7 @@ export default function CreateFriendlyMatch(){
         try{
             const response = await createFriendlyMatch(matchTime)
             console.log("Rta del server", response)
+            navigate('/home', { replace: true })
         }
         finally{
             setCreateMatch(false);
