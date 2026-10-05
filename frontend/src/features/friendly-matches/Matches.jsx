@@ -24,7 +24,7 @@ export default function MatchesPage() {
     return (
         <main className="Friendly-Matches">
            <Card className="main-card">
-                <h1 className = "page-title"> Partidos Amistosos</h1>
+                <h1 className = "page-title"> A JUGAR !</h1>
                 <div className = "container"> 
                     {partidosDisponibles.map((partido) => (
                         <div key={partido.matchId} className="match-box">
