@@ -95,7 +95,7 @@ def _create_league(
         raise AppError("VALIDATION_ERROR", "La fecha de inicio debe ser futura.")
 
     try:
-        league_repository.create_league(
+        league = league_repository.create_league(
             db=db,
             name=name,
             min_teams=data.min_teams,
@@ -118,7 +118,7 @@ def _create_league(
                 "LEAGUE_DUPLICATE", "Ya existe una liga con ese nombre."
             ) from exc
         raise
-    return {"message": "Liga creada exitosamente."}
+    return {"message": "Liga creada exitosamente.", "league_id": league.id,}
 
 
 def create_league(

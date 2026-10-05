@@ -50,6 +50,7 @@ class LeaveLeagueResponse(BaseModel):
 
 
 class CreateLeagueResponse(BaseModel):
+    league_id: int = Field(serialization_alias="leagueId")
     message: str
 
 
