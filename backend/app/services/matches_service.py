@@ -22,6 +22,22 @@ def list_available(db: Session, club_id: int) -> list[dict]:
     ]
 
 
+def list_for_club(db: Session, club_id: int) -> list[dict]:
+    return [
+        {
+            "match_id": match.match_id,
+            "creator_club_name": creator_name,
+            "visitor_club_name": visitor_name,
+            "start_datetime": match.init_date,
+            "status": match.status,
+            "is_creator": match.creator_id == club_id,
+        }
+        for match, creator_name, visitor_name in matches_repository.list_for_club(
+            db, club_id
+        )
+    ]
+
+
 def join_match(db: Session, match_id: int, club_id: int) -> dict:
     match = matches_repository.get_by_id_for_update(db, match_id)
     if match is None:

@@ -12,6 +12,7 @@ export default function CreateFriendlyMatch(){
 
     const handleCreateMatch = async (e) => {
         e.preventDefault();                     //Esto evita refrescar la pagina 
+        if (createMatch) return;
         setError('');
 
         const startDate = new Date(matchTime);
@@ -24,8 +25,7 @@ export default function CreateFriendlyMatch(){
 
         try{
             const response = await createFriendlyMatch(matchTime)
-            console.log("Rta del server", response)
-            navigate('/home', { replace: true })
+            navigate('/partidos/' + response.matchId, { replace: true })
         }
         catch(error){
             setError(error.message || 'No se pudo crear el partido.');

@@ -2,7 +2,7 @@ from datetime import datetime
 from contextlib import contextmanager
 
 from sqlalchemy import or_, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.models.auth_model import Club
 from app.models.behaviour_model import Behavior
@@ -103,6 +103,18 @@ def list_available(db: Session, club_id: int, now: datetime):
             Matches.status.in_(("WAITING", "WAITING_OPPONENT")),
         )
         .order_by(Matches.init_date, Matches.match_id)
+    ).all()
+
+
+def list_for_club(db: Session, club_id: int):
+    creator = aliased(Club)
+    visitor = aliased(Club)
+    return db.execute(
+        select(Matches, creator.name, visitor.name)
+        .join(creator, creator.id == Matches.creator_id)
+        .outerjoin(visitor, visitor.id == Matches.visitor_id)
+        .where(or_(Matches.creator_id == club_id, Matches.visitor_id == club_id))
+        .order_by(Matches.init_date.desc(), Matches.match_id.desc())
     ).all()
 
 
