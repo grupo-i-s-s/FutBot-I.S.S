@@ -7,7 +7,7 @@ export function listFriendlyMatches(signal) {
 export function createFriendlyMatch(startDateTime) {
   return request('/friendly-matches', {
     method: 'POST',
-    body: { startDateTime },
+    body: { startDateTime: new Date(startDateTime).toISOString() },
   })
 }
 

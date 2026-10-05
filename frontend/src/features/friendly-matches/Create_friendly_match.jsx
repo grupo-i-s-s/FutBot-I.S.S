@@ -8,9 +8,17 @@ export default function CreateFriendlyMatch(){
     const [createMatch, setCreateMatch] = useState(false);
     const navigate = useNavigate()
     const [matchTime, setMatchTime] = useState(""); 
+    const [error, setError] = useState('');
 
     const handleCreateMatch = async (e) => {
         e.preventDefault();                     //Esto evita refrescar la pagina 
+        setError('');
+
+        const startDate = new Date(matchTime);
+        if (Number.isNaN(startDate.getTime()) || startDate <= new Date()) {
+            setError('La fecha de inicio debe ser futura.');
+            return;
+        }
 
         setCreateMatch(true);
 
@@ -18,6 +26,9 @@ export default function CreateFriendlyMatch(){
             const response = await createFriendlyMatch(matchTime)
             console.log("Rta del server", response)
             navigate('/home', { replace: true })
+        }
+        catch(error){
+            setError(error.message || 'No se pudo crear el partido.');
         }
         finally{
             setCreateMatch(false);
@@ -32,7 +43,7 @@ export default function CreateFriendlyMatch(){
 
         <form onSubmit={handleCreateMatch}>
           <div className="form-group">
-            <label>
+            <label htmlFor="horario">
                 Horario para comenzar el partido
             </label>
             <input 
@@ -50,6 +61,7 @@ export default function CreateFriendlyMatch(){
           >
             {createMatch ? "Creando partido..." : "Crear Partido"}
           </button>
+          {error && <p role="alert">{error}</p>}
 
         </form>
       </div>
