@@ -3,7 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 from app.repository import (
     session_repository,
-    user_repository, behaviour_repository, player_repository
+    user_repository,
+    behaviour_repository,
+    player_repository,
+    team_repository,
 )
 from app.schemas.auth_schemas import (
     ChangePasswordRequest,
@@ -11,6 +14,8 @@ from app.schemas.auth_schemas import (
     RegisterRequest,
     UserResponse
 )
+from app.schemas.team_schemas import Lineup
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -86,8 +91,27 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
 
         behaviours = behaviour_repository.create_default_behaviours(db, club.id)
 
-        player_repository.create_default_players(db, club.id, behaviours)
+        players = player_repository.create_default_players(db, club.id, behaviours)
 
+        line_up = Lineup.model_validate({
+            "formationId": 1,
+            "starters": [
+                {
+                    "playerId": player.id,
+                    "behaviourId": player.behavior_id,
+                }
+                for player in players[:3]
+            ],
+            "substitutes": [
+                {
+                    "playerId": player.id,
+                    "behaviourId": player.behavior_id,
+                }
+                for player in players[3:]
+            ],
+        })
+
+        team_repository.save(db, club.id, line_up.model_dump(by_alias=True))
 
         result = public_user(user, club)
 
