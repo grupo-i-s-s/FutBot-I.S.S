@@ -1,7 +1,7 @@
 from datetime import datetime
 from contextlib import contextmanager
 
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from app.models.auth_model import Club
@@ -100,7 +100,48 @@ def list_available(db: Session, club_id: int, now: datetime):
             Matches.visitor_id.is_(None),
             Matches.creator_id != club_id,
             Matches.init_date > now,
-            Matches.status == "WAITING",
+            Matches.status.in_(("WAITING", "WAITING_OPPONENT")),
         )
         .order_by(Matches.init_date, Matches.match_id)
     ).all()
+
+
+def get_due_match_ids(db: Session, now: datetime) -> list[int]:
+    return list(
+        db.scalars(
+            select(Matches.match_id)
+            .where(
+                Matches.init_date <= now,
+                Matches.status.in_(("WAITING", "WAITING_OPPONENT", "SCHEDULED", "RUNNING")),
+            )
+            .order_by(Matches.init_date, Matches.match_id)
+        ).all()
+    )
+
+
+def get_clubs_for_update(db: Session, club_ids: tuple[int, ...]) -> list[Club]:
+    return list(
+        db.scalars(
+            select(Club)
+            .where(Club.id.in_(club_ids))
+            .order_by(Club.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).all()
+    )
+
+
+def clubs_have_running_match(db: Session, club_ids: tuple[int, ...], match_id: int) -> bool:
+    running_match_id = db.scalar(
+        select(Matches.match_id)
+        .where(
+            Matches.match_id != match_id,
+            Matches.status == "RUNNING",
+            or_(
+                Matches.creator_id.in_(club_ids),
+                Matches.visitor_id.in_(club_ids),
+            ),
+        )
+        .limit(1)
+    )
+    return running_match_id is not None
