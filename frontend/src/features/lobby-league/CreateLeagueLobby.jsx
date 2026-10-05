@@ -79,8 +79,8 @@ export function LeagueLobby() {
   return (
     <div className="lobby-container">
       <header className="lobby-header">
-        <h1>Liga nº
-        <strong>{id}</strong>
+        <h1>Liga 
+        <strong> {lobby.name}</strong>
         </h1>
       </header>
 
