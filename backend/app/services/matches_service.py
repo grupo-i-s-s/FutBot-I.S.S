@@ -29,10 +29,11 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
         raise AppError("MATCH_SELF_JOIN", "No podés unirte a tu propio partido.")
     if match.visitor_id is not None:
         raise AppError("MATCH_FULL", "El partido ya tiene visitante.")
-    if match.status != "WAITING" or match.init_date <= datetime.now(timezone.utc):
+    if match.status not in ("WAITING", "WAITING_OPPONENT") or match.init_date <= datetime.now(timezone.utc):
         raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
 
     match.visitor_id = club_id
+    match.status = "SCHEDULED"
     # El snapshot de espera cambia al incorporarse el rival. Los espectadores
     # descartan secuencias repetidas, por lo que esta transición también cuenta.
     match.sequence += 1
@@ -52,7 +53,7 @@ def create_friendly_match(
     if start_dt <= now_utc:
         raise AppError("MATCH_INVALID_DATE", "La fecha de inicio debe ser futura.")
 
-    match = Matches(creator_id=club_id, init_date=start_dt)
+    match = Matches(creator_id=club_id, init_date=start_dt, status="WAITING_OPPONENT")
     db.add(match)
     db.commit()
     db.refresh(match)
