@@ -329,17 +329,44 @@ ante errores de conexión ni para aplicar cambios de esquema.
 
 ## 8. Pruebas y revisión
 
-Con PostgreSQL y backend iniciados:
+Para ejecutar los tests unitarios desde la raíz del proyecto, sin iniciar
+PostgreSQL ni el servidor de la API:
 
 ```sh
-docker compose exec backend python -m pytest -q
-docker compose logs --tail=100 backend
+docker compose run --rm --no-deps backend python -m pytest -q tests/unit
 ```
 
-La prueba actual de disponibilidad consulta la base real mediante `SELECT 1` y no
-escribe datos. Las pruebas de persistencia futuras deberán usar una base exclusiva
-de pruebas y datos aislados, con limpieza o rollback; esa infraestructura todavía
-no está configurada. No ejecutar pruebas que borren tablas sobre la base de trabajo.
+Si el contenedor backend ya está iniciado, también se puede usar
+`docker compose exec -T backend python -m pytest -q tests/unit`.
+
+La suite de `tests/unit` cubre las reglas de registro, login y sesiones; jugadores,
+comportamientos y equipo default; creación, ingreso, salida y lobby de ligas;
+amistosos, permisos y estado de partido; inicio, cancelación, ejecución y
+reanudación; scheduler, protocolo de streaming, errores y acciones del motor.
+Los casos incluyen entradas inválidas, límites de tiempo, recursos de otro club,
+fallos de escritura y rechazos que no deben confirmar cambios.
+
+Los repositorios, sesiones, hashing y servicios externos se simulan. Los tests de
+ejecución controlan el reloj y las esperas; los del scheduler no crean threads
+reales. `tests/unit/conftest.py` hace fallar cualquier intento de abrir una conexión
+SQL. Se comprueban nuestras decisiones y reglas, sin probar las garantías de
+PostgreSQL, SQLAlchemy, Argon2, FastAPI o el motor físico de Pymunk.
+
+Los tests unitarios de comportamientos, construcción de partidos y plantel inicial
+se trasladaron a `tests/unit`; los del registro se consolidaron en
+`test_auth_service.py` para evitar duplicar los mismos escenarios.
+
+Los contratos HTTP simulados de amistosos y creación de ligas se pueden ejecutar
+aparte; sus fixtures desactivan el scheduler real:
+
+```sh
+docker compose run --rm --no-deps backend python -m pytest -q tests/test_friendly_matches.py tests/test_league_creation.py
+```
+
+Las pruebas de integración y otros archivos históricos en `tests/` siguen siendo
+una ejecución separada. Algunas requieren una base exclusiva de pruebas con todas
+las migraciones aplicadas y datos aislados. Pasar `tests/unit` no confirma esos
+flujos de integración. No ejecutar pruebas que borren tablas sobre la base de trabajo.
 
 Para cada nueva regla o endpoint, cubrir el caso válido, entradas inválidas y los
 errores de permiso o estado que correspondan. En escrituras, comprobar que un rechazo
