@@ -1,68 +1,79 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getDefaultTeam, getFormations, updateDefaultTeam } from '../api'
 import { Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from '@/components/ui/card'
 
-const FORMATIONS = ['1-1-1', '2-1', '1-2']
 
 const SELECT_CLASSES =
     'w-full min-w-0 rounded-md border border-input bg-background px-2 py-2 text-sm'
 
-function storageKey(clubId) {
-    return `futbot:club:${clubId}:default-team`
-}
+function loadTeam(response) {
+    const { lineUp } = response
 
-function loadTeam(clubId, players, behaviours) {
-    const initialTeam = {
-        formation: FORMATIONS[0],
-        slots: Array.from({ length: 6 }, (_, index) => ({
-            playerId: String(players[index]?.id ?? ''),
-            behaviourId: String(players[index]?.behaviorId ?? ''),
-        })),
-    }
-
-    try {
-        const saved = JSON.parse(localStorage.getItem(storageKey(clubId)))
-
-        if (!Array.isArray(saved?.slots) || saved.slots.length !== 6) {
-            return initialTeam
-        }
-
-        return {
-            formation: FORMATIONS.includes(saved.formation)
-                ? saved.formation
-                : FORMATIONS[0],
-            slots: saved.slots.map((slot) => ({
-                playerId: players.some(
-                    (player) => String(player.id) === slot?.playerId
-                ) ? slot.playerId : '',
-                behaviourId: behaviours.some(
-                    (behaviour) => String(behaviour.id) === slot?.behaviourId
-                ) ? slot.behaviourId : '',
-            })),
-        }
-    } catch {
-        return initialTeam
+    return {
+        formation: String(lineUp.formationId),
+        slots: [...lineUp.starters, ...lineUp.substitutes].map(
+            (slot) => ({
+                playerId: String(slot.playerId),
+                behaviourId: String(slot.behaviourId),
+            })
+        ),
     }
 }
 
 export default function TeamSettings({ clubId, players, behaviours }) {
-    const [team, setTeam] = useState(
-        () => loadTeam(clubId, players, behaviours)
-    )
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
+    const [team, setTeam] = useState(null)
+    const [formations, setFormations] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [isSaving, setIsSaving] = useState(false)
 
     function clearFeedback() {
         setError('')
         setSuccess('')
     }
+    useEffect(() => {
+        const controller = new AbortController()
+        const options = { signal: controller.signal }
+
+        async function fetchTeam() {
+            setLoading(true)
+            setTeam(null)
+            setError('')
+            setSuccess('')
+
+            try {
+                const [response, catalog] = await Promise.all([
+                    getDefaultTeam(options),
+                    getFormations(options),
+                ])
+
+                if (controller.signal.aborted) return
+
+                if (!response) {
+                    throw new Error(
+                        'No se encontró el equipo del club en la base de datos.'
+                    )
+                }
+
+                setTeam(loadTeam(response))
+                setFormations(catalog.items)
+            } catch (err) {
+                if (!controller.signal.aborted) {
+                    setError(err.message || 'No se pudo cargar el equipo.')
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false)
+                }
+            }
+        }
+
+        fetchTeam()
+        return () => controller.abort()
+    }, [clubId])
 
     function changeSlot(index, field, value) {
         clearFeedback()
@@ -88,8 +99,9 @@ export default function TeamSettings({ clubId, players, behaviours }) {
         }))
     }
 
-    function handleSubmit(event) {
+    async function handleSubmit(event) {
         event.preventDefault()
+        if (isSaving || !team) return
         clearFeedback()
 
         const playerIds = team.slots.map((slot) => slot.playerId)
@@ -113,12 +125,43 @@ export default function TeamSettings({ clubId, players, behaviours }) {
             return
         }
 
-        try {
-            localStorage.setItem(storageKey(clubId), JSON.stringify(team))
-            setSuccess('Equipo guardado en este navegador.')
-        } catch {
-            setError('No se pudo guardar el equipo en este navegador.')
+        if (!formations.some(
+            (formation) => String(formation.id) === team.formation
+        )) {
+            setError('Elegí una formación disponible.')
+            return
         }
+
+        const selections = team.slots.map((slot) => ({
+            playerId: Number(slot.playerId),
+            behaviourId: Number(slot.behaviourId),
+        }))
+
+        setIsSaving(true)
+
+        try {
+            const response = await updateDefaultTeam({
+                formationId: Number(team.formation),
+                starters: selections.slice(0, 3),
+                substitutes: selections.slice(3, 6),
+            })
+
+            setTeam(loadTeam(response))
+            setSuccess('Equipo guardado correctamente.')
+        } catch (err) {
+            const fields = Object.values(err.fields ?? {}).join(' ')
+            setError(
+                fields || err.message || 'No se pudo guardar el equipo.'
+            )
+        } finally {
+            setIsSaving(false)
+        }
+    }
+    if (loading) {
+        return <p role="status">Cargando equipo...</p>
+    }
+    if (!team) {
+        return <p role="alert">{error}</p>
     }
 
     return (
@@ -142,6 +185,7 @@ export default function TeamSettings({ clubId, players, behaviours }) {
 
                         <select
                             id="team-formation"
+                            disabled={isSaving}
                             className={SELECT_CLASSES}
                             value={team.formation}
                             onChange={(event) => {
@@ -152,17 +196,18 @@ export default function TeamSettings({ clubId, players, behaviours }) {
                                 }))
                             }}
                         >
-                            {FORMATIONS.map((formation) => (
-                                <option key={formation} value={formation}>
-                                    {formation}
+                            {formations.map((formation) => (
+                                <option key={formation.id} value={formation.id}>
+                                    {formation.name}
                                 </option>
-                            ))}
+                            ))} 
                         </select>
                     </div>
 
                     {team.slots.map((slot, index) => (
                         <fieldset
                             key={index}
+                            disabled={isSaving}
                             className="min-w-0 space-y-2 rounded-md border p-2"
                         >
                             <legend className="px-1 text-sm font-semibold">
@@ -242,9 +287,9 @@ export default function TeamSettings({ clubId, players, behaviours }) {
                     <Button
                         type="submit"
                         className="w-full"
-                        disabled={players.length < 6 || behaviours.length === 0}
+                        disabled={ isSaving || players.length < 6 || behaviours.length === 0 || formations.length === 0 }
                     >
-                        Guardar equipo
+                        {isSaving ? 'Guardando...' : 'Guardar equipo'}
                     </Button>
 
                     {error && (
