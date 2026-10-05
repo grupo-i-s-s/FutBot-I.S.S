@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { obtenerLobby, abandonarLobby } from './api.js'
 import './CreateLeagueLobby.css'
+import {useNavigate } from 'react-router'
 
 export function LeagueLobby() {
 
@@ -10,6 +11,7 @@ export function LeagueLobby() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [refresh, setRefresh] = useState(0)
+  const navigate = useNavigate()
 
 
   useEffect(() => {
@@ -46,11 +48,9 @@ export function LeagueLobby() {
       if (!confirmed) return
       try {
           await abandonarLobby(id)
+          navigate('/mi-club')
       } catch (err) {
-          const errorMsg = err?.detail || err?.message || 'Error al abandonar la liga.'
-        
-        // Si detail es una lista o un objeto, lo convierte a texto
-        alert(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg)
+        alert('No se pudo abandonar la liga')
       }
   }
 
