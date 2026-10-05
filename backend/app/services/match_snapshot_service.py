@@ -15,7 +15,7 @@ def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
         raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
     if match.snapshot is not None:
         return match.snapshot
-    if match.status != "WAITING":
+    if match.status not in ("WAITING", "WAITING_OPPONENT", "SCHEDULED"):
         raise AppError("MATCH_STATE_INVALID", "Falta el snapshot persistido del partido.")
     ids = (match.creator_id,) if match.visitor_id is None else (match.creator_id, match.visitor_id)
     names = matches_repository.get_club_names(db, ids)

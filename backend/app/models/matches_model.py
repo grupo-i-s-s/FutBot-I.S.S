@@ -8,10 +8,11 @@ from app.database import Base
 class Matches(Base):
     __tablename__ = "matches"
     __table_args__ = (
-        CheckConstraint("status IN ('WAITING', 'RUNNING', 'FINISHED')", name="ck_matches_status"),
+        CheckConstraint("status IN ('WAITING', 'WAITING_OPPONENT', 'SCHEDULED', 'RUNNING', 'FINISHED', 'CANCELLED')", name="ck_matches_status"),
         CheckConstraint("duration_ms > 0 AND clock_ms >= 0 AND clock_ms <= duration_ms", name="ck_matches_clock"),
         CheckConstraint("local_score >= 0 AND visitor_score >= 0 AND sequence >= 0", name="ck_matches_result"),
         CheckConstraint("status != 'FINISHED' OR (finished_at IS NOT NULL AND clock_ms = duration_ms AND snapshot IS NOT NULL)", name="ck_matches_finished"),
+        CheckConstraint("status != 'CANCELLED' OR cancellation_reason IS NOT NULL", name="ck_matches_cancellation_reason"),
     )
     match_id: Mapped[int] = mapped_column(primary_key=True)
     creator_id: Mapped[int] = mapped_column(ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
@@ -27,3 +28,4 @@ class Matches(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     snapshot: Mapped[dict | None] = mapped_column(JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql"))
     runtime_state: Mapped[dict | None] = mapped_column(JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql"))
+    cancellation_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
