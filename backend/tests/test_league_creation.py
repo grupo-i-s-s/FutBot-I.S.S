@@ -14,9 +14,29 @@ from app.repository import league_repository
 from app.security import verify_password
 
 
+@pytest.fixture(autouse=True)
+def no_background_scheduler(monkeypatch):
+    # Estos contratos HTTP usan repositorios simulados, sin ejecutar partidos reales.
+    async def stopped_scheduler(stop_event):
+        return
+
+    monkeypatch.setattr("app.main.run_match_scheduler", stopped_scheduler)
+
+
 @pytest.fixture
 def league_client():
     db = Mock()
+    # La sesión simulada debe devolver los valores generados al hacer flush.
+    def generated_values():
+        league = db.add.call_args.args[0]
+        league.id = 42
+        league.status = "open"
+        for index, registration in enumerate(league.registrations, start=1):
+            registration.id = index
+            registration.league_id = league.id
+            registration.joined_at = datetime.now(timezone.utc)
+
+    db.flush.side_effect = generated_values
     club = SimpleNamespace(id=7, name="Club creador")
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_current_club] = lambda: club

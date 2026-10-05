@@ -148,3 +148,28 @@ def test_assign_behaviour_rolls_back_failed_write(monkeypatch):
 
     db.rollback.assert_called_once()
     db.commit.assert_not_called()
+
+
+def test_player_listing_is_scoped_to_authenticated_club(db, monkeypatch):
+    players = [object()]
+    get_players = MagicMock(return_value=players)
+    monkeypatch.setattr(player_service.player_repository, "get_players_by_club", get_players)
+    assert player_service.get_players(db, 7) is players
+    get_players.assert_called_once_with(db, 7)
+    db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["create", "assign"])
+def test_player_write_commit_failure_rolls_back(db, monkeypatch, operation):
+    monkeypatch.setattr(player_service, "behaviour_repository", MagicMock())
+    monkeypatch.setattr(player_service, "player_repository", MagicMock())
+    db.commit.side_effect = RuntimeError("commit failed")
+    with pytest.raises(RuntimeError):
+        if operation == "create":
+            player_service.behaviour_repository.get_default_behaviour.return_value = MagicMock(id=7)
+            player_service.create_player(db, 7, valid_payload())
+        else:
+            player_service.behaviour_repository.get_behaviour_by_id.return_value = MagicMock(id=7)
+            player_service.assign_behaviour(db, 7, 11, 7)
+    db.rollback.assert_called_once()
+    db.refresh.assert_not_called()
