@@ -1,8 +1,7 @@
 import { Link } from 'react-router'
-import { Shield } from 'lucide-react'
 import AvaiableLeagues from './components/AvaiableLeagues'
 import './homePage.css'
-import AvaiableFriendlyMatches from './components/AvaiableFriendlyMatches'
+import AvailableFriendlyMatches from './components/AvailableFriendlyMatches.jsx'
 import WelcomePannel from './components/WelcomePannel'
 import { useEffect, useState } from 'react'
 import { getMyClub } from '../my-club/api'
@@ -51,7 +50,7 @@ export default function HomePage(){
             <main className="home-layout">
                 <AvaiableLeagues />
                 <WelcomePannel />
-                <AvaiableFriendlyMatches />
+                <AvailableFriendlyMatches />
             </main>
         </div>
             
