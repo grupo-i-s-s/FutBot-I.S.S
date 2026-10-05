@@ -30,3 +30,11 @@ class FriendlyMatchResponse(BaseModel):
 class JoinMatchResponse(BaseModel):
     message: str
     match_id: int = Field(serialization_alias="matchId")
+
+
+class MatchStateResponse(BaseModel):
+    status: str = Field(serialization_alias="status")
+    local_score: int = Field(serialization_alias="localScore")
+    visitor_score: int = Field(serialization_alias="visitorScore")
+    duration_ms: int = Field(serialization_alias="durationMs")
+    model_config = ConfigDict(populate_by_name=True)

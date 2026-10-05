@@ -6,6 +6,7 @@ from app.schemas.matches_schemas import (
     FriendlyMatchResponse,
     JoinMatchRequest,
     JoinMatchResponse,
+    MatchStateResponse,
 )
 from app.services import matches_service
 
@@ -29,3 +30,8 @@ def list_friendly_matches(db: Database, club: CurrentClub):
 @matches_router.post("/join", response_model=JoinMatchResponse)
 def join_match(data: JoinMatchRequest, db: Database, club: CurrentClub):
     return matches_service.join_match(db, data.match_id, club.id)
+
+
+@matches_router.get("/{match_id}", response_model=MatchStateResponse)
+def get_match_state(match_id: int, db: Database, club: CurrentClub):
+    return matches_service.get_match_state(db=db, match_id=match_id, club_id=club.id)
