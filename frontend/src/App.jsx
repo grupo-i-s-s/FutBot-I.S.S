@@ -1,10 +1,11 @@
 import { Navigate, Route, Routes } from 'react-router'
 import LoginPage from './features/login/LoginPage.jsx'
 import RegisterPage from './features/register/RegisterPage.jsx'
-import FriendlyMatches from './features/friendly-matches/Matches.jsx'
+import MatchesPage from './features/friendly-matches/Matches.jsx'
 import MatchPage from './features/friendly-matches/MatchPage.jsx'
 import MyClubPage from './features/my-club/MyClubPage.jsx'
 import NotFoundPage from './features/not-found/NotFoundPage.jsx'
+import CreateFriendlyMatch from './features/friendly-matches/Create_friendly_match.jsx'
 import CreatePlayerPage from './features/create-players/CreatePlayersPage.jsx'
 import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx'
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx'
@@ -22,10 +23,10 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/registro" element={<RegisterPage />} />
             <Route path="/mi-club" element={<MyClubPage />} />
+            <Route path = "/partidos-disponibles" element={<MatchesPage/>}/>
+            <Route path = "/crear-partido" element={<CreateFriendlyMatch/>}/>
             <Route path="/crear-jugador" element={<CreatePlayerPage />} />
-            <Route path = "partidos-disponibles" element={<FriendlyMatches/>}/>
             <Route path="/partidos/:matchId" element={<MatchPage />} />
-            <Route path="partidos-disponibles" element={<FriendlyMatches />} />
             <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
             <Route path="/behaviours/:behaviourId" element={<BehaviourDetailPage />} />
             <Route path="/ligas-disponibles" element={<LeagueListPage />} />
