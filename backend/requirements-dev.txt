@@ -84,10 +84,14 @@ pydantic-core==2.46.5
     # via
     #   -r requirements.txt
     #   pydantic
+pygame==2.6.1
+    # via -r requirements-dev.in
 pygments==2.21.0
     # via pytest
 pymunk==7.3.0
-    # via -r requirements.txt
+    # via
+    #   -r requirements-dev.in
+    #   -r requirements.txt
 pytest==9.1.1
     # via -r requirements-dev.in
 python-dotenv==1.2.3

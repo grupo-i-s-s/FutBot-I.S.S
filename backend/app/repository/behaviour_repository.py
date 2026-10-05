@@ -2,14 +2,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.behaviour_model import Behavior
+from primitives.behaviours import DEFAULT_CODES
 
-
-DEFAULT_BEHAVIOR_CODE = '''print("hola futbot!")'''
 
 DEFAULT_BEHAVIOURS = (
-    ("Equilibrado", "Comportamiento inicial equilibrado."),
-    ("Ofensivo", "Comportamiento inicial ofensivo."),
-    ("Defensivo", "Comportamiento inicial defensivo."),
+    ("Equilibrado", "El más cercano busca la pelota; los demás acompañan manteniendo su línea."),
+    ("Ofensivo", "Busca la pelota en toda la cancha y patea hacia el arco rival."),
+    ("Defensivo", "Protege su posición y busca la pelota cuando está en su mitad de cancha."),
 )
 
 def create_default_behaviours(db: Session, club_id: int) -> list[Behavior]:
@@ -18,7 +17,7 @@ def create_default_behaviours(db: Session, club_id: int) -> list[Behavior]:
             club_id=club_id,
             name=name,
             description=description,
-            code=DEFAULT_BEHAVIOR_CODE,
+            code=DEFAULT_CODES[name],
         )
         for name, description in DEFAULT_BEHAVIOURS
     ]

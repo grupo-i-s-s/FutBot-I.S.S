@@ -119,7 +119,11 @@ def create_world(
 
 
 def step(world: World, dt: float) -> str | None:
-    """Avanza dt segundos. Devuelve LEFT, RIGHT o None."""
+    """Avanza dt segundos y devuelve el lado del equipo que anotó.
+
+    LEFT ataca el arco derecho (x = width); RIGHT ataca el izquierdo (x = 0).
+    Devuelve None si no hubo gol.
+    """
     if dt <= 0:
         raise ValueError("dt debe ser positivo")
 

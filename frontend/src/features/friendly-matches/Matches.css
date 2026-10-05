@@ -27,6 +27,23 @@
     margin-bottom: 32px;
 }
 
+.main-card form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    color: #0f172a;
+}
+
+.main-card form input {
+    padding: 8px;
+    border: 1px solid #64748b;
+    border-radius: 6px;
+    color: #0f172a;
+    background: white;
+}
+
 .container {
     display: flex;
     flex-direction: column;
