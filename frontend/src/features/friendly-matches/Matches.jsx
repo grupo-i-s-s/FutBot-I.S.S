@@ -14,7 +14,7 @@ export default function MatchesPage() {
         async function handleJoinMatch(matchId) {
             const response = await joinFriendlyMatch(matchId)
             
-            setPartidosDisponibles(partidosDisponibles.filter(partido => partido.matchId != idPartido))
+            setPartidosDisponibles(partidosDisponibles.filter(partido => partido.matchId != matchId))
             console.log(response)
             console.log(response.status)
 
