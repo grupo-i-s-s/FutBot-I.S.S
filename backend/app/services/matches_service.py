@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
+from fastapi import HTTPException, status
 
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.models.matches_model import Matches
 from app.repository import matches_repository
-from app.schemas.matches_schemas import CreateFriendlyMatchRequest
+from app.schemas.matches_schemas import CreateFriendlyMatchRequest, MatchStateResponse
 
 
 def list_available(db: Session, club_id: int) -> list[dict]:
@@ -29,10 +30,14 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
         raise AppError("MATCH_SELF_JOIN", "No podés unirte a tu propio partido.")
     if match.visitor_id is not None:
         raise AppError("MATCH_FULL", "El partido ya tiene visitante.")
-    if match.status != "WAITING" or match.init_date <= datetime.now(timezone.utc):
+    if match.status not in (
+        "WAITING",
+        "WAITING_OPPONENT",
+    ) or match.init_date <= datetime.now(timezone.utc):
         raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
 
     match.visitor_id = club_id
+    match.status = "SCHEDULED"
     # El snapshot de espera cambia al incorporarse el rival. Los espectadores
     # descartan secuencias repetidas, por lo que esta transición también cuenta.
     match.sequence += 1
@@ -52,8 +57,30 @@ def create_friendly_match(
     if start_dt <= now_utc:
         raise AppError("MATCH_INVALID_DATE", "La fecha de inicio debe ser futura.")
 
-    match = Matches(creator_id=club_id, init_date=start_dt)
+    match = Matches(creator_id=club_id, init_date=start_dt, status="WAITING_OPPONENT")
     db.add(match)
     db.commit()
     db.refresh(match)
     return {"message": "Amistoso creado exitosamente", "match_id": match.match_id}
+
+
+def get_match_state(db, match_id: int, club_id: int) -> MatchStateResponse:
+    match = matches_repository.get_by_id(db, match_id)
+
+    if not match:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="El partido no existe."
+        )
+
+    if match.creator_id != club_id and match.visitor_id != club_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tenés permiso para consultar este partido.",
+        )
+
+    return MatchStateResponse(
+        status=match.status,
+        local_score=match.local_score,
+        visitor_score=match.visitor_score,
+        duration_ms=match.duration_ms,
+    )

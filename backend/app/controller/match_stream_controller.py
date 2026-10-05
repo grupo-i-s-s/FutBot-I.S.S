@@ -64,8 +64,8 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
             if snapshot["sequence"] != last_sequence:
                 await websocket.send_json(snapshot)
                 last_sequence = snapshot["sequence"]
-            if snapshot["state"]["status"] == "FINISHED":
-                await websocket.close(code=1000, reason="Partido finalizado")
+            if snapshot["state"]["status"] in ("FINISHED", "CANCELLED"):
+                await websocket.close(code=1000, reason="Partido finalizado o cancelado")
                 return
             done, _ = await asyncio.wait({incoming}, timeout=0.1)
             if done:
