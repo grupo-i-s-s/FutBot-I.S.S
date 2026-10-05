@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { obtenerLobby } from './api.js'
+import { obtenerLobby, abandonarLobby } from './api.js'
 import './CreateLeagueLobby.css'
+import {useNavigate } from 'react-router'
 
 export function LeagueLobby() {
 
@@ -10,6 +11,8 @@ export function LeagueLobby() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [refresh, setRefresh] = useState(0)
+  const navigate = useNavigate()
+
 
   useEffect(() => {
       const controller = new AbortController()
@@ -39,6 +42,17 @@ export function LeagueLobby() {
 
       return () => controller.abort()
   }, [id, refresh])
+
+  async function handleLeaveLeague() {
+      const confirmed = window.confirm('¿Estás seguro de que querés abandonar esta liga?')
+      if (!confirmed) return
+      try {
+          await abandonarLobby(id)
+          navigate('/mi-club')
+      } catch (err) {
+        alert('No se pudo abandonar la liga')
+      }
+  }
 
   if (loading) {
       return (
@@ -144,8 +158,13 @@ export function LeagueLobby() {
       </div>
 
       <div className="leave-league">
-        <button> Abandonar Liga </button>
-      </div>
+          <button 
+            type="button" 
+            onClick={handleLeaveLeague}
+          >
+            Abandonar Liga
+          </button>
+        </div>
     </div>
   );
 }
