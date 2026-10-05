@@ -155,7 +155,12 @@ def leave_league(db: Session, league_id: int, club_id: int) -> dict:
             detail="La liga no existe.",
         )
 
-    # Preguntar dsp cual de los dos usar
+    if league.creator_club_id == club_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No es posible que un jugador creador abandone su propia liga",
+        )
+
     now_utc = datetime.now(timezone.utc)
     if league.status != "open" or (
         league.start_datetime and league.start_datetime <= now_utc
@@ -217,9 +222,7 @@ def join_league(
             detail="No es posible unirse a una liga que ya ha comenzado o no está abierta.",
         )
 
-    registration_count = league_repository.count_registrations(
-        db, league_id
-    )
+    registration_count = league_repository.count_registrations(db, league_id)
 
     if registration_count >= league.max_teams:
         raise HTTPException(
@@ -227,9 +230,7 @@ def join_league(
             detail="La liga ha alcanzado el límite máximo de equipos.",
         )
 
-    existing_registration = league_repository.get_registration(
-        db, league_id, club_id
-    )
+    existing_registration = league_repository.get_registration(db, league_id, club_id)
 
     if existing_registration:
         raise HTTPException(
@@ -278,7 +279,9 @@ def join_league(
     }
 
 
-def list_leagues(db: Session, club_id: int, name: str | None = None) -> list[LeagueRead]:
+def list_leagues(
+    db: Session, club_id: int, name: str | None = None
+) -> list[LeagueRead]:
     normalized_name = name.strip() if name is not None else None
     leagues = league_repository.get_all_available_leagues(db, name=normalized_name)
 
@@ -286,8 +289,7 @@ def list_leagues(db: Session, club_id: int, name: str | None = None) -> list[Lea
     for league in leagues:
         registered_count = len(league.registrations)
         is_member = any(
-            registration.club_id == club_id
-            for registration in league.registrations
+            registration.club_id == club_id for registration in league.registrations
         )
         items.append(
             LeagueRead(
