@@ -26,6 +26,7 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
     const [joining, setJoining] = useState(false)
     const [error, setError] = useState('')
     const [accessCode, setAccessCode] = useState('')
+    const needsAccessCode = Boolean( league?.requiresAccessCode || league?.isPrivate || league?.type === 'PRIVATE')
 
     useEffect(() => {
         const controller = new AbortController()
@@ -62,7 +63,9 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
     }, [leagueId, suppliedLeague])
 
     async function handleJoin() {
-        if (joining) return
+        if (joining || !league || !team) return
+
+        setError('')
 
         try {
             setJoining(true)
@@ -72,7 +75,7 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
                 league.id,
                 team.clubId,
                 team.lineUp,
-                (league.isPrivate || league.type === 'PRIVATE') ? accessCode : undefined
+                needsAccessCode ? accessCode : undefined
             )
             navigate(`/leagues/${league.id}/lobby`)
         } catch (err) {
@@ -163,7 +166,7 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
                     </ul>
                 </div>
 
-                {(league.isPrivate || league.type === 'PRIVATE') && (
+                {needsAccessCode && (
                     <div className="space-y-2">
                         <label
                             htmlFor="access-code"
@@ -199,7 +202,7 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
 
                 <Button
                     onClick={handleJoin}
-                    disabled={joining || team.lineUp.length === 0}
+                    disabled={joining || team.lineUp.length !== 6 || needsAccessCode && !accessCode.trim()}
                 >
                     {joining
                         ? 'Inscribiendo...'

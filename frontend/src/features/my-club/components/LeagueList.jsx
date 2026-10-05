@@ -3,13 +3,15 @@ import {Badge} from '@/components/ui/badge';
 import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
 import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle} from '@/components/ui/item';
+import { Link } from 'react-router'
+import { buttonVariants } from '@/components/ui/button'
 
 const LEAGUE_TYPE_LABELS = {
     PUBLIC: 'Pública',
     PRIVATE: 'Privada',
 };
 
-export default function LeagueList({leagues, isMock = false}) {
+export default function LeagueList({ leagues }) {
     return (
         <Card>
             <CardHeader>
@@ -18,11 +20,14 @@ export default function LeagueList({leagues, isMock = false}) {
                     Ligas inscriptas
                 </CardTitle>
                 <CardDescription>Ligas en las que participa tu club.</CardDescription>
-                {isMock && (
-                    <CardAction>
-                        <Badge variant="outline">Datos de ejemplo</Badge>
-                    </CardAction>
-                )}
+                <CardAction>
+                    <Link
+                        to="/ligas-disponibles"
+                        className={buttonVariants({ size: 'sm' })}
+                    >
+                        Unirme a liga
+                    </Link>
+                </CardAction>
             </CardHeader>
             <CardContent>
                 {leagues.length === 0 ? (

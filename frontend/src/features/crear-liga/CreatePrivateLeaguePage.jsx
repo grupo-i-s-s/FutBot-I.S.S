@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { crearLigaPrivada } from './apiPrivate.js'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 
 
 export default function CreatePrivateLeague(){
@@ -15,34 +15,39 @@ export default function CreatePrivateLeague(){
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
     const [needsLogin, setNeedsLogin] = useState(false)
+    const navigate = useNavigate()
 
-    async function handleSubmit(event) {
-        event.preventDefault()
-        if (isSubmitting) return
-        
-        setError('')
-        setNeedsLogin(false)
-        setSuccess('')
+   async function handleSubmit(event) {
+    event.preventDefault()
+    if (isSubmitting) return
 
-        if(password !== repeatPassword) {
-            setError('Las contraseñas no coinciden. Reintentar.')
-            return
-        }
+    setError('')
+    setNeedsLogin(false)
+    setSuccess('')
 
-        setIsSubmitting(true)
-        
-        try {
-            const response = await crearLigaPrivada(
-                name,password, minTeams, maxTeams, startDate, roundInterval
-            )
-            setSuccess(response.message)
-        } catch (err) {
-            setError(err.message || 'No se pudo crear la liga privada.')
-            setNeedsLogin(err.status==401)
-        } finally {
-            setIsSubmitting(false)
-        }
+    if (password !== repeatPassword) {
+        setError('Las contraseñas no coinciden.')
+        return
     }
+
+    setIsSubmitting(true)
+
+    try {
+        const response = await crearLigaPrivada( name, password, minTeams, maxTeams, startDate, roundInterval )
+
+        if (!Number.isInteger(response.leagueId)) {
+            throw new Error('El servidor no devolvió el ID de la liga creada.')
+        }
+
+        navigate('/leagues/' + response.leagueId + '/lobby', {replace: true})
+    } catch (err) {
+        const fieldErrors = Object.values(err.fields ?? {}).join(' ')
+        setError( fieldErrors || err.message || 'No se pudo crear la liga privada.' )
+        setNeedsLogin(err.status === 401)
+    } finally {
+        setIsSubmitting(false)
+    }
+}
     
 
     return(
