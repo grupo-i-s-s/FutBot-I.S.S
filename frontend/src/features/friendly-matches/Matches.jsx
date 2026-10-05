@@ -3,12 +3,34 @@ import { Button } from '@/components/ui/button';
 import {useState, useEffect} from 'react';
 import { joinFriendlyMatch, listFriendlyMatches } from './api';
 import { Card } from '@/components/ui/card';
+import {useNavigate} from "react-router";
 
 export default function MatchesPage() {
       
         const [partidosDisponibles, setPartidosDisponibles] = useState([])
         const [partidosUnidos, setPartidosUnidos] = useState([])
-        useEffect(() => {listFriendlyMatches().then((datos => {setPartidosDisponibles(datos)}))}, []) // Esto me carga todos los partidos disponibles una vez al entrar.
+        const [loading, setLoading] = useState(true)
+        const [error, setError] = useState('')
+        const navigate = useNavigate()
+
+
+        useEffect(() => {
+            const controller = new AbortController()
+
+            async function cargarPartidos() {
+                try {
+                    const datos = await listFriendlyMatches(controller.signal)
+                    if (!controller.signal.aborted) setPartidosDisponibles(datos)
+                } catch (error) {
+                    if (!controller.signal.aborted) setError(error.message)
+                } finally {
+                    if (!controller.signal.aborted) setLoading(false)
+                }
+            }
+
+            cargarPartidos()
+            return () => controller.abort()
+        }, [])
 
 
         async function handleJoinMatch(matchId) {
@@ -19,12 +41,18 @@ export default function MatchesPage() {
             console.log(response.status)
 
             setPartidosUnidos([...partidosUnidos, matchId])
+            navigate('/partidos/' + matchId , { replace: true })
         }
 
     return (
         <main className="Friendly-Matches">
            <Card className="main-card">
                 <h1 className = "page-title"> A JUGAR !</h1>
+                {loading && <p role="status">Cargando partidos…</p>}
+                {error && <p role="alert">{error}</p>}
+                {!loading && !error && partidosDisponibles.length === 0 && (
+                    <p role="status">No hay partidos disponibles.</p>
+                )}
                 <div className = "container"> 
                     {partidosDisponibles.map((partido) => (
                         <div key={partido.matchId} className="match-box">
