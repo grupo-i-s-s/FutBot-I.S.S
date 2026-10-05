@@ -15,7 +15,7 @@ export default function LoginPage(){
 
     try {
         await login(email, password)
-        navigate('/crear-liga')
+        navigate('/home', { replace: true})
     } catch (err) {
         const fieldErrors = Object.values(err.fields ?? {}).join(' ')
 

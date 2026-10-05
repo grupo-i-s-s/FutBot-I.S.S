@@ -156,7 +156,11 @@ export default function LeagueListPage() {
                                             : `/leagues/${league.id}/join`}
                                         className="leagues-link"
                                     >
-                                        {league.isMember ? 'Ver lobby' : 'Inscribirse'}
+                                        {league.isMember ? 
+                                            (<Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver lobby </Link>
+                                            ): league.canJoin ? 
+                                            (<Link to={`/leagues/${league.id}/join`} className="leagues-link">Unirme a liga</Link>)
+                                            : (<p className="leagues-message">Inscripción no disponible.</p>)}
                                     </Link>
                                 </li>
                             ))}

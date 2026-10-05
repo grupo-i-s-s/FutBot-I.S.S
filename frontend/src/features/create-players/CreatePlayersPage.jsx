@@ -1,6 +1,7 @@
 import './CreatePlayersPage.css';
 import { useState } from 'react';
 import { createPlayer } from './api';
+import { useNavigate } from 'react-router'
 
 export default function CreatePlayerPage() {
     const [name, setName] = useState('');
@@ -9,17 +10,60 @@ export default function CreatePlayerPage() {
     const [control, setControl] = useState(60);
     const [speed, setSpeed] = useState(60);
     const [strength, setStrength] = useState(60);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const navigate = useNavigate()
 
     const totalPoints = power + agility + control + speed + strength;
 
     const isValid = name.trim() !== '' && totalPoints === 300;
 
     async function handleSubmit(event) {
-        event.preventDefault()
-        if (!isValid) { return; }
-        const response = await createPlayer(name, power, agility, control, speed, strength)
-        console.log(response)
-        console.log(response.status)
+        event.preventDefault();
+        if (isSubmitting) return;
+
+        setError('');
+        setSuccess('');
+
+        if (!isValid) {
+            setError(
+                !name.trim()
+                    ? 'Ingresá el nombre del jugador.'
+                    : `Los atributos deben sumar 300 puntos. Actualmente suman ${totalPoints}.`
+            );
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const player = await createPlayer(
+                name.trim(),
+                power,
+                agility,
+                control,
+                speed,
+                strength
+            );
+
+            setSuccess(`¡El jugador ${player.name} se creó correctamente!`);
+            navigate('/mi-club', { replace: true})
+        } catch (err) {
+            if (err.status === 401) {
+                setError('Tu sesión venció. Iniciá sesión nuevamente.');
+            } else {
+                const fieldErrors = Object.values(err.fields ?? {}).join(' ');
+
+                setError(
+                    fieldErrors ||
+                    err.message ||
+                    'No se pudo crear el jugador. Intentá nuevamente.'
+                );
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -106,7 +150,25 @@ export default function CreatePlayerPage() {
                 <span className="total-value">{totalPoints}</span>
             </div>
 
-            <button type="submit" className="register-button"> Confirmar </button>
+            <button
+                type="submit"
+                className="login-button"
+                disabled={isSubmitting}
+            >
+                {isSubmitting ? 'Creando…' : 'Crear jugador'}
+            </button>
+               
+            {error && (
+                <p role="alert">
+                    {error}
+                </p>
+            )}
+            
+            {success && (
+                <p role="status">
+                    {success}
+                </p>
+            )}
         </form>
         </section>
     </main>

@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
-from app.repository import league_repository
+from app.repository import league_repository, player_repository
 from app.schemas.league_schemas import (
     CreateLeagueRequest,
     CreatePrivateLeagueRequest,
@@ -95,7 +95,7 @@ def _create_league(
         raise AppError("VALIDATION_ERROR", "La fecha de inicio debe ser futura.")
 
     try:
-        league_repository.create_league(
+        league = league_repository.create_league(
             db=db,
             name=name,
             min_teams=data.min_teams,
@@ -118,7 +118,7 @@ def _create_league(
                 "LEAGUE_DUPLICATE", "Ya existe una liga con ese nombre."
             ) from exc
         raise
-    return {"message": "Liga creada exitosamente."}
+    return {"message": "Liga creada exitosamente.", "league_id": league.id,}
 
 
 def create_league(
@@ -184,12 +184,12 @@ def join_league(
     db: Session,
     league_id: int,
     club_id: int,
-    line_up: list | dict,
+    line_up: list[int],
     access_code: str | None = None,
 ) -> dict:
     league = league_repository.get_league_for_join(db, league_id)
 
-    if not league:
+    if league is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="La liga no existe.",
@@ -237,6 +237,31 @@ def join_league(
             detail="El club ya se encuentra inscripto en esta liga.",
         )
 
+    if (
+        not isinstance(line_up, list)
+        or len(line_up) != 6
+        or any(
+            type(player_id) is not int or player_id <= 0
+            for player_id in line_up
+        )
+        or len(set(line_up)) != 6
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Elegí 6 jugadores diferentes y válidos.",
+        )
+
+    active_ids = {
+        player.id
+        for player in player_repository.get_players_by_club(db, club_id)
+    }
+
+    if not set(line_up).issubset(active_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Los jugadores deben pertenecer a tu club y estar activos.",
+        )
+
     league_repository.create_registration(
         db,
         league_id,
@@ -274,8 +299,9 @@ def list_leagues(db: Session, club_id: int, name: str | None = None) -> list[Lea
                 min_teams=league.min_teams,
                 max_teams=league.max_teams,
                 registered_count=registered_count,
-                available_slots=league.max_teams - registered_count,
+                available_slots=max(0, league.max_teams - registered_count),
                 is_member=is_member,
+                is_private=league.is_private,
             )
         )
 

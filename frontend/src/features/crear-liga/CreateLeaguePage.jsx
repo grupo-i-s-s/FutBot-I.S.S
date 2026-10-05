@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { crearLiga } from './api.js'
+import { useNavigate } from 'react-router'
 
 
 export default function CrearLiga(){
@@ -11,24 +12,22 @@ export default function CrearLiga(){
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
+    const navigate = useNavigate()
     
     async function handleSubmit(event) {
         event.preventDefault()
         if (isSubmitting) return
 
-        setIsSubmitting(true)
         setError('')
         setSuccess('')
+        setIsSubmitting(true)
 
         try {
-            const response = await crearLiga(
-                name, minTeams, maxTeams, startDateTime, roundInterval
-            )
-            setSuccess(response.message)
+            const response = await crearLiga( name, minTeams, maxTeams, startDateTime, roundInterval )
+            navigate('/leagues/' + response.leagueId + '/lobby', { replace: true })
         } catch (err) {
             const fieldErrors = Object.values(err.fields ?? {}).join(' ')
-
-            setError(fieldErrors || err.message || 'No se pudo crear la liga pública.')
+            setError( fieldErrors || err.message || 'No se pudo crear la liga pública.' )
         } finally {
             setIsSubmitting(false)
         }
