@@ -10,7 +10,7 @@ export default function RegisterPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const[repeatPassword, setRepeatPassword] = useState('')
-    const[avatar, setAvatar]  = useState('')
+    const[avatar, setAvatar]  = useState('.')
     const[clubName, setClubName] = useState('')
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
@@ -46,17 +46,6 @@ export default function RegisterPage() {
                                     placeholder="Nombre del club" 
                                     value = {clubName} 
                                     onChange = {(event) => setClubName(event.target.value)}>
-                            </input>
-                        </div>
-
-                        <div className="formulary-box">
-                            <label htmlFor="avatar">Avatar</label>
-                            <input  
-                                id="Avatar" 
-                                type="text" 
-                                placeholder="avatar" 
-                                value = {avatar} 
-                                onChange = {(event) => setAvatar(event.target.value)}>
                             </input>
                         </div>
 
