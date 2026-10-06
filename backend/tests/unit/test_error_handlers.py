@@ -1,17 +1,16 @@
 """Contrato de errores y exclusión de datos sensibles, sin servidor HTTP."""
 import asyncio
 import json
-from unittest.mock import Mock
-
 import pytest
+from unittest.mock import Mock
 
 from app.errors import AppError
 from app.main import app_error_handler, validation_error_handler
 
 
 @pytest.mark.parametrize("code, status", [("INVALID_CREDENTIALS", 401), ("CSRF_INVALID", 403),
-                                         ("MATCH_NOT_FOUND", 404), ("MATCH_SELF_JOIN", 409),
-                                         ("MATCH_INVALID_DATE", 400), ("UNKNOWN", 400)])
+                                          ("MATCH_NOT_FOUND", 404), ("MATCH_SELF_JOIN", 409),
+                                          ("MATCH_INVALID_DATE", 400), ("UNKNOWN", 400)])
 def test_domain_error_keeps_public_code_message_and_field_errors(code, status):
     error = AppError(code, "Readable message", {"name": "Choose another name"})
     response = asyncio.run(app_error_handler(None, error))

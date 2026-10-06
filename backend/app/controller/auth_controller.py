@@ -1,13 +1,13 @@
+from fastapi import APIRouter, Request, Response
+
+from app.config import settings
+from app.dependencies import CurrentIdentity, Database
 from app.schemas.auth_schemas import (
     ChangePasswordRequest,
     LoginRequest,
     RegisterRequest,
     UserResponse,
 )
-from fastapi import APIRouter, Request, Response
-
-from app.config import settings
-from app.dependencies import CurrentIdentity, Database
 from app.services import auth_service
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])

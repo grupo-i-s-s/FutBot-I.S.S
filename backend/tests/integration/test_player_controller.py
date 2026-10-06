@@ -159,6 +159,7 @@ def test_assign_behaviour_rejects_invalid_input():
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
+
 def get_players():
     app.dependency_overrides[get_current_club] = mock_get_current_club
     try:
@@ -227,6 +228,7 @@ def test_get_players_requires_session():
 
     assert response.status_code == 401
 
+
 def test_get_players_only_returns_players_from_current_club(monkeypatch):
     club_players = [
         Player(
@@ -255,6 +257,7 @@ def test_get_players_only_returns_players_from_current_club(monkeypatch):
     data = response.json()
     assert len(data["items"]) == 1
     assert data["items"][0]["clubId"] == 1
+
 
 def test_get_players_includes_created_player(monkeypatch):
     created_player = Player(

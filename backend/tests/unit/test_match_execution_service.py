@@ -1,10 +1,9 @@
 """Persistencia y reanudación con simulación, reloj y repositorio controlados."""
+import pytest
 from contextlib import contextmanager
 from threading import Event
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
 
 from app.errors import AppError
 from app.services import match_execution_service as service
@@ -106,6 +105,7 @@ def test_cancelled_start_commits_cancellation_snapshot(db, execution):
     def cancel(*args, **kwargs):
         execution.row.status = "CANCELLED"
         execution.row.snapshot = {"sequence": 9, "state": {"status": "CANCELLED"}}
+
     service.prepare_match_start.side_effect = cancel
     assert service._execute(db, 42, None) is execution.row.snapshot
     db.commit.assert_called_once()

@@ -1,8 +1,8 @@
 # Backend de FutBot
 
 Guía para desarrollar la API en equipo con **FastAPI, SQLAlchemy y PostgreSQL**.
-La arquitectura acordada es **controller → servicio → repositorio**, manteniendo
-**modelos** y **schemas**. Las demás convenciones de este documento son la propuesta
+La arquitectura acordada es **controller → servicio → repositorio**, manteniendo **modelos** y **schemas**. Las demás
+convenciones de este documento son la propuesta
 de trabajo del proyecto; si el equipo cambia una, debe actualizar esta guía en la misma entrega.
 
 Para preparar el entorno completo, seguir el [README principal](../README.md).
@@ -10,24 +10,24 @@ Todos los comandos Docker de esta guía se ejecutan desde la **raíz del reposit
 
 ## 1. Qué hace cada archivo actual
 
-| Archivo o carpeta | Para qué sirve |
-| --- | --- |
-| `Dockerfile` | Prepara Python 3.12, instala dependencias y arranca Uvicorn con recarga automática. |
-| `.dockerignore` | Excluye archivos locales del contexto de construcción de Docker. No reemplaza a `.gitignore`. |
-| `requirements.in` | Lista las dependencias directas necesarias para ejecutar la API. Es un archivo que editamos. |
-| `requirements.txt` | Lista resuelta de dependencias de ejecución, con versiones fijas, incluidas las transitivas. Se genera. |
-| `requirements-dev.in` | Agrega herramientas de desarrollo y pruebas e incluye las dependencias de ejecución. Es un archivo que editamos. |
-| `requirements-dev.txt` | Lista resuelta completa para desarrollar y probar. Se genera; el Dockerfile actual instala este archivo. |
-| `app/__init__.py` | Identifica `app` como paquete Python; puede permanecer vacío. |
-| `app/main.py` | Crea la aplicación FastAPI, define su ciclo de vida y contiene las rutas de salud actuales. |
-| `app/database.py` | Configura el motor, la fábrica de sesiones, la base ORM y la dependencia de sesión por petición. |
-| `tests/test_health.py` | Prueba que la API responde, que consulta PostgreSQL y que informa una falla de conexión. |
-| `__pycache__/`, `.pytest_cache/` | Archivos temporales generados por Python y pytest. No se versionan. |
+| Archivo o carpeta                | Para qué sirve                                                                                                   |
+|----------------------------------|------------------------------------------------------------------------------------------------------------------|
+| `Dockerfile`                     | Prepara Python 3.12, instala dependencias y arranca Uvicorn con recarga automática.                              |
+| `.dockerignore`                  | Excluye archivos locales del contexto de construcción de Docker. No reemplaza a `.gitignore`.                    |
+| `requirements.in`                | Lista las dependencias directas necesarias para ejecutar la API. Es un archivo que editamos.                     |
+| `requirements.txt`               | Lista resuelta de dependencias de ejecución, con versiones fijas, incluidas las transitivas. Se genera.          |
+| `requirements-dev.in`            | Agrega herramientas de desarrollo y pruebas e incluye las dependencias de ejecución. Es un archivo que editamos. |
+| `requirements-dev.txt`           | Lista resuelta completa para desarrollar y probar. Se genera; el Dockerfile actual instala este archivo.         |
+| `app/__init__.py`                | Identifica `app` como paquete Python; puede permanecer vacío.                                                    |
+| `app/main.py`                    | Crea la aplicación FastAPI, define su ciclo de vida y contiene las rutas de salud actuales.                      |
+| `app/database.py`                | Configura el motor, la fábrica de sesiones, la base ORM y la dependencia de sesión por petición.                 |
+| `tests/test_health.py`           | Prueba que la API responde, que consulta PostgreSQL y que informa una falla de conexión.                         |
+| `__pycache__/`, `.pytest_cache/` | Archivos temporales generados por Python y pytest. No se versionan.                                              |
 
 **FastAPI** recibe peticiones y produce respuestas HTTP. **Uvicorn** es el servidor
 que ejecuta la aplicación. **SQLAlchemy** gestiona consultas y el mapeo entre objetos
-Python y tablas (ORM). **Psycopg** es el controlador que conecta Python con PostgreSQL.
-**Pydantic** valida y serializa los datos de entrada y salida de FastAPI.
+Python y tablas (ORM). **Psycopg** es el controlador que conecta Python con PostgreSQL. **Pydantic** valida y serializa
+los datos de entrada y salida de FastAPI.
 
 ## 2. Cómo funcionan los requirements
 
@@ -46,14 +46,14 @@ requirements-dev.in ── uv pip compile ──> requirements-dev.txt
 
 Ejemplos tomados de los archivos actuales:
 
-| Sintaxis | Significado |
-| --- | --- |
-| `sqlalchemy==2.1.1` | Instalar esa versión exacta. |
-| `psycopg[binary]==3.3.6` | Instalar Psycopg con el extra `binary`, que agrega su distribución binaria. |
-| `uvicorn[standard]==0.54.0` | Incluir las dependencias opcionales del conjunto `standard`. |
-| `-r requirements.txt` | Incluir las dependencias de ese otro archivo. No es el nombre de un paquete. |
-| `; sys_platform == 'win32'` | Instalar esa entrada solo cuando se cumple la condición de plataforma. |
-| `# via fastapi` | Comentario generado que explica por qué aparece una dependencia. |
+| Sintaxis                    | Significado                                                                  |
+|-----------------------------|------------------------------------------------------------------------------|
+| `sqlalchemy==2.1.1`         | Instalar esa versión exacta.                                                 |
+| `psycopg[binary]==3.3.6`    | Instalar Psycopg con el extra `binary`, que agrega su distribución binaria.  |
+| `uvicorn[standard]==0.54.0` | Incluir las dependencias opcionales del conjunto `standard`.                 |
+| `-r requirements.txt`       | Incluir las dependencias de ese otro archivo. No es el nombre de un paquete. |
+| `; sys_platform == 'win32'` | Instalar esa entrada solo cuando se cumple la condición de plataforma.       |
+| `# via fastapi`             | Comentario generado que explica por qué aparece una dependencia.             |
 
 Usar `requirements.in` para bibliotecas necesarias al ejecutar la aplicación y
 `requirements-dev.in` para herramientas como pytest. Si el código del proyecto
@@ -99,22 +99,22 @@ Usar inglés en identificadores y español en documentación y mensajes para el 
 Mantener el vocabulario compartido: `player`, `club`, `league`, `match`, `behaviour`.
 No mezclar `behaviour` y `behavior` para el mismo concepto.
 
-| Elemento | Convención | Ejemplo |
-| --- | --- | --- |
-| Archivos y carpetas Python | Minúsculas, `snake_case` | `friendly_matches.py`, `services/` |
-| Variables, atributos y funciones | `snake_case` | `club_id`, `create_player()` |
-| Clases | `PascalCase` | `Player`, `PlayerCreate`, `PlayerRead` |
-| Constantes de módulo y variables de entorno | `UPPER_SNAKE_CASE` | `DEFAULT_TIMEOUT_SECONDS`, `POSTGRES_DB` |
-| Booleanos | Condición explícita | `is_available`, `has_opponent`, `can_join` |
-| Tablas futuras | Plural en `snake_case` | `players`, `friendly_matches` |
-| Claves primarias y foráneas | `id` y entidad singular + `_id` | `id`, `club_id` |
-| Controllers | Entidad singular + `_controller.py` | `player_controller.py` |
-| Servicios | Entidad singular + `_service.py` | `player_service.py` |
-| Repositorios | Entidad singular + `_repository.py` | `player_repository.py` |
-| Modelos y schemas | Entidad singular, dentro de su carpeta | `models/player.py`, `schemas/player.py` |
-| Pruebas | `test_` + comportamiento | `test_create_player_rejects_invalid_pacss` |
-| Campos JSON públicos | Nombres exactos del contrato, usualmente `camelCase` | `clubId`, `behaviourId` |
-| Rutas HTTP | Nombres del contrato, minúsculas y guiones cuando corresponda | `/players`, `/friendly-matches` |
+| Elemento                                    | Convención                                                    | Ejemplo                                    |
+|---------------------------------------------|---------------------------------------------------------------|--------------------------------------------|
+| Archivos y carpetas Python                  | Minúsculas, `snake_case`                                      | `friendly_matches.py`, `services/`         |
+| Variables, atributos y funciones            | `snake_case`                                                  | `club_id`, `create_player()`               |
+| Clases                                      | `PascalCase`                                                  | `Player`, `PlayerCreate`, `PlayerRead`     |
+| Constantes de módulo y variables de entorno | `UPPER_SNAKE_CASE`                                            | `DEFAULT_TIMEOUT_SECONDS`, `POSTGRES_DB`   |
+| Booleanos                                   | Condición explícita                                           | `is_available`, `has_opponent`, `can_join` |
+| Tablas futuras                              | Plural en `snake_case`                                        | `players`, `friendly_matches`              |
+| Claves primarias y foráneas                 | `id` y entidad singular + `_id`                               | `id`, `club_id`                            |
+| Controllers                                 | Entidad singular + `_controller.py`                           | `player_controller.py`                     |
+| Servicios                                   | Entidad singular + `_service.py`                              | `player_service.py`                        |
+| Repositorios                                | Entidad singular + `_repository.py`                           | `player_repository.py`                     |
+| Modelos y schemas                           | Entidad singular, dentro de su carpeta                        | `models/player.py`, `schemas/player.py`    |
+| Pruebas                                     | `test_` + comportamiento                                      | `test_create_player_rejects_invalid_pacss` |
+| Campos JSON públicos                        | Nombres exactos del contrato, usualmente `camelCase`          | `clubId`, `behaviourId`                    |
+| Rutas HTTP                                  | Nombres del contrato, minúsculas y guiones cuando corresponda | `/players`, `/friendly-matches`            |
 
 Usar cuatro espacios, comillas dobles, UTF-8 y fin de línea LF. Como guía de legibilidad,
 apuntar a líneas de hasta 100 caracteres; no reformatear archivos ajenos por ese motivo.
@@ -174,13 +174,13 @@ tests/
 
 ### Responsabilidad de cada parte
 
-| Parte | Responsabilidad | Qué delega |
-| --- | --- | --- |
-| Controller | Define endpoints con `APIRouter`, recibe schemas, obtiene la identidad y la sesión mediante dependencias, llama al servicio y define la respuesta HTTP. | Reglas del caso de uso al servicio; nunca consulta la base directamente. |
-| Servicio | Ejecuta un caso de uso, valida reglas de negocio y permisos sobre recursos, coordina repositorios y controla la transacción. | Consultas y persistencia al repositorio; no devuelve `JSONResponse` ni conoce códigos HTTP. |
-| Repositorio | Consulta, agrega, actualiza o elimina modelos usando SQLAlchemy y la sesión recibida. | Decisiones de negocio y confirmación de la transacción al servicio. |
-| Modelo | Representa una tabla, sus columnas, relaciones y restricciones de persistencia. | Validación de peticiones y formato público de respuesta a los schemas. |
-| Schema | Define y valida la forma de los datos de entrada o salida con Pydantic. | Reglas que requieren estado de la base o coordinación de entidades al servicio. |
+| Parte       | Responsabilidad                                                                                                                                         | Qué delega                                                                                  |
+|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Controller  | Define endpoints con `APIRouter`, recibe schemas, obtiene la identidad y la sesión mediante dependencias, llama al servicio y define la respuesta HTTP. | Reglas del caso de uso al servicio; nunca consulta la base directamente.                    |
+| Servicio    | Ejecuta un caso de uso, valida reglas de negocio y permisos sobre recursos, coordina repositorios y controla la transacción.                            | Consultas y persistencia al repositorio; no devuelve `JSONResponse` ni conoce códigos HTTP. |
+| Repositorio | Consulta, agrega, actualiza o elimina modelos usando SQLAlchemy y la sesión recibida.                                                                   | Decisiones de negocio y confirmación de la transacción al servicio.                         |
+| Modelo      | Representa una tabla, sus columnas, relaciones y restricciones de persistencia.                                                                         | Validación de peticiones y formato público de respuesta a los schemas.                      |
+| Schema      | Define y valida la forma de los datos de entrada o salida con Pydantic.                                                                                 | Reglas que requieren estado de la base o coordinación de entidades al servicio.             |
 
 En FastAPI, el controller contiene el `APIRouter`: no agregamos una carpeta `routes/`
 que repita esa responsabilidad. `main.py` registra esos routers y configura la aplicación.
@@ -267,8 +267,8 @@ Si se incorpora Alembic, sus archivos y comandos deberán añadirse a esta guía
 
 ## 6. Contrato con el frontend
 
-Consultar el [contrato de Sprint 2](../docs/api_sprint_2.md), que sigue marcado como
-**propuesta**. Coordinar y documentar ajustes de rutas, campos o errores antes de integrarlos.
+Consultar el [contrato de Sprint 2](../docs/api_sprint_2.md), que sigue marcado como **propuesta**. Coordinar y
+documentar ajustes de rutas, campos o errores antes de integrarlos.
 Actualmente solo están implementadas las rutas `/health` y `/health/ready`; esta sección
 describe convenciones para los futuros endpoints funcionales.
 

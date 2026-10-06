@@ -1,10 +1,9 @@
 """Reglas de ligas; los repositorios no ejecutan SQL en estos tests."""
+import pytest
 from datetime import timedelta, timezone
+from fastapi import HTTPException
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
-from fastapi import HTTPException
 
 from app.errors import AppError
 from app.schemas.league_schemas import CreateLeagueRequest, CreatePrivateLeagueRequest
@@ -134,8 +133,8 @@ def test_join_rejects_unavailable_league_or_invalid_roster(db, leagues, now, cas
 
 
 @pytest.mark.parametrize("lineup", [None, (1, 2, 3, 4, 5, 6), [1, 2, 3], [1, 2, 3, 4, 5, 5],
-                                        [1, 2, 3, 4, 5, 0], [1, 2, 3, 4, 5, -1],
-                                        [True, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, "6"]])
+                                    [1, 2, 3, 4, 5, 0], [1, 2, 3, 4, 5, -1],
+                                    [True, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, "6"]])
 def test_join_rejects_nonunique_or_noninteger_six_player_lineup(db, leagues, lineup):
     with pytest.raises(HTTPException) as error:
         service.join_league(db, 42, 7, lineup)
@@ -175,7 +174,7 @@ def test_password_hash_takes_precedence_over_legacy_code(db, leagues):
 
 
 @pytest.mark.parametrize("case, status", [("missing", 404), ("creator", 409), ("closed", 409),
-                                         ("started", 409), ("not_member", 409)])
+                                          ("started", 409), ("not_member", 409)])
 def test_leave_rejects_without_removing_registration(db, leagues, now, case, status):
     if case == "missing":
         leagues.repo.get_league_by_id.return_value = None

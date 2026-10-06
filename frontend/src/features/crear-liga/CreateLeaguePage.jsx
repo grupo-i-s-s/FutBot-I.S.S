@@ -1,40 +1,40 @@
-import { useState } from 'react'
-import { crearLiga } from './api.js'
-import { useNavigate } from 'react-router'
+import {useState} from 'react';
+import {crearLiga} from './api.js';
+import {useNavigate} from 'react-router';
 
 
-export default function CrearLiga(){
-    const [name, setName] = useState('')
-    const [minTeams, setMinTeams] = useState(3)
-    const [maxTeams, setMaxTeams] = useState('')
-    const [startDateTime, setstartDateTime] = useState('')
-    const [roundInterval, setroundInterval] = useState('CONTINUOUS')
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [error, setError] = useState('')
-    const [success, setSuccess] = useState('')
-    const navigate = useNavigate()
-    
+export default function CrearLiga() {
+    const [name, setName] = useState('');
+    const [minTeams, setMinTeams] = useState(3);
+    const [maxTeams, setMaxTeams] = useState('');
+    const [startDateTime, setstartDateTime] = useState('');
+    const [roundInterval, setroundInterval] = useState('CONTINUOUS');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const navigate = useNavigate();
+
     async function handleSubmit(event) {
-        event.preventDefault()
-        if (isSubmitting) return
+        event.preventDefault();
+        if (isSubmitting) return;
 
-        setError('')
-        setSuccess('')
-        setIsSubmitting(true)
+        setError('');
+        setSuccess('');
+        setIsSubmitting(true);
 
         try {
-            const response = await crearLiga( name, minTeams, maxTeams, startDateTime, roundInterval )
-            navigate('/leagues/' + response.leagueId + '/lobby', { replace: true })
+            const response = await crearLiga(name, minTeams, maxTeams, startDateTime, roundInterval);
+            navigate('/leagues/' + response.leagueId + '/lobby', {replace: true});
         } catch (err) {
-            const fieldErrors = Object.values(err.fields ?? {}).join(' ')
-            setError( fieldErrors || err.message || 'No se pudo crear la liga pública.' )
+            const fieldErrors = Object.values(err.fields ?? {}).join(' ');
+            setError(fieldErrors || err.message || 'No se pudo crear la liga pública.');
         } finally {
-            setIsSubmitting(false)
+            setIsSubmitting(false);
         }
     }
-    
 
-    return(
+
+    return (
         <main className="login-page">
             <section className="login-card">
                 <h1 className="login-title">
@@ -44,10 +44,10 @@ export default function CrearLiga(){
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="league-name">
-                            Nombre de la liga 
+                            Nombre de la liga
                         </label>
 
-                        <input 
+                        <input
                             id="league-name"
                             type="text"
                             placeholder="Nombre de la liga"
@@ -91,7 +91,7 @@ export default function CrearLiga(){
 
                     <div className="form-group">
                         <label htmlFor="start-date">
-                            Fecha y hora de inicio 
+                            Fecha y hora de inicio
                         </label>
 
                         <input
@@ -109,14 +109,14 @@ export default function CrearLiga(){
                         </label>
 
                         <select
-                            id = "round-interval"
+                            id="round-interval"
                             value={roundInterval}
                             onChange={(event) => setroundInterval(event.target.value)}
                             required>
-                            <option value="CONTINUOUS">Seguidas</option>    
+                            <option value="CONTINUOUS">Seguidas</option>
                             <option value="DAILY">Diarias</option>
                             <option value="WEEKLY">Semanales</option>
-                            </select>
+                        </select>
                     </div>
 
                     <button type="submit" className="login-button" disabled={isSubmitting}>
@@ -127,8 +127,8 @@ export default function CrearLiga(){
 
                 </form>
             </section>
-            
+
         </main>
 
-    )
+    );
 }

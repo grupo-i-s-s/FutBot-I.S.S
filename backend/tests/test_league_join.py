@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta, timezone
-
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.main import app
 from app.models.league_model import League, LeagueRegistration
-
 from tests.test_default_squad import (
     BROWSER_HEADERS,
     db_session,

@@ -8,7 +8,6 @@ from app.schemas.team_schemas import (
 )
 from app.services import team_service
 
-
 team_router = APIRouter(prefix="/team", tags=["team"])
 catalogs_router = APIRouter(prefix="/catalogs", tags=["catalogs"])
 
@@ -20,9 +19,9 @@ def get_default_team(club: CurrentClub, db: Database):
 
 @team_router.put("/default", response_model=DefaultTeamRead)
 def update_default_team(
-    data: Lineup,
-    club: CurrentClub,
-    db: Database,
+        data: Lineup,
+        club: CurrentClub,
+        db: Database,
 ):
     return team_service.update_default_team(db, club.id, data)
 

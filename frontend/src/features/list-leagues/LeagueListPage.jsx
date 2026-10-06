@@ -1,66 +1,66 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
-import { getLeagues } from './api'
-import '../login/LoginPage.css'
-import './LeagueListPage.css'
+import {useEffect, useState} from 'react';
+import {Link} from 'react-router';
+import {getLeagues} from './api';
+import '../login/LoginPage.css';
+import './LeagueListPage.css';
 
 export default function LeagueListPage() {
-    const [name, setName] = useState('')
-    const [search, setSearch] = useState({ name: '' })
-    const [leagues, setLeagues] = useState([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState(null)
+    const [name, setName] = useState('');
+    const [search, setSearch] = useState({name: ''});
+    const [leagues, setLeagues] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        const controller = new AbortController()
+        const controller = new AbortController();
 
         async function loadLeagues() {
-            setIsLoading(true)
-            setError(null)
+            setIsLoading(true);
+            setError(null);
 
             try {
                 const response = await getLeagues(
                     search.name,
                     controller.signal
-                )
+                );
 
                 if (!controller.signal.aborted) {
-                    setLeagues(response.items)
+                    setLeagues(response.items);
                 }
             } catch (error) {
                 if (!controller.signal.aborted) {
-                    setError(error)
+                    setError(error);
                 }
             } finally {
                 if (!controller.signal.aborted) {
-                    setIsLoading(false)
+                    setIsLoading(false);
                 }
             }
         }
 
-        loadLeagues()
+        loadLeagues();
 
-        return () => controller.abort()
-    }, [search])
+        return () => controller.abort();
+    }, [search]);
 
     function handleSubmit(event) {
-        event.preventDefault()
-        setIsLoading(true)
-        setError(null)
-        setSearch({ name: name.trim() })
+        event.preventDefault();
+        setIsLoading(true);
+        setError(null);
+        setSearch({name: name.trim()});
     }
 
     function handleRetry() {
-        setIsLoading(true)
-        setError(null)
-        setSearch({ name: search.name })
+        setIsLoading(true);
+        setError(null);
+        setSearch({name: search.name});
     }
 
     return (
         <main className="login-page leagues-page">
             <section className="login-card leagues-card">
                 <h1 className="login-title">
-                    Ligas disponibles<br />FutBot
+                    Ligas disponibles<br/>FutBot
                 </h1>
 
                 <form onSubmit={handleSubmit}>
@@ -141,8 +141,8 @@ export default function LeagueListPage() {
 
                                     <p>
                                         Estado: {league.status === 'open'
-                                            ? 'En espera'
-                                            : league.status}
+                                        ? 'En espera'
+                                        : league.status}
                                     </p>
 
                                     {league.isMember && (
@@ -156,11 +156,13 @@ export default function LeagueListPage() {
                                             : `/leagues/${league.id}/join`}
                                         className="leagues-link"
                                     >
-                                        {league.isMember ? 
-                                            (<Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver lobby </Link>
-                                            ): league.canJoin ? 
-                                            (<Link to={`/leagues/${league.id}/join`} className="leagues-link">Unirme a liga</Link>)
-                                            : (<p className="leagues-message">Inscripción no disponible.</p>)}
+                                        {league.isMember ?
+                                            (<Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver
+                                                    lobby </Link>
+                                            ) : league.canJoin ?
+                                                (<Link to={`/leagues/${league.id}/join`} className="leagues-link">Unirme
+                                                    a liga</Link>)
+                                                : (<p className="leagues-message">Inscripción no disponible.</p>)}
                                     </Link>
                                 </li>
                             ))}
@@ -173,5 +175,5 @@ export default function LeagueListPage() {
                 </Link>
             </section>
         </main>
-    )
+    );
 }

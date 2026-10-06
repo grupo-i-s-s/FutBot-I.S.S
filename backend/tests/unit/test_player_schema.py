@@ -87,4 +87,3 @@ def test_player_valid_payload_strips_name():
     )
 
     assert player.name == "Jugador"
-

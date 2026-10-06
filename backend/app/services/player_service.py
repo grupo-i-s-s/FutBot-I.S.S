@@ -31,7 +31,7 @@ def create_player(db: Session, club_id: int, data: PlayerCreate) -> Player:
 
 
 def assign_behaviour(
-    db: Session, club_id: int, player_id: int, behaviour_id: int
+        db: Session, club_id: int, player_id: int, behaviour_id: int
 ) -> Player:
     player = player_repository.get_player_by_id(db, club_id, player_id)
     if player is None:

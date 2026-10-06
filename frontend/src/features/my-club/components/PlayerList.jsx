@@ -1,11 +1,11 @@
-import { Users, Plus } from 'lucide-react'
-import { Link } from 'react-router'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
-import { BehaviorSelector } from './BehaviorSelector'
-import { buttonVariants } from '@/components/ui/button'
+import {Plus, Users} from 'lucide-react';
+import {Link} from 'react-router';
+import {Avatar, AvatarFallback} from '@/components/ui/avatar';
+import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
+import {Item, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item';
+import {BehaviorSelector} from './BehaviorSelector';
+import {buttonVariants} from '@/components/ui/button';
 
 const PACSS_ATTRIBUTES = [
     ['Power', 'power'],
@@ -13,20 +13,20 @@ const PACSS_ATTRIBUTES = [
     ['Control', 'control'],
     ['Speed', 'speed'],
     ['Strength', 'strength'],
-]
+];
 
-export default function PlayerList({ players, behaviours, onBehaviourAssigned }) {
+export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <Users className="size-5" aria-hidden="true" />
+                    <Users className="size-5" aria-hidden="true"/>
                     Jugadores
                 </CardTitle>
                 <CardDescription>{players.length} jugadores en el plantel</CardDescription>
 
                 <CardAction>
-                    <Link to="/crear-jugador" className={buttonVariants({ size: 'sm' })}>
+                    <Link to="/crear-jugador" className={buttonVariants({size: 'sm'})}>
                         <Plus className="size-4" aria-hidden="true"/>
                         Crear Nuevo jugador
                     </Link>
@@ -38,7 +38,7 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned })
                     <Empty className="border">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
-                                <Users />
+                                <Users/>
                             </EmptyMedia>
                             <EmptyTitle>Sin jugadores</EmptyTitle>
                             <EmptyDescription>
@@ -92,5 +92,5 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned })
                 )}
             </CardContent>
         </Card>
-    )
+    );
 }

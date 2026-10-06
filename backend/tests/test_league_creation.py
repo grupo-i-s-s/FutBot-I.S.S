@@ -1,10 +1,9 @@
-from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
-from unittest.mock import Mock
-
 import pytest
+from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from app.config import settings
 from app.database import get_db
@@ -26,6 +25,7 @@ def no_background_scheduler(monkeypatch):
 @pytest.fixture
 def league_client():
     db = Mock()
+
     # La sesión simulada debe devolver los valores generados al hacer flush.
     def generated_values():
         league = db.add.call_args.args[0]

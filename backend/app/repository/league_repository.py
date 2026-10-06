@@ -1,8 +1,7 @@
-from sqlalchemy import func, select
 from datetime import datetime, timezone
-from typing import Optional
-
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
+from typing import Optional
 
 from app.models.auth_model import Club
 from app.models.league_model import League, LeagueRegistration
@@ -19,7 +18,7 @@ def get_league_by_id(db: Session, league_id: int) -> Optional[League]:
 
 
 def get_league_for_join(
-    db: Session, league_id: int
+        db: Session, league_id: int
 ) -> Optional[League]:
     return (
         db.query(League)
@@ -38,16 +37,16 @@ def count_registrations(db: Session, league_id: int) -> int:
 
 
 def create_league(
-    db: Session,
-    name: str,
-    min_teams: int,
-    max_teams: int,
-    start_date: datetime,
-    round_interval: str,
-    *,
-    creator_club_id: int,
-    is_private: bool = False,
-    password_hash: str | None = None,
+        db: Session,
+        name: str,
+        min_teams: int,
+        max_teams: int,
+        start_date: datetime,
+        round_interval: str,
+        *,
+        creator_club_id: int,
+        is_private: bool = False,
+        password_hash: str | None = None,
 ) -> League:
     league = League(
         name=name,
@@ -75,7 +74,7 @@ def get_clubs_by_ids(db: Session, club_ids: list[int]) -> list[Club]:
 
 
 def get_registration(
-    db: Session, league_id: int, club_id: int
+        db: Session, league_id: int, club_id: int
 ) -> Optional[LeagueRegistration]:
     return (
         db.query(LeagueRegistration)
@@ -88,16 +87,16 @@ def get_registration(
 
 
 def delete_registration(
-    db: Session, registration: LeagueRegistration
+        db: Session, registration: LeagueRegistration
 ) -> None:
     db.delete(registration)
 
 
 def create_registration(
-    db: Session,
-    league_id: int,
-    club_id: int,
-    line_up: list | dict,
+        db: Session,
+        league_id: int,
+        club_id: int,
+        line_up: list | dict,
 ) -> LeagueRegistration:
     registration = LeagueRegistration(
         league_id=league_id,
@@ -111,8 +110,8 @@ def create_registration(
 
 
 def get_all_available_leagues(
-    db: Session,
-    name: str | None = None,
+        db: Session,
+        name: str | None = None,
 ) -> list[League]:
     query = (
         select(League)

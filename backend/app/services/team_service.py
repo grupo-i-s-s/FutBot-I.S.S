@@ -4,7 +4,6 @@ from app.errors import AppError
 from app.repository import (behaviour_repository, player_repository, team_repository)
 from app.schemas.team_schemas import DefaultTeamRead, Lineup
 
-
 FORMATIONS = {1: "Formación 1"}
 
 
@@ -45,8 +44,8 @@ def update_default_team(db: Session, club_id: int, data: Lineup) -> DefaultTeamR
         behaviour_ids = {behaviour.id for behaviour in behaviours}
 
         for group_name, group in (
-            ("starters", data.starters),
-            ("substitutes", data.substitutes),
+                ("starters", data.starters),
+                ("substitutes", data.substitutes),
         ):
             for index, selection in enumerate(group):
                 if selection.player_id not in player_ids:
@@ -55,7 +54,7 @@ def update_default_team(db: Session, club_id: int, data: Lineup) -> DefaultTeamR
                         "Hay un jugador que no está disponible en tu club.",
                         {
                             f"{group_name}.{index}.playerId":
-                            "Seleccioná un jugador disponible de tu club."
+                                "Seleccioná un jugador disponible de tu club."
                         },
                     )
 
@@ -65,7 +64,7 @@ def update_default_team(db: Session, club_id: int, data: Lineup) -> DefaultTeamR
                         "Hay un comportamiento que no está disponible en tu club.",
                         {
                             f"{group_name}.{index}.behaviourId":
-                            "Seleccioná un comportamiento disponible de tu club."
+                                "Seleccioná un comportamiento disponible de tu club."
                         },
                     )
 

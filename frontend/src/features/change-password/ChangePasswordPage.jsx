@@ -1,33 +1,33 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
-import { changePassword } from './api'
-import '../login/LoginPage.css'
+import {useState} from 'react';
+import {useNavigate} from 'react-router';
+import {changePassword} from './api';
+import '../login/LoginPage.css';
 
 export default function ChangePasswordPage() {
-    const navigate = useNavigate()
-    const [oldPassword, setOldPassword] = useState('')
-    const [newPassword, setNewPassword] = useState('')
-    const [confirmation, setConfirmation] = useState('')
-    const [error, setError] = useState('')
-    const [loading, setLoading] = useState(false)
+    const navigate = useNavigate();
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmation, setConfirmation] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
     async function handleSubmit(event) {
-        event.preventDefault()
-        setError('')
+        event.preventDefault();
+        setError('');
 
         if (newPassword !== confirmation) {
-            setError('Las contraseñas nuevas no coinciden.')
-            return
+            setError('Las contraseñas nuevas no coinciden.');
+            return;
         }
 
-        setLoading(true)
+        setLoading(true);
         try {
-            await changePassword(oldPassword, newPassword)
-            navigate('/login', { replace: true })
+            await changePassword(oldPassword, newPassword);
+            navigate('/login', {replace: true});
         } catch (requestError) {
-            setError(requestError.message)
+            setError(requestError.message);
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     }
 
@@ -80,5 +80,5 @@ export default function ChangePasswordPage() {
                 </form>
             </section>
         </main>
-    )
+    );
 }

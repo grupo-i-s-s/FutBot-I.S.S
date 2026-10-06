@@ -18,9 +18,9 @@ def get_my_club(club: CurrentClub):
 
 @club_router.patch("/me", response_model=ClubRead)
 def update_my_club(
-    data: ClubUpdate,
-    club: CurrentClub,
-    db: Database,
+        data: ClubUpdate,
+        club: CurrentClub,
+        db: Database,
 ):
     return club_service.update_club(db, club, data)
 

@@ -1,8 +1,7 @@
 """Reglas propias de cancha y goles, con el motor físico simulado."""
+import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
 
 from primitives import physics
 

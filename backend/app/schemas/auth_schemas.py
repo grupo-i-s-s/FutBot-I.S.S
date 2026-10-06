@@ -1,6 +1,5 @@
-from typing import Annotated
-
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator, model_validator
+from typing import Annotated
 
 Name = Annotated[
     str,
@@ -18,7 +17,6 @@ class InputSchema(BaseModel):
 
 
 class RegisterRequest(InputSchema):
-
     email: EmailStr = Field(max_length=254)
 
     password: NewPassword

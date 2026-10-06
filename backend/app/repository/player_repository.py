@@ -1,7 +1,6 @@
-from typing import List
-
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
+from typing import List
 
 from app.models.behaviour_model import Behavior
 from app.models.player_model import Player
@@ -14,6 +13,8 @@ DEFAULT_PLAYERS = (
     {"name": "S. Medina", "power": 60, "agility": 60, "control": 60, "speed": 60, "strength": 60},
     {"name": "G. Cisterna", "power": 60, "agility": 60, "control": 60, "speed": 60, "strength": 60},
 )
+
+
 def create_default_players(db: Session, club_id: int, behaviors: List[Behavior]) -> List[Player]:
     if len(behaviors) * 2 != len(DEFAULT_PLAYERS):
         raise ValueError("Debe haber un comportamiento por cada dos jugadores iniciales.")
@@ -49,6 +50,7 @@ def set_player_behaviour(db: Session, player: Player, behaviour_id: int) -> None
     player.behavior_id = behaviour_id
     db.flush()
 
+
 def get_players_by_club(db: Session, club_id: int) -> List[Player]:
     return list(
         db.scalars(
@@ -64,4 +66,3 @@ def get_by_id(db: Session, id: int) -> Player:
     player = db.get(Player, id)
 
     return player
-

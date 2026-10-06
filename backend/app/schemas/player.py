@@ -57,5 +57,6 @@ class PlayerBehaviourUpdate(BaseModel):
 
     behaviour_id: StrictInt = Field(alias="behaviourId", gt=0)
 
+
 class PlayerListResponse(BaseModel):
     items: list[PlayerRead]

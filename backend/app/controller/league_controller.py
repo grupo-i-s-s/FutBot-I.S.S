@@ -31,10 +31,10 @@ def get_league_lobby(id: int, club: CurrentClub, db: Database):
     status_code=status.HTTP_201_CREATED,
 )
 def join_league(
-    id: int,
-    body: LeagueJoinRequest,
-    club: CurrentClub,
-    db: Database,
+        id: int,
+        body: LeagueJoinRequest,
+        club: CurrentClub,
+        db: Database,
 ):
     if body.club_id != club.id:
         raise HTTPException(
@@ -83,7 +83,7 @@ def create_league(db: Database, data: CreateLeagueRequest, club: CurrentClub):
     status_code=status.HTTP_201_CREATED,
 )
 def create_private_league(
-    db: Database, data: CreatePrivateLeagueRequest, club: CurrentClub
+        db: Database, data: CreatePrivateLeagueRequest, club: CurrentClub
 ):
     return league_service.create_private_league(
         db=db, data=data, creator_club_id=club.id

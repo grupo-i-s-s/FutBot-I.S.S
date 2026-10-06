@@ -1,7 +1,6 @@
+import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
 
 from app.errors import AppError
 from app.schemas.club_schemas import ClubUpdate

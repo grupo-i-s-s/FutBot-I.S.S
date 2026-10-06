@@ -1,6 +1,5 @@
 from copy import deepcopy
 from datetime import datetime
-
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
@@ -9,7 +8,6 @@ from app.repository import matches_repository
 from app.services.match_builder_service import build_match
 from app.services.match_snapshot_service import read_snapshot
 from primitives.match_simulation import Match
-
 
 PENDING_STATUSES = ("WAITING", "WAITING_OPPONENT", "SCHEDULED")
 

@@ -8,7 +8,6 @@ from app.errors import AppError
 from app.repository import matches_repository
 from app.services.match_execution_service import run_persisted_match
 
-
 logger = logging.getLogger(__name__)
 CHECK_INTERVAL_SECONDS = 1
 

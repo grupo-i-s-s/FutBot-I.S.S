@@ -2,12 +2,12 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
+from app.controller import match_stream_controller
 from app.database import Base, get_db
 from app.main import app
 from app.models.auth_model import AuthSession, Club, User
@@ -17,12 +17,12 @@ from app.models.player_model import Player
 from app.repository import matches_repository
 from app.security import hash_session_token, new_session_token
 from app.services.match_execution_service import run_persisted_match
-from app.controller import match_stream_controller
 from primitives.behaviours import DEFAULT_CODES
 
 
 def seed_match_database(engine, duration_ms=700):
-    tables = [User.__table__, Club.__table__, AuthSession.__table__, Behavior.__table__, Player.__table__, Matches.__table__]
+    tables = [User.__table__, Club.__table__, AuthSession.__table__, Behavior.__table__, Player.__table__,
+              Matches.__table__]
     Base.metadata.create_all(engine, tables=tables)
     tokens = [new_session_token(), new_session_token()]
     now = datetime.now(timezone.utc)
@@ -30,8 +30,10 @@ def seed_match_database(engine, duration_ms=700):
         for club_id, token, name in zip((1, 2), tokens, ('Los Pinos', 'El Ceibo'), strict=True):
             db.add(User(id=club_id, email=f'club{club_id}@test.example', password_hash='unused'))
             db.add(Club(id=club_id, user_id=club_id, name=name, avatar='avatar'))
-            db.add(AuthSession(user_id=club_id, token_hash=hash_session_token(token), created_at=now, expires_at=now + timedelta(hours=1)))
-            db.add(Behavior(id=club_id, club_id=club_id, name='Equilibrado', description='test', code=DEFAULT_CODES['Equilibrado']))
+            db.add(AuthSession(user_id=club_id, token_hash=hash_session_token(token), created_at=now,
+                               expires_at=now + timedelta(hours=1)))
+            db.add(Behavior(id=club_id, club_id=club_id, name='Equilibrado', description='test',
+                            code=DEFAULT_CODES['Equilibrado']))
             for index in range(3):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f'Jugador {club_id}-{index + 1}', power=60, agility=60,
@@ -63,9 +65,11 @@ def test_live_stream_continues_after_one_observer_disconnects(tmp_path, monkeypa
     try:
         with TestClient(app) as client, ThreadPoolExecutor(max_workers=1) as workers:
             client.cookies.set(settings.cookie_name, tokens[0])
-            with client.websocket_connect('/matches/42/stream', headers={'Origin': next(iter(settings.allowed_origins))}) as local:
+            with client.websocket_connect('/matches/42/stream',
+                                          headers={'Origin': next(iter(settings.allowed_origins))}) as local:
                 client.cookies.set(settings.cookie_name, tokens[1])
-                with client.websocket_connect('/matches/42/stream', headers={'Origin': next(iter(settings.allowed_origins))}) as visitor:
+                with client.websocket_connect('/matches/42/stream',
+                                              headers={'Origin': next(iter(settings.allowed_origins))}) as visitor:
                     assert local.receive_json()['state']['status'] == 'WAITING'
                     assert visitor.receive_json()['state']['status'] == 'WAITING'
                     # Inicio explícito del test: nunca lo provoca una conexión.

@@ -1,8 +1,7 @@
-from types import SimpleNamespace
-from unittest.mock import Mock
-
 import pytest
 from fastapi import HTTPException
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from app.controller import league_controller
 from app.schemas.league_schemas import LeagueJoinRequest
@@ -24,4 +23,4 @@ def test_league_join_forwards_selected_lineup_and_access_code(db, monkeypatch):
     body = LeagueJoinRequest(clubId=7, lineUp=[6, 5, 4, 3, 2, 1], accessCode="secret")
     assert league_controller.join_league(42, body, SimpleNamespace(id=7), db) == {"leagueId": 42}
     join.assert_called_once_with(db=db, league_id=42, club_id=7,
-                                line_up=[6, 5, 4, 3, 2, 1], access_code="secret")
+                                 line_up=[6, 5, 4, 3, 2, 1], access_code="secret")

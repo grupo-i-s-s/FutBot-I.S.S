@@ -1,6 +1,5 @@
-from unittest.mock import MagicMock
-
 import pytest
+from unittest.mock import MagicMock
 
 from app.errors import AppError
 from app.models.player_model import Player

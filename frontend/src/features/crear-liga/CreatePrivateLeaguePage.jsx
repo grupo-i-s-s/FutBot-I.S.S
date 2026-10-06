@@ -1,56 +1,56 @@
-import { useState } from 'react'
-import { crearLigaPrivada } from './apiPrivate.js'
-import { Link, useNavigate } from 'react-router'
+import {useState} from 'react';
+import {crearLigaPrivada} from './apiPrivate.js';
+import {Link, useNavigate} from 'react-router';
 
 
-export default function CreatePrivateLeague(){
-    const [name, setName] = useState('')
-    const [minTeams, setMinTeams] = useState(3)
-    const [maxTeams, setMaxTeams] = useState('')
-    const [startDate, setstartDate] = useState('')
-    const [roundInterval, setroundInterval] = useState('CONTINUOUS')
-    const [password, setPassword] = useState('')
-    const [repeatPassword, setRepeatPassword] = useState('')
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [error, setError] = useState('')
-    const [success, setSuccess] = useState('')
-    const [needsLogin, setNeedsLogin] = useState(false)
-    const navigate = useNavigate()
+export default function CreatePrivateLeague() {
+    const [name, setName] = useState('');
+    const [minTeams, setMinTeams] = useState(3);
+    const [maxTeams, setMaxTeams] = useState('');
+    const [startDate, setstartDate] = useState('');
+    const [roundInterval, setroundInterval] = useState('CONTINUOUS');
+    const [password, setPassword] = useState('');
+    const [repeatPassword, setRepeatPassword] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [needsLogin, setNeedsLogin] = useState(false);
+    const navigate = useNavigate();
 
-   async function handleSubmit(event) {
-    event.preventDefault()
-    if (isSubmitting) return
+    async function handleSubmit(event) {
+        event.preventDefault();
+        if (isSubmitting) return;
 
-    setError('')
-    setNeedsLogin(false)
-    setSuccess('')
+        setError('');
+        setNeedsLogin(false);
+        setSuccess('');
 
-    if (password !== repeatPassword) {
-        setError('Las contraseñas no coinciden.')
-        return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-        const response = await crearLigaPrivada( name, password, minTeams, maxTeams, startDate, roundInterval )
-
-        if (!Number.isInteger(response.leagueId)) {
-            throw new Error('El servidor no devolvió el ID de la liga creada.')
+        if (password !== repeatPassword) {
+            setError('Las contraseñas no coinciden.');
+            return;
         }
 
-        navigate('/leagues/' + response.leagueId + '/lobby', {replace: true})
-    } catch (err) {
-        const fieldErrors = Object.values(err.fields ?? {}).join(' ')
-        setError( fieldErrors || err.message || 'No se pudo crear la liga privada.' )
-        setNeedsLogin(err.status === 401)
-    } finally {
-        setIsSubmitting(false)
-    }
-}
-    
+        setIsSubmitting(true);
 
-    return(
+        try {
+            const response = await crearLigaPrivada(name, password, minTeams, maxTeams, startDate, roundInterval);
+
+            if (!Number.isInteger(response.leagueId)) {
+                throw new Error('El servidor no devolvió el ID de la liga creada.');
+            }
+
+            navigate('/leagues/' + response.leagueId + '/lobby', {replace: true});
+        } catch (err) {
+            const fieldErrors = Object.values(err.fields ?? {}).join(' ');
+            setError(fieldErrors || err.message || 'No se pudo crear la liga privada.');
+            setNeedsLogin(err.status === 401);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+
+    return (
         <main className="login-page">
             <section className="login-card">
                 <h1 className="login-title">
@@ -60,10 +60,10 @@ export default function CreatePrivateLeague(){
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="league-name">
-                            Nombre de la liga 
+                            Nombre de la liga
                         </label>
 
-                        <input 
+                        <input
                             id="league-name"
                             type="text"
                             placeholder="Nombre de la liga"
@@ -88,14 +88,14 @@ export default function CreatePrivateLeague(){
                         </input>
                     </div>
 
-                    <div className = "formulary-box">
+                    <div className="formulary-box">
                         <label htmlFor="user-password-confirm">Confirmar Contraseña</label>
-                        <input  
+                        <input
                             id="user-password-confirm"
-                            type="password" 
-                            placeholder="Confimar-contraseña" 
-                            value = {repeatPassword} 
-                            onChange = {(event) => setRepeatPassword(event.target.value)}
+                            type="password"
+                            placeholder="Confimar-contraseña"
+                            value={repeatPassword}
+                            onChange={(event) => setRepeatPassword(event.target.value)}
                             required>
                         </input>
                     </div>
@@ -134,7 +134,7 @@ export default function CreatePrivateLeague(){
 
                     <div className="form-group">
                         <label htmlFor="start-date">
-                            Fecha y hora de inicio 
+                            Fecha y hora de inicio
                         </label>
 
                         <input
@@ -152,14 +152,14 @@ export default function CreatePrivateLeague(){
                         </label>
 
                         <select
-                            id = "round-interval"
+                            id="round-interval"
                             value={roundInterval}
                             onChange={(event) => setroundInterval(event.target.value)}
                             required>
-                            <option value="CONTINUOUS">Seguidas</option>    
+                            <option value="CONTINUOUS">Seguidas</option>
                             <option value="DAILY">Diarias</option>
                             <option value="WEEKLY">Semanales</option>
-                            </select>
+                        </select>
                     </div>
 
                     <button
@@ -178,8 +178,8 @@ export default function CreatePrivateLeague(){
                     {success && <p role="status">{success}</p>}
                 </form>
             </section>
-            
+
         </main>
 
-    )
+    );
 }

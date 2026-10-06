@@ -1,10 +1,9 @@
 """Reglas de amistosos sin HTTP ni base de datos."""
+import pytest
 from datetime import datetime, timedelta, timezone
+from fastapi import HTTPException
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
-from fastapi import HTTPException
 
 from app.errors import AppError
 from app.repository import matches_repository

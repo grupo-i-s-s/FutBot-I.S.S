@@ -1,8 +1,7 @@
 import logging
+import pymunk
 from dataclasses import asdict, dataclass
 from math import isfinite
-
-import pymunk
 
 from primitives.behaviours import Action, BehaviourMode, Observation, decide
 from primitives.kick import kick
@@ -48,8 +47,8 @@ class Team:
 
 class Match:
     def __init__(
-        self, local_team: Team, visitor_team: Team,
-        *, match_id: int | None = None, duration_ms: int = DEFAULT_DURATION_MS,
+            self, local_team: Team, visitor_team: Team,
+            *, match_id: int | None = None, duration_ms: int = DEFAULT_DURATION_MS,
     ):
         if type(duration_ms) is not int or duration_ms <= 0:
             raise ValueError("La duración debe ser un entero positivo en milisegundos.")
@@ -196,7 +195,7 @@ class Match:
         self.world.ball.position = self.init_ball_pos
         self.world.ball.velocity = (0, 0)
         for body, position in zip(
-            self.world.players, self.kickoff_positions(), strict=True
+                self.world.players, self.kickoff_positions(), strict=True
         ):
             body.position = position
             body.velocity = (0, 0)
@@ -206,11 +205,11 @@ class Match:
             self.world.space.reindex_shapes_for_body(body)
 
     def run_behaviour(
-        self,
-        player: pymunk.Body,
-        profile: PlayerProfile,
-        target_goal: tuple[float, float],
-        dt: float,
+            self,
+            player: pymunk.Body,
+            profile: PlayerProfile,
+            target_goal: tuple[float, float],
+            dt: float,
     ) -> Action | None:
         ball_position = self.world.ball.position
         ball_in_own_half = (
@@ -270,7 +269,7 @@ class Match:
         dt = min(dt, duration - self.time)
         shots = []
         for player, profile in (
-            zip(self.world.players, self.player_profiles, strict=True)
+                zip(self.world.players, self.player_profiles, strict=True)
         ):
             target_goal = (
                 (width, height / 2) if profile.club_id == self.local_team.club_id

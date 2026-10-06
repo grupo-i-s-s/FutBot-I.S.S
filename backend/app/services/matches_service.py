@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
-
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
@@ -47,8 +46,8 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
     if match.visitor_id is not None:
         raise AppError("MATCH_FULL", "El partido ya tiene visitante.")
     if match.status not in (
-        "WAITING",
-        "WAITING_OPPONENT",
+            "WAITING",
+            "WAITING_OPPONENT",
     ) or match.init_date <= datetime.now(timezone.utc):
         raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
 
@@ -62,7 +61,7 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
 
 
 def create_friendly_match(
-    db: Session, club_id: int, data: CreateFriendlyMatchRequest
+        db: Session, club_id: int, data: CreateFriendlyMatchRequest
 ) -> dict:
     now_utc = datetime.now(timezone.utc)
     start_dt = data.start_datetime

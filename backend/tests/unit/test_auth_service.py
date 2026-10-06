@@ -1,8 +1,7 @@
+import pytest
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
 
 from app.errors import AppError
 from app.schemas.auth_schemas import ChangePasswordRequest, LoginRequest, RegisterRequest
@@ -55,6 +54,7 @@ def test_registration_saves_complete_default_team_before_confirming(db, auth, re
             "starters": [{"playerId": i, "behaviourId": 10 + (i - 1) // 2} for i in (1, 2, 3)],
             "substitutes": [{"playerId": i, "behaviourId": 10 + (i - 1) // 2} for i in (4, 5, 6)],
         })
+
     db.commit.side_effect = before_commit
     result = service.register(db, registration)
     assert (result.id, result.email, result.club_id) == (1, "user@example.com", 7)

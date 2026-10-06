@@ -1,16 +1,15 @@
+import pytest
 from datetime import datetime, timedelta, timezone
+from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-import pytest
-from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
-
 from app.config import settings
+from app.controller import match_stream_controller
 from app.database import get_db
 from app.dependencies import get_current_club
 from app.main import app
-from app.controller import match_stream_controller
 from app.services import matches_service
 from app.services.match_stream_services import StreamAccess
 
@@ -125,8 +124,8 @@ def test_stream_stays_open_until_client_sends_data(monkeypatch):
 
     with TestClient(app) as client:
         with client.websocket_connect(
-            "/matches/3/stream",
-            headers={"Origin": next(iter(settings.allowed_origins))},
+                "/matches/3/stream",
+                headers={"Origin": next(iter(settings.allowed_origins))},
         ) as socket:
             assert socket.receive_json()["state"]["status"] == "WAITING"
             socket.send_text("unexpected input")
