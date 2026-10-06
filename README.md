@@ -7,6 +7,7 @@ Docker Compose instala las dependencias y levanta los tres servicios.
 
 - [Frontend: archivos, dependencias y convenciones de React](frontend/README.md).
 - [Backend: requirements, controllers, servicios, repositorios, modelos y schemas](backend/README.md).
+- [Propuesta de ejecución y visualización de amistosos](docs/ejecucion_y_visualizacion_partidos.md).
 
 Estas guías distinguen la base existente de la estructura propuesta para las próximas
 funcionalidades e incluyen ejemplos de nombres y pautas para coordinar ambos equipos.

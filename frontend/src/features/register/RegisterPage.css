@@ -1,0 +1,66 @@
+.register-page {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    flex-direction: column;
+}
+
+.main-page-title {
+    font-size: 40px;
+    color: #19362b;
+    margin-bottom: 40px; /* Separación entre el título y las tarjetas */
+    text-align: center;
+    font-weight: bold;
+}
+
+.user_register-card {
+    width: 100%;
+    max-width: 420px;
+    background-color: white;
+    padding: 32px;
+    border: 1px solid #d5e1d5;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.register-title {
+    margin-bottom: 28px;
+    text-align: center;
+    font-size: 30px;
+    color: #19362b;
+}
+
+.formulary-box {
+    margin-bottom: 20px;
+}
+
+.formulary-box label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #19362b;
+}
+
+.formulary-box input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d5e1d5;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.register-button {
+    display: block;
+    width: 200px;
+    margin: 20px auto 0;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: #164b35;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}

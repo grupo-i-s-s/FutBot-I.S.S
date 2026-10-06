@@ -164,6 +164,30 @@ Para recibir esta dependencia o cambios posteriores, usar el procedimiento habit
 desde la raíz: `docker compose up --build -d --wait`. Los Dockerfiles y Compose ya
 instalan los paquetes declarados; no hace falta instalar Tailwind en la computadora.
 
+### Componentes shadcn/ui
+
+shadcn/ui está configurado sobre Tailwind 4. La CLI usa `components.json` y el alias
+`@/` apunta a `src/` mediante `jsconfig.json` y `vite.config.js`. Los componentes
+se generan en JavaScript (`.jsx`), según `"tsx": false` en `components.json`.
+`src/styles.css` contiene los tokens de shadcn/ui junto con los colores de FutBot.
+
+Para agregar un componente desde `frontend/`:
+
+```sh
+npx shadcn add dialog
+```
+
+Si se trabaja con el contenedor iniciado, desde la raíz:
+
+```sh
+docker compose exec frontend npx shadcn add dialog
+```
+
+Los archivos generados quedan en `src/components/ui/` y se pueden importar, por
+ejemplo, con `import { Button } from '@/components/ui/button'`. El componente
+`Button` ya está incluido como ejemplo. Revisar los cambios de `styles.css` y de
+dependencias cuando se agreguen otros componentes, y versionar el lockfile de npm.
+
 ## 5. Contrato con el backend
 
 Consultar el [contrato de Sprint 2](../docs/api_sprint_2.md) antes de implementar
