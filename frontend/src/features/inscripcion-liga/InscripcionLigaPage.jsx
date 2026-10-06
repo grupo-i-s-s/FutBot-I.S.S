@@ -1,107 +1,98 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card'
-import {
-    getDefaultTeam,
-    joinLeague,
-    getLeagueLobby,
-} from './api.js'
+import {useEffect, useState} from 'react';
+import {Link, useNavigate, useParams, useSearchParams} from 'react-router';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from '@/components/ui/card';
+import {getDefaultTeam, getLeagueLobby, joinLeague,} from './api.js';
 
-export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
-    const { id } = useParams()
-    const [searchParams] = useSearchParams()
-    const leagueId = id || searchParams.get('leagueId')
-    const navigate = useNavigate()
-    const [league, setLeague] = useState(suppliedLeague || null)
-    const [team, setTeam] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [joining, setJoining] = useState(false)
-    const [error, setError] = useState('')
-    const [accessCode, setAccessCode] = useState('')
-    const needsAccessCode = Boolean( league?.requiresAccessCode || league?.isPrivate || league?.type === 'PRIVATE')
+export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
+    const {id} = useParams();
+    const [searchParams] = useSearchParams();
+    const leagueId = id || searchParams.get('leagueId');
+    const navigate = useNavigate();
+    const [league, setLeague] = useState(suppliedLeague || null);
+    const [team, setTeam] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [joining, setJoining] = useState(false);
+    const [error, setError] = useState('');
+    const [accessCode, setAccessCode] = useState('');
+    const needsAccessCode = Boolean(league?.requiresAccessCode || league?.isPrivate || league?.type === 'PRIVATE');
 
     useEffect(() => {
-        const controller = new AbortController()
+        const controller = new AbortController();
+
         async function loadTeam() {
-            setLeague(suppliedLeague || null)
-            setTeam(null)
-            setAccessCode('')
+            setLeague(suppliedLeague || null);
+            setTeam(null);
+            setAccessCode('');
             if (!suppliedLeague && !leagueId) {
-                setLoading(false)
-                return
+                setLoading(false);
+                return;
             }
             try {
-                setLoading(true)
-                setError('')
+                setLoading(true);
+                setError('');
                 const [data, selectedLeague] = await Promise.all([
-                    getDefaultTeam({ signal: controller.signal }),
-                    suppliedLeague || getLeagueLobby(leagueId, { signal: controller.signal }),
-                ])
+                    getDefaultTeam({signal: controller.signal}),
+                    suppliedLeague || getLeagueLobby(leagueId, {signal: controller.signal}),
+                ]);
                 if (!controller.signal.aborted) {
-                    setTeam(data)
-                    setLeague(selectedLeague)
+                    setTeam(data);
+                    setLeague(selectedLeague);
                 }
             } catch (err) {
                 if (!controller.signal.aborted) {
-                    setError(err?.message ?? 'No se pudo cargar la liga o tu equipo.')
+                    setError(err?.message ?? 'No se pudo cargar la liga o tu equipo.');
                 }
             } finally {
-                if (!controller.signal.aborted) setLoading(false)
+                if (!controller.signal.aborted) setLoading(false);
             }
         }
 
-        loadTeam()
-        return () => controller.abort()
-    }, [leagueId, suppliedLeague])
+        loadTeam();
+        return () => controller.abort();
+    }, [leagueId, suppliedLeague]);
 
     async function handleJoin() {
-        if (joining || !league || !team) return
+        if (joining || !league || !team) return;
 
-        setError('')
+        setError('');
 
         try {
-            setJoining(true)
-            setError('')
+            setJoining(true);
+            setError('');
 
             await joinLeague(
                 league.id,
                 team.clubId,
                 team.lineUp,
                 needsAccessCode ? accessCode : undefined
-            )
-            navigate(`/leagues/${league.id}/lobby`)
+            );
+            navigate(`/leagues/${league.id}/lobby`);
         } catch (err) {
             if (err?.status === 409) {
                 setError(
                     err.message ||
                     'No hay cupos disponibles, el código es incorrecto o el club ya está inscripto.'
-                )
+                );
             } else if (err?.status === 400) {
                 setError(
                     err.message ||
                     'El equipo no es válido para esta liga.'
-                )
+                );
             } else {
                 setError(
                     err?.message ||
                     'No se pudo completar la inscripción.'
-                )
+                );
             }
         } finally {
-            setJoining(false)
+            setJoining(false);
         }
     }
 
     if (loading) {
-        return <p role="status">Cargando la liga y tu equipo...</p>
+        return <p role="status">Cargando la liga y tu equipo...</p>;
     }
 
     if (!league) {
@@ -113,7 +104,7 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
                     {' '}<Link to="/ligas-disponibles">Ver ligas disponibles</Link>
                 </AlertDescription>
             </Alert>
-        )
+        );
     }
 
     if (!team) {
@@ -125,7 +116,7 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
                         'No se encontró un equipo disponible para inscribirse.'}
                 </AlertDescription>
             </Alert>
-        )
+        );
     }
 
     if (league.isRegistered) {
@@ -142,7 +133,7 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
                     <Link to={`/leagues/${league.id}/lobby`}>Ver lobby</Link>
                 </CardContent>
             </Card>
-        )
+        );
     }
 
     return (
@@ -210,5 +201,5 @@ export default function InscripcionLigaPage({ league: suppliedLeague } = {}) {
                 </Button>
             </CardContent>
         </Card>
-    )
+    );
 }

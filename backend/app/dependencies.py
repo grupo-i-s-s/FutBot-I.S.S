@@ -1,7 +1,7 @@
-from typing import Annotated
-
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
+from starlette.requests import HTTPConnection
+from typing import Annotated
 
 from app.config import settings
 from app.database import get_db
@@ -12,15 +12,13 @@ from app.services.auth_service import (
     Identity,
     authenticate
 )
-from starlette.requests import HTTPConnection
-
 
 Database = Annotated[Session, Depends(get_db)]
 
 
 def require_browser_write(connection: HTTPConnection) -> None:
-    if connection.scope["type"]=="websocket":
-        return  
+    if connection.scope["type"] == "websocket":
+        return
 
     if connection.scope["method"] in {"GET", "HEAD", "OPTIONS"}:
         return

@@ -5,9 +5,8 @@
   transacción que se revierte al final: no dejan datos. Requieren que las
   migraciones 001 y 002 estén aplicadas.
 """
-from collections.abc import Iterator
-
 import pytest
+from collections.abc import Iterator
 from fastapi.testclient import TestClient
 from sqlalchemy import func, inspect, select
 from sqlalchemy.orm import Session

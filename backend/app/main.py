@@ -1,17 +1,16 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from threading import Event
 
-from app.services.match_scheduler_service import run_match_scheduler
 from app.controller import api_router
 from app.database import engine
 from app.dependencies import require_browser_write
 from app.errors import AppError
-import asyncio
-from threading import Event
+from app.services.match_scheduler_service import run_match_scheduler
 
 
 @asynccontextmanager
@@ -79,8 +78,8 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(
-    request: Request,
-    exc: RequestValidationError,
+        request: Request,
+        exc: RequestValidationError,
 ) -> JSONResponse:
     fields = {}
     for error in exc.errors():

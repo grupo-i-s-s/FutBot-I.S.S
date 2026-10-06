@@ -1,7 +1,6 @@
 """Datos y construcción de nuestro plantel inicial; sesión simulada, sin SQL."""
-from unittest.mock import Mock
-
 import pytest
+from unittest.mock import Mock
 
 from app.models.behaviour_model import Behavior
 from app.models.player_model import Player

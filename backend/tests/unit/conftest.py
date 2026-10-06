@@ -1,12 +1,11 @@
 """La suite unitaria no requiere PostgreSQL ni permite abrir conexiones reales."""
 import os
-from datetime import datetime, timezone
-from types import SimpleNamespace
-from unittest.mock import Mock
-
 import pytest
+from datetime import datetime, timezone
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 # database.py construye su URL al importar; estos valores no abren una conexión.
 for name, value in {

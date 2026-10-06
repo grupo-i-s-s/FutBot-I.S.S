@@ -3,6 +3,7 @@ from pydantic import (
     ConfigDict
 )
 
+
 # Esta implementado la iss-72 y 74 donde se pide la lista de comportamientos y el detalle de un comportamiento
 
 class BehaviourRead(BaseModel):

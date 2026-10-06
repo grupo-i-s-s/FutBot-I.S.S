@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status
+
 from app.dependencies import CurrentClub, Database
 from app.schemas.matches_schemas import (
     ClubFriendlyMatchResponse,
@@ -18,7 +19,7 @@ matches_router = APIRouter(prefix="/friendly-matches", tags=["friendly-matches"]
     "", status_code=status.HTTP_201_CREATED, response_model=CreateFriendlyMatchResponse
 )
 def create_friendly_match(
-    data: CreateFriendlyMatchRequest, db: Database, club: CurrentClub
+        data: CreateFriendlyMatchRequest, db: Database, club: CurrentClub
 ):
     return matches_service.create_friendly_match(db=db, club_id=club.id, data=data)
 

@@ -1,14 +1,15 @@
+import pytest
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
-from unittest.mock import MagicMock
-
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
+from app.config import settings
+from app.controller import match_stream_controller as streams
 from app.database import Base, get_db
 from app.dependencies import get_current_club
 from app.errors import AppError
@@ -20,8 +21,6 @@ from app.models.player_model import Player
 from app.repository import matches_repository
 from app.services import match_execution_service as execution
 from app.services.match_snapshot_service import read_snapshot
-from app.controller import match_stream_controller as streams
-from app.config import settings
 from app.services.match_stream_services import StreamAccess
 from primitives import match_simulation
 from primitives.behaviours import DEFAULT_CODES
@@ -37,7 +36,8 @@ def database(monkeypatch):
         for club_id in (1, 2):
             db.add(User(id=club_id, email=f"club{club_id}@test.com", password_hash="unused"))
             db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}", avatar="avatar"))
-            db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test", code=DEFAULT_CODES["Equilibrado"]))
+            db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
+                            code=DEFAULT_CODES["Equilibrado"]))
             for index in range(3):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f"Jugador {club_id}-{index}", power=60, agility=60,
@@ -167,7 +167,8 @@ def test_get_and_websocket_return_same_persisted_final_snapshot(database, monkey
         try:
             with TestClient(app) as client:
                 assert client.get("/matches/42").json() == final
-                with client.websocket_connect("/matches/42/stream", headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
+                with client.websocket_connect("/matches/42/stream",
+                                              headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
                     assert socket.receive_json() == final
                     assert socket.receive() == {"type": "websocket.close", "code": 1000, "reason": "Partido finalizado"}
         finally:
@@ -183,7 +184,8 @@ def test_stream_omits_repeated_sequence_and_sends_new_final_state(monkeypatch):
     monkeypatch.setattr(streams, "authorize_with_db", lambda *_: StreamAccess("session", 1))
     monkeypatch.setattr(streams, "snapshot_with_db", lambda *_: next(snapshots))
     with TestClient(app) as client:
-        with client.websocket_connect("/matches/42/stream", headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
+        with client.websocket_connect("/matches/42/stream",
+                                      headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
             assert socket.receive_json()["sequence"] == 1
             assert socket.receive_json()["sequence"] == 2
             assert socket.receive()["code"] == 1000
@@ -194,7 +196,8 @@ def test_stream_rechecks_session_while_sending_snapshots(monkeypatch):
     monkeypatch.setattr(streams, "SESSION_CHECK_SECONDS", 0)
     monkeypatch.setattr(streams, "session_active_with_db", lambda *_: False)
     with TestClient(app) as client:
-        with client.websocket_connect("/matches/42/stream", headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
+        with client.websocket_connect("/matches/42/stream",
+                                      headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
             assert socket.receive()["code"] == 1008
 
 

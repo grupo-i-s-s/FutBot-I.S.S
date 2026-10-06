@@ -1,15 +1,14 @@
-from datetime import datetime
 from contextlib import contextmanager
-
+from datetime import datetime
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session, aliased
 
+from app.database import engine
+from app.errors import AppError
 from app.models.auth_model import Club
 from app.models.behaviour_model import Behavior
 from app.models.matches_model import Matches
 from app.models.player_model import Player
-from app.database import engine
-from app.errors import AppError
 
 
 def get_starting_players(db: Session, club_id: int) -> list[tuple[Player, Behavior]]:
@@ -42,7 +41,8 @@ def get_by_id(db: Session, match_id: int) -> Matches | None:
 
 
 def get_by_id_for_update(db: Session, match_id: int) -> Matches | None:
-    return db.scalar(select(Matches).where(Matches.match_id == match_id).with_for_update().execution_options(populate_existing=True))
+    return db.scalar(
+        select(Matches).where(Matches.match_id == match_id).with_for_update().execution_options(populate_existing=True))
 
 
 @contextmanager

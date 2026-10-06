@@ -1,30 +1,30 @@
-import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router'
-import ClubAvatar from '../my-club/components/ClubAvatar'
-import { getMyClub } from '../my-club/api'
-import '../home-page/homePage.css'
+import {useEffect, useState} from 'react';
+import {Link, useLocation} from 'react-router';
+import ClubAvatar from '../my-club/components/ClubAvatar';
+import {getMyClub} from '../my-club/api';
+import '../home-page/homePage.css';
 
 export default function NavBar() {
-    const [club, setClub] = useState(null)
-    const { pathname } = useLocation()
+    const [club, setClub] = useState(null);
+    const {pathname} = useLocation();
 
     useEffect(() => {
-        const controller = new AbortController()
+        const controller = new AbortController();
 
-        getMyClub({ signal: controller.signal })
+        getMyClub({signal: controller.signal})
             .then((data) => {
                 if (!controller.signal.aborted) {
-                    setClub(data)
+                    setClub(data);
                 }
             })
             .catch(() => {
                 if (!controller.signal.aborted) {
-                    setClub(null)
+                    setClub(null);
                 }
-            })
+            });
 
-        return () => controller.abort()
-    }, [pathname])
+        return () => controller.abort();
+    }, [pathname]);
 
     return (
         <header className="home-nav">
@@ -65,5 +65,5 @@ export default function NavBar() {
                 </Link>
             </nav>
         </header>
-    )
+    );
 }

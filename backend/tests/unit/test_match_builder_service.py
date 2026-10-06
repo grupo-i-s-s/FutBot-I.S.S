@@ -1,7 +1,6 @@
+import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
 
 from app.errors import AppError
 from app.repository import matches_repository
@@ -84,7 +83,8 @@ def test_builder_freezes_assigned_behaviour_and_supports_old_defaults(monkeypatc
     rows = {club_id: roster(club_id) for club_id in (7, 9)}
     rows[7][0][1].name = "Defensivo"
     rows[7][0][1].code = LEGACY_CODE
-    monkeypatch.setattr(matches_repository, "get_by_id", lambda *_: SimpleNamespace(creator_id=7, visitor_id=9, duration_ms=300_000))
+    monkeypatch.setattr(matches_repository, "get_by_id",
+                        lambda *_: SimpleNamespace(creator_id=7, visitor_id=9, duration_ms=300_000))
     monkeypatch.setattr(matches_repository, "get_starting_players", lambda db, club_id: rows[club_id])
     monkeypatch.setattr(matches_repository, "get_club_names", lambda *_: {7: "Local", 9: "Visitante"})
 
@@ -97,8 +97,10 @@ def test_builder_freezes_assigned_behaviour_and_supports_old_defaults(monkeypatc
 def test_builder_rejects_unsupported_behaviour_code(monkeypatch):
     rows = roster(7)
     rows[0][1].code = "raise RuntimeError('no ejecutar')"
-    monkeypatch.setattr(matches_repository, "get_by_id", lambda *_: SimpleNamespace(creator_id=7, visitor_id=9, duration_ms=300_000))
-    monkeypatch.setattr(matches_repository, "get_starting_players", lambda db, club_id: rows if club_id == 7 else roster(9))
+    monkeypatch.setattr(matches_repository, "get_by_id",
+                        lambda *_: SimpleNamespace(creator_id=7, visitor_id=9, duration_ms=300_000))
+    monkeypatch.setattr(matches_repository, "get_starting_players",
+                        lambda db, club_id: rows if club_id == 7 else roster(9))
     monkeypatch.setattr(matches_repository, "get_club_names", lambda *_: {7: "Local", 9: "Visitante"})
 
     with pytest.raises(AppError) as error:

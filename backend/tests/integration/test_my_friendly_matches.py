@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta, timezone
-from uuid import uuid4
-
 import pytest
+from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
+from uuid import uuid4
 
 from app.config import settings
 from app.database import engine, get_db

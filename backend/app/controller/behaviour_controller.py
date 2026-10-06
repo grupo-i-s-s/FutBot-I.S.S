@@ -6,6 +6,7 @@ from app.services import behaviour_service
 
 behaviour_router = APIRouter(prefix="/behaviours", tags=["behaviours"])
 
+
 # Obtengo la lista de comportamientos y un comportamiento en especifico
 
 @behaviour_router.get("", response_model=BehaviourListResponse)

@@ -1,6 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
+from app.config import settings
+from app.errors import AppError
+from app.models.auth_model import Club, User
 from app.repository import (
     session_repository,
     user_repository,
@@ -15,13 +20,6 @@ from app.schemas.auth_schemas import (
     UserResponse
 )
 from app.schemas.team_schemas import Lineup
-
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-
-from app.config import settings
-from app.errors import AppError
-from app.models.auth_model import Club, User
 from app.security import (
     DUMMY_PASSWORD_HASH,
     hash_password,

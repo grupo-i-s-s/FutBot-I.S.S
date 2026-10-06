@@ -1,6 +1,5 @@
 import asyncio
 from contextlib import suppress
-
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
@@ -19,9 +18,11 @@ SESSION_CHECK_SECONDS = 15
 def get_match_snapshot(match_id: int, db: Database, club: CurrentClub):
     return read_snapshot(db, match_id, club.id)
 
+
 def authorize_with_db(token: str | None, match_id: int) -> match_stream_services.StreamAccess:
     with SessionLocal() as db:
         return match_stream_services.authorize(db, token, match_id)
+
 
 def session_active_with_db(session_hash: str) -> bool:
     with SessionLocal() as db:
@@ -31,6 +32,7 @@ def session_active_with_db(session_hash: str) -> bool:
 def snapshot_with_db(match_id: int, club_id: int) -> dict:
     with SessionLocal() as db:
         return read_snapshot(db, match_id, club_id)
+
 
 @match_stream_router.websocket("/{match_id}/stream")
 async def stream_match(websocket: WebSocket, match_id: int) -> None:
@@ -46,7 +48,7 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
             "MATCH_FORBIDDEN": 403,
             "ACCOUNT_INCOMPLETE": 409,
             "MATCH_NOT_FOUND": 404
-            }.get(exc.code, 403)
+        }.get(exc.code, 403)
         raise HTTPException(status_code=status_code, detail=exc.message) from exc
     await websocket.accept()
     incoming = asyncio.create_task(websocket.receive())

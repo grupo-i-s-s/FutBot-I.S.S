@@ -1,7 +1,6 @@
+import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
 
 from app.errors import AppError
 from app.services import match_snapshot_service as snapshots
@@ -53,7 +52,7 @@ def test_waiting_snapshot_contains_available_teams_and_does_not_start_match(db, 
 
 
 @pytest.mark.parametrize("case, code", [("missing", "MATCH_NOT_FOUND"), ("outsider", "MATCH_FORBIDDEN"),
-                                       ("running_without_snapshot", "MATCH_STATE_INVALID")])
+                                        ("running_without_snapshot", "MATCH_STATE_INVALID")])
 def test_snapshot_rejects_missing_forbidden_or_inconsistent_state(db, access, case, code):
     if case == "missing":
         access.repo.get_by_id.return_value = None
@@ -75,7 +74,7 @@ def test_stream_access_is_bound_to_authenticated_session_and_participating_club(
 
 
 @pytest.mark.parametrize("case, code", [("no_club", "ACCOUNT_INCOMPLETE"), ("missing", "MATCH_NOT_FOUND"),
-                                       ("outsider", "MATCH_FORBIDDEN")])
+                                        ("outsider", "MATCH_FORBIDDEN")])
 def test_stream_rejects_incomplete_accounts_missing_matches_and_outsiders(db, access, case, code):
     if case == "no_club":
         access.users.get_club.return_value = None

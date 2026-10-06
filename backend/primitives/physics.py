@@ -1,7 +1,5 @@
-from dataclasses import dataclass
-
 import pymunk
-
+from dataclasses import dataclass
 
 PLAYER = 0b0001
 BALL = 0b0010
@@ -25,14 +23,14 @@ class World:
 
 
 def create_world(
-    field: Field,
-    player_positions: list[tuple[float, float]],
-    ball_position: tuple[float, float],
+        field: Field,
+        player_positions: list[tuple[float, float]],
+        ball_position: tuple[float, float],
 ) -> World:
     if (
-        field.width <= 0
-        or field.height <= 0
-        or not 0 < field.goal_width < field.height
+            field.width <= 0
+            or field.height <= 0
+            or not 0 < field.goal_width < field.height
     ):
         raise ValueError("Dimensiones de cancha inválidas")
 
@@ -44,10 +42,10 @@ def create_world(
     goal_bottom = (field.height + field.goal_width) / 2
 
     def add_wall(
-        start: tuple[float, float],
-        end: tuple[float, float],
-        category: int,
-        mask: int,
+            start: tuple[float, float],
+            end: tuple[float, float],
+            category: int,
+            mask: int,
     ) -> None:
         wall = pymunk.Segment(space.static_body, start, end, 0.05)
         wall.elasticity = 0.8
@@ -79,11 +77,11 @@ def create_world(
     )
 
     def add_circle(
-        position: tuple[float, float],
-        radius: float,
-        mass: float,
-        category: int,
-        mask: int,
+            position: tuple[float, float],
+            radius: float,
+            mass: float,
+            category: int,
+            mask: int,
     ) -> pymunk.Body:
         moment = pymunk.moment_for_circle(mass, 0, radius)
         body = pymunk.Body(mass, moment)

@@ -1,9 +1,8 @@
-from argparse import ArgumentParser
-
 import pygame
 import pymunk.pygame_util
-from sqlalchemy.orm import Session
+from argparse import ArgumentParser
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
 load_dotenv()
 

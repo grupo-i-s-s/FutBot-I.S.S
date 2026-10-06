@@ -1,21 +1,22 @@
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
 from datetime import datetime, timezone
+from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.errors import AppError
 from app.repository import league_repository, player_repository
 from app.schemas.league_schemas import (
     CreateLeagueRequest,
     CreatePrivateLeagueRequest,
     LeagueRead,
 )
-from app.errors import AppError
 from app.security import hash_password, verify_password
-from sqlalchemy.exc import IntegrityError
 
 
 def get_league_lobby(
-    db: Session,
-    league_id: int,
-    club_id: int,
+        db: Session,
+        league_id: int,
+        club_id: int,
 ) -> dict[str, object]:
     league = league_repository.get_league_by_id(db, league_id)
 
@@ -61,12 +62,12 @@ def get_league_lobby(
 
 
 def _create_league(
-    db: Session,
-    data: CreateLeagueRequest,
-    *,
-    is_private: bool,
-    password_hash: str | None,
-    creator_club_id: int,
+        db: Session,
+        data: CreateLeagueRequest,
+        *,
+        is_private: bool,
+        password_hash: str | None,
+        creator_club_id: int,
 ) -> dict[str, str]:
     name = data.name.strip()
 
@@ -118,11 +119,11 @@ def _create_league(
                 "LEAGUE_DUPLICATE", "Ya existe una liga con ese nombre."
             ) from exc
         raise
-    return {"message": "Liga creada exitosamente.", "league_id": league.id,}
+    return {"message": "Liga creada exitosamente.", "league_id": league.id, }
 
 
 def create_league(
-    db: Session, data: CreateLeagueRequest, creator_club_id: int
+        db: Session, data: CreateLeagueRequest, creator_club_id: int
 ) -> dict[str, str]:
     return _create_league(
         db=db,
@@ -134,7 +135,7 @@ def create_league(
 
 
 def create_private_league(
-    db: Session, data: CreatePrivateLeagueRequest, creator_club_id: int
+        db: Session, data: CreatePrivateLeagueRequest, creator_club_id: int
 ) -> dict[str, str]:
     if not data.password.strip():
         raise AppError("VALIDATION_ERROR", "La liga privada necesita contraseña.")
@@ -163,7 +164,7 @@ def leave_league(db: Session, league_id: int, club_id: int) -> dict:
 
     now_utc = datetime.now(timezone.utc)
     if league.status != "open" or (
-        league.start_datetime and league.start_datetime <= now_utc
+            league.start_datetime and league.start_datetime <= now_utc
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -186,11 +187,11 @@ def leave_league(db: Session, league_id: int, club_id: int) -> dict:
 
 
 def join_league(
-    db: Session,
-    league_id: int,
-    club_id: int,
-    line_up: list[int],
-    access_code: str | None = None,
+        db: Session,
+        league_id: int,
+        club_id: int,
+        line_up: list[int],
+        access_code: str | None = None,
 ) -> dict:
     league = league_repository.get_league_for_join(db, league_id)
 
@@ -215,7 +216,7 @@ def join_league(
     now_utc = datetime.now(timezone.utc)
 
     if league.status != "open" or (
-        league.start_datetime and league.start_datetime <= now_utc
+            league.start_datetime and league.start_datetime <= now_utc
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -239,13 +240,13 @@ def join_league(
         )
 
     if (
-        not isinstance(line_up, list)
-        or len(line_up) != 6
-        or any(
-            type(player_id) is not int or player_id <= 0
-            for player_id in line_up
-        )
-        or len(set(line_up)) != 6
+            not isinstance(line_up, list)
+            or len(line_up) != 6
+            or any(
+        type(player_id) is not int or player_id <= 0
+        for player_id in line_up
+    )
+            or len(set(line_up)) != 6
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -280,7 +281,7 @@ def join_league(
 
 
 def list_leagues(
-    db: Session, club_id: int, name: str | None = None
+        db: Session, club_id: int, name: str | None = None
 ) -> list[LeagueRead]:
     normalized_name = name.strip() if name is not None else None
     leagues = league_repository.get_all_available_leagues(db, name=normalized_name)

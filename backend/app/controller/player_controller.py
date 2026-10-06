@@ -25,7 +25,7 @@ def create_player(payload: PlayerCreate, club: CurrentClub, db: Database):
 
 @player_router.patch("/{player_id}/behaviour", response_model=PlayerRead)
 def assign_player_behaviour(
-    player_id: int, payload: PlayerBehaviourUpdate, club: CurrentClub, db: Database
+        player_id: int, payload: PlayerBehaviourUpdate, club: CurrentClub, db: Database
 ):
     return player_service.assign_behaviour(
         db=db, club_id=club.id, player_id=player_id, behaviour_id=payload.behaviour_id

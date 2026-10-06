@@ -1,11 +1,10 @@
 """Nuestro protocolo de streaming, usando un socket y servicios simulados."""
 import asyncio
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
-
 import pytest
 from fastapi import HTTPException
 from starlette.websockets import WebSocketDisconnect
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 from app.controller import match_stream_controller as controller
 from app.errors import AppError
@@ -54,7 +53,7 @@ def test_stream_rejects_origin_before_authentication(stream, origin):
 
 
 @pytest.mark.parametrize("code, status", [("SESSION_INVALID", 401), ("MATCH_FORBIDDEN", 403),
-                                         ("ACCOUNT_INCOMPLETE", 409), ("MATCH_NOT_FOUND", 404), ("UNKNOWN", 403)])
+                                          ("ACCOUNT_INCOMPLETE", 409), ("MATCH_NOT_FOUND", 404), ("UNKNOWN", 403)])
 def test_stream_translates_authorization_errors_before_accepting(stream, code, status):
     stream.auth.side_effect = AppError(code, "denied")
     with pytest.raises(HTTPException) as error:

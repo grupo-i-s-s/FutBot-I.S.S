@@ -3,10 +3,10 @@ from pymunk.vec2d import Vec2d
 
 
 def run_to(
-    player: pymunk.Body,
-    target_position: tuple[float, float],
-    speed: float,
-    dt: float
+        player: pymunk.Body,
+        target_position: tuple[float, float],
+        speed: float,
+        dt: float
 ) -> None:
     """Prepara la velocidad del jugador para el próximo step."""
     if dt <= 0:

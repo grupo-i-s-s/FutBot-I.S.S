@@ -1,7 +1,7 @@
 import './CreatePlayersPage.css';
-import { useState } from 'react';
-import { createPlayer } from './api';
-import { useNavigate } from 'react-router'
+import {useState} from 'react';
+import {createPlayer} from './api';
+import {useNavigate} from 'react-router';
 
 export default function CreatePlayerPage() {
     const [name, setName] = useState('');
@@ -13,7 +13,7 @@ export default function CreatePlayerPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const navigate = useNavigate()
+    const navigate = useNavigate();
 
     const totalPoints = power + agility + control + speed + strength;
 
@@ -48,7 +48,7 @@ export default function CreatePlayerPage() {
             );
 
             setSuccess(`¡El jugador ${player.name} se creó correctamente!`);
-            navigate('/mi-club', { replace: true})
+            navigate('/mi-club', {replace: true});
         } catch (err) {
             if (err.status === 401) {
                 setError('Tu sesión venció. Iniciá sesión nuevamente.');
@@ -67,110 +67,110 @@ export default function CreatePlayerPage() {
     }
 
     return (
-    <main className="create-players-page"> 
-        <h1 className="main-page-title">Crear Jugador</h1>
-        <section className="name-card">
-        <form onSubmit={handleSubmit}>
-            <div className="formulary-box">
-                <input  
-                id="user-name" 
-                type="text" 
-                placeholder="Nombre" 
-                value={name}
-                onChange={(event) => setName(event.target.value)}/>
-            </div>
+        <main className="create-players-page">
+            <h1 className="main-page-title">Crear Jugador</h1>
+            <section className="name-card">
+                <form onSubmit={handleSubmit}>
+                    <div className="formulary-box">
+                        <input
+                            id="user-name"
+                            type="text"
+                            placeholder="Nombre"
+                            value={name}
+                            onChange={(event) => setName(event.target.value)}/>
+                    </div>
 
-            <div className="attribute-header">
-                <label htmlFor="power-range">Potencia</label>
-                <span className="attribute-value">{power}</span>
-            </div>
-            <input 
-                id="power"
-                className="slider"
-                type="range" 
-                min="20" 
-                max="100" 
-                value={power}
-                onChange={(event) => setPower(Number(event.target.value))}/>
+                    <div className="attribute-header">
+                        <label htmlFor="power-range">Potencia</label>
+                        <span className="attribute-value">{power}</span>
+                    </div>
+                    <input
+                        id="power"
+                        className="slider"
+                        type="range"
+                        min="20"
+                        max="100"
+                        value={power}
+                        onChange={(event) => setPower(Number(event.target.value))}/>
 
-            <div className="attribute-header">
-                <label htmlFor="power-range">Agilidad</label>
-                <span className="attribute-value">{agility}</span>
-            </div>
-            <input 
-                id="agility"
-                className="slider"
-                type="range" 
-                min="20" 
-                max="100" 
-                value={agility}
-                onChange={(event) => setAgility(Number(event.target.value))}/>
+                    <div className="attribute-header">
+                        <label htmlFor="power-range">Agilidad</label>
+                        <span className="attribute-value">{agility}</span>
+                    </div>
+                    <input
+                        id="agility"
+                        className="slider"
+                        type="range"
+                        min="20"
+                        max="100"
+                        value={agility}
+                        onChange={(event) => setAgility(Number(event.target.value))}/>
 
-            <div className="attribute-header">
-                <label htmlFor="power-range">Control</label>
-                <span className="attribute-value">{control}</span>
-            </div>
-            <input 
-                id="control"
-                className="slider"
-                type="range" 
-                min="20" 
-                max="100" 
-                value={control}
-                onChange={(event) => setControl(Number(event.target.value))}/>
+                    <div className="attribute-header">
+                        <label htmlFor="power-range">Control</label>
+                        <span className="attribute-value">{control}</span>
+                    </div>
+                    <input
+                        id="control"
+                        className="slider"
+                        type="range"
+                        min="20"
+                        max="100"
+                        value={control}
+                        onChange={(event) => setControl(Number(event.target.value))}/>
 
-            <div className="attribute-header">
-                <label htmlFor="power-range">Velocidad</label>
-                <span className="attribute-value">{speed}</span>
-            </div>
-            <input 
-                id="speed"
-                className="slider"
-                type="range" 
-                min="20" 
-                max="100" 
-                value={speed}
-                onChange={(event) => setSpeed(Number(event.target.value))}/>
-            
-            <div className="attribute-header">
-                <label htmlFor="power-range">Fuerza</label>
-                <span className="attribute-value">{strength}</span>
-            </div>
-            <input 
-                id="strength"
-                className="slider"
-                type="range" 
-                min="20" 
-                max="100" 
-                value={strength}
-                onChange={(event) => setStrength(Number(event.target.value))}/>
+                    <div className="attribute-header">
+                        <label htmlFor="power-range">Velocidad</label>
+                        <span className="attribute-value">{speed}</span>
+                    </div>
+                    <input
+                        id="speed"
+                        className="slider"
+                        type="range"
+                        min="20"
+                        max="100"
+                        value={speed}
+                        onChange={(event) => setSpeed(Number(event.target.value))}/>
 
-            <div className="total-box">
-                <span className="total-label">Puntos Totales:</span>
-                <span className="total-value">{totalPoints}</span>
-            </div>
+                    <div className="attribute-header">
+                        <label htmlFor="power-range">Fuerza</label>
+                        <span className="attribute-value">{strength}</span>
+                    </div>
+                    <input
+                        id="strength"
+                        className="slider"
+                        type="range"
+                        min="20"
+                        max="100"
+                        value={strength}
+                        onChange={(event) => setStrength(Number(event.target.value))}/>
 
-            <button
-                type="submit"
-                className="login-button"
-                disabled={isSubmitting}
-            >
-                {isSubmitting ? 'Creando…' : 'Crear jugador'}
-            </button>
-               
-            {error && (
-                <p role="alert">
-                    {error}
-                </p>
-            )}
-            
-            {success && (
-                <p role="status">
-                    {success}
-                </p>
-            )}
-        </form>
-        </section>
-    </main>
-  );
+                    <div className="total-box">
+                        <span className="total-label">Puntos Totales:</span>
+                        <span className="total-value">{totalPoints}</span>
+                    </div>
+
+                    <button
+                        type="submit"
+                        className="login-button"
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? 'Creando…' : 'Crear jugador'}
+                    </button>
+
+                    {error && (
+                        <p role="alert">
+                            {error}
+                        </p>
+                    )}
+
+                    {success && (
+                        <p role="status">
+                            {success}
+                        </p>
+                    )}
+                </form>
+            </section>
+        </main>
+    );
 }

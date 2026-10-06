@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { joinFriendlyMatch, listFriendlyMatches, listMyFriendlyMatches } from './api'
-import './Matches.css'
+import {useEffect, useState} from 'react';
+import {Link, useNavigate} from 'react-router';
+import {Button} from '@/components/ui/button';
+import {Card} from '@/components/ui/card';
+import {joinFriendlyMatch, listFriendlyMatches, listMyFriendlyMatches} from './api';
+import './Matches.css';
 
 const statusLabels = {
     WAITING: 'Esperando rival',
@@ -12,59 +12,59 @@ const statusLabels = {
     RUNNING: 'En juego',
     FINISHED: 'Finalizado',
     CANCELLED: 'Cancelado',
-}
+};
 
 function formatDate(value) {
-    return new Date(value).toLocaleString('es-AR')
+    return new Date(value).toLocaleString('es-AR');
 }
 
 export default function MatchesPage() {
-    const [partidosDisponibles, setPartidosDisponibles] = useState([])
-    const [misPartidos, setMisPartidos] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [loadError, setLoadError] = useState('')
-    const [joinError, setJoinError] = useState('')
-    const [joiningId, setJoiningId] = useState(null)
-    const [refresh, setRefresh] = useState(0)
-    const navigate = useNavigate()
+    const [partidosDisponibles, setPartidosDisponibles] = useState([]);
+    const [misPartidos, setMisPartidos] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [joinError, setJoinError] = useState('');
+    const [joiningId, setJoiningId] = useState(null);
+    const [refresh, setRefresh] = useState(0);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        const controller = new AbortController()
+        const controller = new AbortController();
 
         async function cargarPartidos() {
-            setLoading(true)
-            setLoadError('')
+            setLoading(true);
+            setLoadError('');
             try {
                 const [disponibles, propios] = await Promise.all([
                     listFriendlyMatches(controller.signal),
                     listMyFriendlyMatches(controller.signal),
-                ])
-                if (controller.signal.aborted) return
-                setPartidosDisponibles(disponibles)
-                setMisPartidos(propios)
+                ]);
+                if (controller.signal.aborted) return;
+                setPartidosDisponibles(disponibles);
+                setMisPartidos(propios);
             } catch (error) {
-                if (!controller.signal.aborted) setLoadError(error.message)
+                if (!controller.signal.aborted) setLoadError(error.message);
             } finally {
-                if (!controller.signal.aborted) setLoading(false)
+                if (!controller.signal.aborted) setLoading(false);
             }
         }
 
-        cargarPartidos()
-        return () => controller.abort()
-    }, [refresh])
+        cargarPartidos();
+        return () => controller.abort();
+    }, [refresh]);
 
     async function handleJoinMatch(matchId) {
-        if (joiningId !== null) return
-        setJoiningId(matchId)
-        setJoinError('')
+        if (joiningId !== null) return;
+        setJoiningId(matchId);
+        setJoinError('');
         try {
-            const response = await joinFriendlyMatch(matchId)
-            navigate('/partidos/' + response.matchId, { replace: true })
+            const response = await joinFriendlyMatch(matchId);
+            navigate('/partidos/' + response.matchId, {replace: true});
         } catch (error) {
-            setJoinError(error.message || 'No se pudo completar la inscripción al partido.')
-            setRefresh((value) => value + 1)
+            setJoinError(error.message || 'No se pudo completar la inscripción al partido.');
+            setRefresh((value) => value + 1);
         } finally {
-            setJoiningId(null)
+            setJoiningId(null);
         }
     }
 
@@ -142,5 +142,5 @@ export default function MatchesPage() {
                 )}
             </Card>
         </main>
-    )
+    );
 }

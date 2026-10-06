@@ -34,4 +34,3 @@ class ClubLeagueRead(BaseModel):
 
 class ClubLeagueListResponse(BaseModel):
     items: list[ClubLeagueRead]
-    

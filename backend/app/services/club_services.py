@@ -8,9 +8,9 @@ from app.schemas.club_schemas import ClubUpdate
 
 
 def update_club(
-    db: Session,
-    club: Club,
-    data: ClubUpdate,
+        db: Session,
+        club: Club,
+        data: ClubUpdate,
 ) -> Club:
     try:
         updated = club_repository.update_club(

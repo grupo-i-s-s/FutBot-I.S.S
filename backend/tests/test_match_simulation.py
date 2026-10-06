@@ -1,5 +1,4 @@
 import json
-
 import pytest
 
 from primitives import match_simulation
@@ -68,7 +67,7 @@ def test_match_rejects_player_from_another_club():
     ids=["arco-derecho-gol-local", "arco-izquierdo-gol-visitante"],
 )
 def test_physical_goal_counts_once_for_attacking_team(
-    monkeypatch, position, velocity, expected_score
+        monkeypatch, position, velocity, expected_score
 ):
     match = match_simulation.Match(team(1), team(2))
     # Un tiro controlado: conservamos la física real y evitamos nuevas patadas.

@@ -1,12 +1,11 @@
-import { Link } from 'react-router'
-import { ArrowRight, Swords } from 'lucide-react'
-import '../homePage.css'
+import {Link} from 'react-router';
+import {ArrowRight, Swords} from 'lucide-react';
+import '../homePage.css';
 import {getFriendlyMatches} from "../api.js";
 import {useEffect, useState} from "react";
 
 
-
-export default function AvailableFriendlyMatches(){
+export default function AvailableFriendlyMatches() {
     const [friendly_matches, setFriendlyMatches] = useState([]);
     const [matchesLoaded, setMatchesLoaded] = useState(false);
     const [error, setError] = useState('');
@@ -27,11 +26,11 @@ export default function AvailableFriendlyMatches(){
     }, []);
 
 
-    return(
-        <aside className="home-panel home-matches" aria-labelledby="home-matches-title">           
-        <div className="home-panel-heading">
+    return (
+        <aside className="home-panel home-matches" aria-labelledby="home-matches-title">
+            <div className="home-panel-heading">
                 <span className="home-panel-icon home-match-icon">
-                    <Swords size={22} aria-hidden="true" />
+                    <Swords size={22} aria-hidden="true"/>
                 </span>
                 <div>
                     <h2 id="home-matches-title">Amistosos disponibles</h2>
@@ -60,12 +59,12 @@ export default function AvailableFriendlyMatches(){
             </ul>
             <Link to="/partidos-disponibles" className="home-panel-link">
                 Ver mis amistosos y los disponibles
-                <ArrowRight size={17} aria-hidden="true" />
+                <ArrowRight size={17} aria-hidden="true"/>
             </Link>
             <Link to="/crear-partido" className="home-panel-link">
                 Crear Partido Amistoso
-                <ArrowRight size={17} aria-hidden="true" />
+                <ArrowRight size={17} aria-hidden="true"/>
             </Link>
         </aside>
-    )
+    );
 }

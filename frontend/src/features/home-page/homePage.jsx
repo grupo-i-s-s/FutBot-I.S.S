@@ -1,36 +1,36 @@
-import { Link } from 'react-router'
-import AvaiableLeagues from './components/AvaiableLeagues'
-import './homePage.css'
-import AvailableFriendlyMatches from './components/AvailableFriendlyMatches.jsx'
-import WelcomePannel from './components/WelcomePannel'
-import { useEffect, useState } from 'react'
-import { getMyClub } from '../my-club/api'
-import ClubAvatar from '../my-club/components/ClubAvatar'
+import {Link} from 'react-router';
+import AvaiableLeagues from './components/AvaiableLeagues';
+import './homePage.css';
+import AvailableFriendlyMatches from './components/AvailableFriendlyMatches.jsx';
+import WelcomePannel from './components/WelcomePannel';
+import {useEffect, useState} from 'react';
+import {getMyClub} from '../my-club/api';
+import ClubAvatar from '../my-club/components/ClubAvatar';
 
-export default function HomePage(){
-    
-    const [club, setClub] = useState(null)
+export default function HomePage() {
+
+    const [club, setClub] = useState(null);
 
     useEffect(() => {
-        const controller = new AbortController()
+        const controller = new AbortController();
 
-        getMyClub({ signal: controller.signal })
+        getMyClub({signal: controller.signal})
             .then((data) => {
-                if (!controller.signal.aborted) setClub(data)
+                if (!controller.signal.aborted) setClub(data);
             })
             .catch(() => {
                 // Si no se pudo cargar, el avatar queda vacío.
-            })
+            });
 
-        return () => controller.abort()
-    }, [])
+        return () => controller.abort();
+    }, []);
 
-    return(
-        <div className='futbot-home'>
+    return (
+        <div className="futbot-home">
             <header className="home-nav">
                 <Link to="/home" className="home-brand" aria-label="FutBot, inicio">
                         <span className="home-brand-icon">
-                            {club && ( <ClubAvatar avatar={club.avatar} size="md"/>)}
+                            {club && (<ClubAvatar avatar={club.avatar} size="md"/>)}
                         </span>
                     <div className="home-brand-text">
                         <span>FUTBOT</span>
@@ -40,7 +40,7 @@ export default function HomePage(){
 
                 <nav className="home-nav-links" aria-label="Cuenta">
                     <Link to="/login" className="home-login">
-                        Cambiar de cuenta 
+                        Cambiar de cuenta
                     </Link>
                     <Link to="/registro" className="home-register">
                         Crear cuenta Nueva
@@ -48,11 +48,11 @@ export default function HomePage(){
                 </nav>
             </header>
             <main className="home-layout">
-                <AvaiableLeagues />
-                <WelcomePannel />
-                <AvailableFriendlyMatches />
+                <AvaiableLeagues/>
+                <WelcomePannel/>
+                <AvailableFriendlyMatches/>
             </main>
         </div>
-            
-    )
+
+    );
 }

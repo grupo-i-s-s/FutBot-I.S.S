@@ -1,8 +1,7 @@
-from types import SimpleNamespace
-from unittest.mock import Mock
-
 import pytest
 from pydantic import ValidationError
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from app.errors import AppError
 from app.schemas.team_schemas import Lineup

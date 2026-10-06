@@ -1,8 +1,7 @@
 """Nuestros límites y decisiones de movimiento; sin motor de física."""
-from types import SimpleNamespace
-
 import pytest
 from pymunk.vec2d import Vec2d
+from types import SimpleNamespace
 
 from primitives.kick import kick
 from primitives.run_to import run_to

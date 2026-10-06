@@ -1,13 +1,11 @@
-from typing import Annotated
-
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from typing import Annotated
 
 from app.database import get_db
-
 
 health_router = APIRouter(tags=["health"])
 

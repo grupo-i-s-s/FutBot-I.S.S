@@ -1,25 +1,25 @@
-import { useState } from 'react'
-import { assignPlayerBehaviour } from '../api'
+import {useState} from 'react';
+import {assignPlayerBehaviour} from '../api';
 
-export function BehaviorSelector({ player, behaviours, onBehaviourAssigned }) {
-    const [behaviourId, setBehaviourId] = useState('')
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState('')
+export function BehaviorSelector({player, behaviours, onBehaviourAssigned}) {
+    const [behaviourId, setBehaviourId] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     async function handleSubmit(event) {
-        event.preventDefault()
-        if (!behaviourId) return
+        event.preventDefault();
+        if (!behaviourId) return;
 
-        setLoading(true)
-        setError('')
+        setLoading(true);
+        setError('');
         try {
-            const updatedPlayer = await assignPlayerBehaviour(player.id, Number(behaviourId))
-            onBehaviourAssigned(updatedPlayer)
-            setBehaviourId('')
+            const updatedPlayer = await assignPlayerBehaviour(player.id, Number(behaviourId));
+            onBehaviourAssigned(updatedPlayer);
+            setBehaviourId('');
         } catch (requestError) {
-            setError(requestError.message)
+            setError(requestError.message);
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     }
 
@@ -48,5 +48,5 @@ export function BehaviorSelector({ player, behaviours, onBehaviourAssigned }) {
             </button>
             {error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}
         </form>
-    )
+    );
 }

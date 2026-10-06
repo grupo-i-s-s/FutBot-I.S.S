@@ -39,7 +39,7 @@ class DefaultTeamRead(BaseModel):
 
     club_id: int = Field(serialization_alias="clubId")
     line_up: Lineup = Field(serialization_alias="lineUp")
-    
+
 
 class FormationRead(BaseModel):
     id: int

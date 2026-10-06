@@ -1,7 +1,6 @@
-from unittest.mock import Mock
-
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
+from unittest.mock import Mock
 
 from app.database import get_db
 from app.main import app

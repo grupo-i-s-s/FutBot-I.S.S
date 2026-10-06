@@ -1,17 +1,16 @@
 """Scheduler sin threads, esperas reales ni consultas a PostgreSQL."""
 import asyncio
+import pytest
 from contextlib import contextmanager
 from threading import Event
 from unittest.mock import Mock
-
-import pytest
 
 from app.errors import AppError
 from app.services import match_scheduler_service as service
 
 
 @pytest.mark.parametrize("code, logged", [("MATCH_ALREADY_RUNNING", False), ("MATCH_NOT_FOUND", False),
-                                        ("MATCH_INVALID_LINEUP", True), (None, True)])
+                                          ("MATCH_INVALID_LINEUP", True), (None, True)])
 def test_worker_logs_only_unexpected_failures(monkeypatch, code, logged):
     failure = AppError(code, "failure") if code else RuntimeError("failure")
     run = Mock(side_effect=failure)

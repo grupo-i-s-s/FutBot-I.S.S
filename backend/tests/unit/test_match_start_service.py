@@ -1,10 +1,9 @@
 """Decisiones previas al inicio; no se simula física ni se usa SQL."""
+import pytest
 from copy import deepcopy
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
-
-import pytest
 
 from app.errors import AppError
 from app.services import match_start_service as service

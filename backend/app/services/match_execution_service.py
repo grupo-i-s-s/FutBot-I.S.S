@@ -1,9 +1,8 @@
 """Ejecución explícita. No registra tareas ni programa el inicio de partidos."""
 from datetime import datetime, timezone
-from time import monotonic, sleep
-from threading import Event
-
 from sqlalchemy.orm import Session
+from threading import Event
+from time import monotonic, sleep
 
 from app.errors import AppError
 from app.repository import matches_repository
@@ -92,7 +91,8 @@ def _execute(db: Session, match_id: int, duration_ms: int | None, stop_event: Ev
     return snapshot
 
 
-def run_persisted_match(match_id: int, *, duration_ms: int | None = None, stop_event: Event | None = None) -> dict | None:
+def run_persisted_match(match_id: int, *, duration_ms: int | None = None,
+                        stop_event: Event | None = None) -> dict | None:
     """Inicia o reanuda explícitamente y devuelve el snapshot final persistido.
 
     Llamar desde un worker/thread: esta función bloquea hasta finalizar. El

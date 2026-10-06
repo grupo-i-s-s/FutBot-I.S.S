@@ -8,9 +8,10 @@
     text-align: center;
     color: #19362b;
 }
+
 .main-page-title {
     font-size: 40px;
-    color: #19362b; 
+    color: #19362b;
     margin-bottom: 10px; /* Separación entre el título y las tarjetas */
     text-align: center;
     font-weight: bold;
@@ -18,7 +19,8 @@
 
 .name-card {
     width: 100%;
-    max-width: 420px;}
+    max-width: 420px;
+}
 
 .formulary-box input {
     font-size: 16px;

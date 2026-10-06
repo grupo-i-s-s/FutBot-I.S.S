@@ -6,12 +6,12 @@ from app.models.league_model import League, LeagueRegistration
 
 
 def update_club(
-    db: Session,
-    club: Club,
-    *,
-    name: str,
-    avatar: str,
-    friendly_available: bool,
+        db: Session,
+        club: Club,
+        *,
+        name: str,
+        avatar: str,
+        friendly_available: bool,
 ) -> Club:
     club.name = name
     club.avatar = avatar

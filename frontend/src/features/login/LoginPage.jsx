@@ -1,29 +1,29 @@
-import { useState } from 'react'
-import { login } from './api'
-import './LoginPage.css'
-import { Link, useNavigate } from 'react-router'
+import {useState} from 'react';
+import {login} from './api';
+import './LoginPage.css';
+import {Link, useNavigate} from 'react-router';
 
-export default function LoginPage(){
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [error, setError] = useState('')
-    const navigate = useNavigate()
-    
+export default function LoginPage() {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
+
     async function handleSubmit(event) {
-    event.preventDefault()
-    setError('')
+        event.preventDefault();
+        setError('');
 
-    try {
-        await login(email, password)
-        navigate('/home', { replace: true})
-    } catch (err) {
-        const fieldErrors = Object.values(err.fields ?? {}).join(' ')
+        try {
+            await login(email, password);
+            navigate('/home', {replace: true});
+        } catch (err) {
+            const fieldErrors = Object.values(err.fields ?? {}).join(' ');
 
-        setError(fieldErrors || err.message || 'No se pudo iniciar sesión.')
+            setError(fieldErrors || err.message || 'No se pudo iniciar sesión.');
+        }
     }
-}
 
-    return(
+    return (
         <main className="login-page">
             <section className="login-card">
                 <h1 className="login-title">
@@ -36,7 +36,7 @@ export default function LoginPage(){
                             Email
                         </label>
 
-                        <input 
+                        <input
                             id="email"
                             type="email"
                             placeholder="nombre@gmail.com"
@@ -66,8 +66,8 @@ export default function LoginPage(){
                     <Link to="/registro" className="Registro">Registrarme</Link>
                 </form>
             </section>
-            
+
         </main>
 
-    )
+    );
 }

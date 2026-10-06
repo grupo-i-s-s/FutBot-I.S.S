@@ -28,8 +28,8 @@ import ClubAvatar from './ClubAvatar';
 const MAX_NAME_LENGTH = 50;
 
 export default function ClubSettingsDialog({
-    club, isOpen, onOpenChange, onSave, isSaving, saveError
-}) {
+                                               club, isOpen, onOpenChange, onSave, isSaving, saveError
+                                           }) {
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
@@ -43,7 +43,7 @@ export default function ClubSettingsDialog({
                 )}
             </DialogContent>
         </Dialog>
-    )
+    );
 }
 
 function ClubSettingsForm({club, onSave, isSaving, saveError}) {
@@ -54,7 +54,7 @@ function ClubSettingsForm({club, onSave, isSaving, saveError}) {
 
     function handleSubmit(event) {
         event.preventDefault();
-        if (isSaving) return
+        if (isSaving) return;
         const trimmedName = clubName.trim();
         if (!trimmedName) {
             setNameError('Ingresá el nombre del club.');
@@ -150,11 +150,11 @@ function ClubSettingsForm({club, onSave, isSaving, saveError}) {
                 >
                     Cancelar
                 </DialogClose>
-                
+
                 <Button type="submit" disabled={isSaving}>
                     {isSaving ? 'Guardando…' : 'Guardar cambios'}
                 </Button>
             </DialogFooter>
-                    </form>
+        </form>
     );
 }
