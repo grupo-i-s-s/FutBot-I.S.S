@@ -58,6 +58,8 @@
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
+    gap: 16px;
+    flex-wrap: wrap;
 }
 
 .match-title {
@@ -80,4 +82,26 @@
     cursor: pointer;
     font-weight: 500;
     transition: background-color 0.2s;
+}
+
+.matches-section {
+    width: 100%;
+    margin-top: 24px;
+}
+
+.matches-section h2 {
+    margin-bottom: 12px;
+    color: #0f172a;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.match-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+a.join-button {
+    text-decoration: none;
 }

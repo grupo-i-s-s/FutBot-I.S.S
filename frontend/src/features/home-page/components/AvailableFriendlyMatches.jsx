@@ -59,7 +59,7 @@ export default function AvailableFriendlyMatches(){
                 ))}
             </ul>
             <Link to="/partidos-disponibles" className="home-panel-link">
-                Ver amistosos
+                Ver mis amistosos y los disponibles
                 <ArrowRight size={17} aria-hidden="true" />
             </Link>
             <Link to="/crear-partido" className="home-panel-link">

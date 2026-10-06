@@ -27,6 +27,12 @@ class FriendlyMatchResponse(BaseModel):
     start_datetime: datetime = Field(serialization_alias="startDateTime")
 
 
+class ClubFriendlyMatchResponse(FriendlyMatchResponse):
+    visitor_club_name: str | None = Field(serialization_alias="visitorClubName")
+    status: str
+    is_creator: bool = Field(serialization_alias="isCreator")
+
+
 class JoinMatchResponse(BaseModel):
     message: str
     match_id: int = Field(serialization_alias="matchId")
