@@ -5,6 +5,7 @@ import pytest
 
 from app.errors import AppError
 from app.repository import matches_repository
+from app.services import match_builder_service
 from app.services.match_builder_service import build_match
 from primitives.behaviours import BehaviourMode, DEFAULT_CODES, LEGACY_CODE
 
@@ -104,3 +105,14 @@ def test_builder_rejects_unsupported_behaviour_code(monkeypatch):
         build_match(Mock(), 42)
 
     assert error.value.code == "MATCH_INVALID_BEHAVIOUR"
+
+
+@pytest.mark.parametrize("missing, code", [("match", "MATCH_NOT_FOUND"), ("visitor", "MATCH_NO_VISITOR")])
+def test_builder_rejects_missing_match_or_opponent_before_loading_players(monkeypatch, missing, code):
+    repository = Mock()
+    repository.get_by_id.return_value = None if missing == "match" else SimpleNamespace(visitor_id=None)
+    monkeypatch.setattr(match_builder_service, "matches_repository", repository)
+    with pytest.raises(AppError) as error:
+        match_builder_service.build_match(Mock(), 42)
+    assert error.value.code == code
+    repository.get_starting_players.assert_not_called()
