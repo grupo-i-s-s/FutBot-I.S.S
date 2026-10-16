@@ -4,6 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.player_model import Player
+from app.models.stats_model import Stats
 
 
 class User(Base):
@@ -34,6 +35,7 @@ class Club(Base):
         server_default="false",
     )
     players: Mapped[list[Player]] = relationship(back_populates="club")
+    stats: Mapped["Stats"] = relationship(back_populates="club")
 
 
 class AuthSession(Base):
