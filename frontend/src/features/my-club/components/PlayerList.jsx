@@ -1,11 +1,12 @@
-import {Plus, Users} from 'lucide-react';
-import {Link} from 'react-router';
-import {Avatar, AvatarFallback} from '@/components/ui/avatar';
-import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
-import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
-import {Item, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item';
-import {BehaviorSelector} from './BehaviorSelector';
-import {buttonVariants} from '@/components/ui/button';
+import { useState } from 'react';
+import { Plus, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { BehaviorSelector } from './BehaviorSelector';
+import { buttonVariants } from '@/components/ui/button';
 
 const PACSS_ATTRIBUTES = [
     ['Power', 'power'],
@@ -15,19 +16,32 @@ const PACSS_ATTRIBUTES = [
     ['Strength', 'strength'],
 ];
 
-export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
+const ITEMS_PER_PAGE = 9;
+
+export default function PlayerList({ players, behaviours, onBehaviourAssigned }) {
+    const [currentPage, setCurrentPage] = useState(1);
+    const totalPages = Math.ceil(players.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const currentPlayers = players.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <Users className="size-5" aria-hidden="true"/>
+                    <Users className="size-5" aria-hidden="true" />
                     Jugadores
                 </CardTitle>
                 <CardDescription>{players.length} jugadores en el plantel</CardDescription>
 
                 <CardAction>
-                    <Link to="/crear-jugador" className={buttonVariants({size: 'sm'})}>
-                        <Plus className="size-4" aria-hidden="true"/>
+                    <Link to="/crear-jugador" className={buttonVariants({ size: 'sm' })}>
+                        <Plus className="size-4" aria-hidden="true" />
                         Crear Nuevo jugador
                     </Link>
                 </CardAction>
@@ -38,7 +52,7 @@ export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
                     <Empty className="border">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
-                                <Users/>
+                                <Users />
                             </EmptyMedia>
                             <EmptyTitle>Sin jugadores</EmptyTitle>
                             <EmptyDescription>
@@ -47,48 +61,79 @@ export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
                         </EmptyHeader>
                     </Empty>
                 ) : (
-                    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {players.map((player) => (
-                            <li key={player.id}>
-                                <Item variant="outline">
-                                    <ItemMedia>
-                                        <Avatar>
-                                            <AvatarFallback className="font-bold text-primary">
-                                                {player.name.charAt(0).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </ItemMedia>
+                    <>
+                        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {currentPlayers.map((player) => (
+                                <li key={player.id}>
+                                    <Item variant="outline">
+                                        <ItemMedia>
+                                            <Avatar>
+                                                <AvatarFallback className="font-bold text-primary">
+                                                    {player.name.charAt(0).toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        </ItemMedia>
 
-                                    <ItemContent className="min-w-0">
-                                        <ItemTitle className="truncate">
-                                            {player.name}
-                                        </ItemTitle>
+                                        <ItemContent className="min-w-0">
+                                            <ItemTitle className="truncate">
+                                                {player.name}
+                                            </ItemTitle>
 
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-sm">
-                                            {PACSS_ATTRIBUTES.map(([label, key]) => (
-                                                <span key={key}>
-                                                    <strong>{label}:</strong> {player[key]}
-                                                </span>
-                                            ))}
-                                        </div>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-sm">
+                                                {PACSS_ATTRIBUTES.map(([label, key]) => (
+                                                    <span key={key}>
+                                                        <strong>{label}:</strong> {player[key]}
+                                                    </span>
+                                                ))}
+                                            </div>
 
-                                        <ItemDescription className="mt-2">
-                                            <span className="font-medium">
-                                                Comportamiento:
-                                            </span>{' '}
-                                            {player.behaviourName}
-                                        </ItemDescription>
+                                            <ItemDescription className="mt-2">
+                                                <span className="font-medium">
+                                                    Comportamiento:
+                                                </span>{' '}
+                                                {player.behaviourName}
+                                            </ItemDescription>
 
-                                        <BehaviorSelector
-                                            player={player}
-                                            behaviours={behaviours}
-                                            onBehaviourAssigned={onBehaviourAssigned}
-                                        />
-                                    </ItemContent>
-                                </Item>
-                            </li>
-                        ))}
-                    </ul>
+                                            <BehaviorSelector
+                                                player={player}
+                                                behaviours={behaviours}
+                                                onBehaviourAssigned={onBehaviourAssigned}
+                                            />
+                                        </ItemContent>
+                                    </Item>
+                                </li>
+                            ))}
+                        </ul>
+
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between border-t pt-4 mt-6">
+                                <span className="text-sm text-muted-foreground">
+                                    Página {currentPage} de {totalPages}
+                                </span>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                                    >
+                                        <ChevronLeft className="size-4 mr-1" />
+                                        Anterior
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                                    >
+                                        Siguiente
+                                        <ChevronRight className="size-4 ml-1" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </CardContent>
         </Card>
