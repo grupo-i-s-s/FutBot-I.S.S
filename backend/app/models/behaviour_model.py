@@ -5,6 +5,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     text,
+    Integer,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,3 +25,6 @@ class Behavior(Base):
     description: Mapped[str] = mapped_column(String(200), nullable=False)
     code: Mapped[str] = mapped_column(Text, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text(" 'PLAYER' "))
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    validation_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'PENDING'"))

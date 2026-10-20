@@ -18,6 +18,9 @@ def create_default_behaviours(db: Session, club_id: int) -> list[Behavior]:
             name=name,
             description=description,
             code=DEFAULT_CODES[name],
+            kind="PLAYER",
+            version=1,
+            validation_status="VALID",
         )
         for name, description in DEFAULT_BEHAVIOURS
     ]
