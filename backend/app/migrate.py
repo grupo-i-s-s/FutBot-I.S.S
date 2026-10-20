@@ -29,11 +29,17 @@ def connect():
             time.sleep(2)
 
 
-def main():
+def get_migration_files() -> list[Path]:
     files = sorted(MIGRATIONS_DIR.glob("*.sql"))
 
     if not files:
         raise RuntimeError(f"No hay migraciones en {MIGRATIONS_DIR}")
+
+    return files
+
+
+def main():
+    files = get_migration_files()
 
     with connect() as conn:
         conn.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_LOCK,))
