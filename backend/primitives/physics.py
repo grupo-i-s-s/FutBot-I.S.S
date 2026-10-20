@@ -24,7 +24,7 @@ class World:
 
 def create_world(
         field: Field,
-        player_positions: list[tuple[float, float]],
+        player_data: list[tuple],           #Aca tiene (posicion, strenght)
         ball_position: tuple[float, float],
 ) -> World:
     if (
@@ -99,11 +99,11 @@ def create_world(
         add_circle(
             position,
             radius=1.4,
-            mass=3,
+            mass=strenght,
             category=PLAYER,
             mask=PLAYER | BALL | FIELD_WALL | PLAYER_WALL,
         )
-        for position in player_positions
+        for position, strenght in player_data
     ]
     ball = add_circle(
         ball_position,

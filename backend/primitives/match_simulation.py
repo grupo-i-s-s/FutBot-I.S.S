@@ -78,10 +78,17 @@ class Match:
         self.init_players_pos = tuple(line_up)
         self.init_ball_pos = ball_pos
         self.scorer = {"LOCAL": 0, "VISITANTE": 0}
+
+        # Aca voy a usar el strength de los jugadores para pasarselos cuando instanciemos el mundo, me devuelve [(posicion, strenght)]
+        players_data= []
+        for profile, position in zip(self.player_profiles, self.kickoff_positions(), strict=True):
+            players_data.append((position, profile.strength))
+
+        # Ahora le paso esa lista para instanciar el mundo
         self.world = create_world(
             self.cord,
-            self.kickoff_positions(),
             self.init_ball_pos,
+            players_data,
         )
 
         # El orden de los perfiles coincide con el de los cuerpos creados.
