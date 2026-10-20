@@ -34,6 +34,9 @@ class PlayerProfile:
     name: str
     speed: int
     power: int
+    agility: int
+    strength: int
+    control: int
     behaviour_id: int | None = None
     behaviour_mode: BehaviourMode = BehaviourMode.BALANCED
 
