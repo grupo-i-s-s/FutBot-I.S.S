@@ -52,5 +52,8 @@ def assign_behaviour(
     return player
 
 
-def get_players(db: Session, club_id: int) -> list[Player]:
-    return player_repository.get_players_by_club(db, club_id)
+def get_players(db: Database, club_id: int, page: int, limit: int):
+    offset = (page - 1) * limit
+    players = db.query(Player).filter(Player.club_id == club_id).offset(offset).limit(limit).all()
+    total_count = db.query(Player).filter(Player.club_id == club_id).count()
+    return players, total_count
