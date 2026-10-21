@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from math import isfinite
 
 from primitives.behaviours import Action, BehaviourMode, Observation, decide
+from primitives.physics import PLAYER_RADIUS, BALL_RADIUS
 from primitives.kick import kick
 from primitives.physics import Field, create_world, step
 from primitives.run_to import run_to
@@ -39,6 +40,11 @@ class PlayerProfile:
     control: int
     behaviour_id: int | None = None
     behaviour_mode: BehaviourMode = BehaviourMode.BALANCED
+
+#Esto me srive para definir el significado de control en un jugador. 100pts son 2mts y 20 son 0.4mts
+    @property
+    def kick_range(self) -> int:
+        return int(PLAYER_RADIUS + BALL_RADIUS + (self.control * 0.02))
 
 
 @dataclass(frozen=True)
@@ -146,12 +152,12 @@ class Match:
                     )
                 ],
                 "players": [
-                    {**player, "radius": 1.4} for player in self.get_players_state()
+                    {**player, "radius": PLAYER_RADIUS} for player in self.get_players_state()
                 ],
                 "ball": {
                     "x": float(self.world.ball.position.x),
                     "y": float(self.world.ball.position.y),
-                    "radius": 0.5,
+                    "radius": BALL_RADIUS,
                 },
             },
         }
@@ -297,7 +303,7 @@ class Match:
             opponent_goal=target_goal,
             is_closest_teammate=closest_teammate.id == profile.id,
             ball_in_own_half=ball_in_own_half,
-            can_kick=(player.position - ball_position).length <= KICK_RANGE,
+            can_kick=(player.position - ball_position).length <= profile.kick_range,
             field_size=(width, height),
             goal_width=goal_width,
         )
@@ -349,7 +355,7 @@ class Match:
             if (
                 action is not None
                 and action.kick_target is not None
-                and distance <= KICK_RANGE
+                and distance <= profile.kick_range
                 and self.time >= self.next_kick_at.get(profile.id, 0)
             ):
                 shots.append(
@@ -362,7 +368,7 @@ class Match:
                 shots, key=lambda shot: (shot[0], shot[1])
             )
             shot_speed = SHOT_BASE_SPEED + profile.power * SHOT_POWER_FACTOR
-            if kick(player, self.world.ball, target, shot_speed, KICK_RANGE):
+            if kick(player, self.world.ball, target, shot_speed, profile.kick_range):
                 self.next_kick_at[profile.id] = self.time + KICK_COOLDOWN_SECONDS
 
         scoring_side = step(self.world, dt)

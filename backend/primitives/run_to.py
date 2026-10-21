@@ -24,4 +24,7 @@ def run_to(
 
     # Reduce la velocidad cerca del destino para evitar pasarse.
     actual_speed = min(speed, distance / dt)
-    player.velocity = direction.normalized() * actual_speed
+    target_velocity = direction.normalized() * actual_speed
+    velocity_diff = target_velocity - player.velocity
+
+    player.apply_impulse_at_local_point(velocity_diff * player.mass )
