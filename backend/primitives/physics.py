@@ -6,6 +6,8 @@ BALL = 0b0010
 FIELD_WALL = 0b0100
 PLAYER_WALL = 0b1000
 
+BALL_RADIUS = 0.5
+PLAYER_RADIUS = 1.6
 
 @dataclass(frozen=True)
 class Field:
@@ -23,15 +25,11 @@ class World:
 
 
 def create_world(
-        field: Field,
-        player_data: list[tuple],           #Aca tiene (posicion, strenght)
-        ball_position: tuple[float, float],
+    field: Field,
+    player_data: list[tuple],  # Aca tiene (posicion, strenght)
+    ball_position: tuple[float, float],
 ) -> World:
-    if (
-            field.width <= 0
-            or field.height <= 0
-            or not 0 < field.goal_width < field.height
-    ):
+    if field.width <= 0 or field.height <= 0 or not 0 < field.goal_width < field.height:
         raise ValueError("Dimensiones de cancha inválidas")
 
     space = pymunk.Space()
@@ -42,10 +40,10 @@ def create_world(
     goal_bottom = (field.height + field.goal_width) / 2
 
     def add_wall(
-            start: tuple[float, float],
-            end: tuple[float, float],
-            category: int,
-            mask: int,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        category: int,
+        mask: int,
     ) -> None:
         wall = pymunk.Segment(space.static_body, start, end, 0.05)
         wall.elasticity = 0.8
@@ -66,9 +64,7 @@ def create_world(
         add_wall(start, end, FIELD_WALL, PLAYER | BALL)
 
     # Cierran la abertura del arco sólo para los jugadores.
-    add_wall(
-        (0, goal_top), (0, goal_bottom), PLAYER_WALL, PLAYER
-    )
+    add_wall((0, goal_top), (0, goal_bottom), PLAYER_WALL, PLAYER)
     add_wall(
         (field.width, goal_top),
         (field.width, goal_bottom),
@@ -77,18 +73,18 @@ def create_world(
     )
 
     def add_circle(
-            position: tuple[float, float],
-            radius: float,
-            mass: float,
-            category: int,
-            mask: int,
+        position: tuple[float, float],
+        radius: float,
+        mass: float,
+        category: int,
+        mask: int,
     ) -> pymunk.Body:
         moment = pymunk.moment_for_circle(mass, 0, radius)
         body = pymunk.Body(mass, moment)
         body.position = position
 
         shape = pymunk.Circle(body, radius)
-        shape.elasticity = 0.8
+        shape.elasticity = 0.5
         shape.friction = 0.5
         shape.filter = pymunk.ShapeFilter(categories=category, mask=mask)
 
@@ -98,7 +94,7 @@ def create_world(
     players = [
         add_circle(
             position,
-            radius=1.4,
+            radius=PLAYER_RADIUS,
             mass=strenght,
             category=PLAYER,
             mask=PLAYER | BALL | FIELD_WALL | PLAYER_WALL,
@@ -107,7 +103,7 @@ def create_world(
     ]
     ball = add_circle(
         ball_position,
-        radius=0.5,
+        radius=BALL_RADIUS,
         mass=1,
         category=BALL,
         mask=PLAYER | FIELD_WALL,
@@ -145,7 +141,7 @@ def step(world: World, dt: float) -> str | None:
             break
 
     # Cada jugador debe recibir una nueva orden de movimiento en el próximo ciclo.
-    for player in world.players:
-        player.velocity = (0, 0)
+    #for player in world.players:
+    # player.velocity = (0, 0)
 
     return scorer
