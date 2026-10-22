@@ -7,7 +7,7 @@ FIELD_WALL = 0b0100
 PLAYER_WALL = 0b1000
 
 BALL_RADIUS = 0.5
-PLAYER_RADIUS = 1.6
+PLAYER_RADIUS = 1.5
 
 @dataclass(frozen=True)
 class Field:
@@ -95,7 +95,7 @@ def create_world(
         add_circle(
             position,
             radius=PLAYER_RADIUS,
-            mass=strenght,
+            mass=strenght,                   
             category=PLAYER,
             mask=PLAYER | BALL | FIELD_WALL | PLAYER_WALL,
         )
@@ -139,9 +139,7 @@ def step(world: World, dt: float) -> str | None:
 
         if scorer is not None:
             break
-
-    # Cada jugador debe recibir una nueva orden de movimiento en el próximo ciclo.
-    #for player in world.players:
-    # player.velocity = (0, 0)
-
+                
+    if world.ball.velocity.length > 60.0:
+        world.ball.velocity = world.ball.velocity.normalized() * 60
     return scorer

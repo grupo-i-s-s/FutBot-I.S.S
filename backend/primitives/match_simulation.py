@@ -20,8 +20,6 @@ KICK_RANGE = 2.5
 KICK_COOLDOWN_SECONDS = 0.5
 # Los atributos 20–100 se traducen a unidades de cancha por segundo.
 # La pelota debe viajar más rápido que los jugadores para que un remate se libere.
-PLAYER_BASE_SPEED = 8.0
-PLAYER_SPEED_FACTOR = 0.15
 SHOT_BASE_SPEED = 40.0
 SHOT_POWER_FACTOR = 0.6
 DEFAULT_DURATION_MS = 300_000
@@ -43,8 +41,16 @@ class PlayerProfile:
 
 #Esto me srive para definir el significado de control en un jugador. 100pts son 2mts y 20 son 0.4mts
     @property
-    def kick_range(self) -> int:
-        return int(PLAYER_RADIUS + BALL_RADIUS + (self.control * 0.02))
+    def kick_range(self) -> float:
+        return PLAYER_RADIUS + BALL_RADIUS + ((self.control * 2)/100)
+    
+    @property
+    def real_speed(self) -> float:
+        return (self.speed * 19.2 / 100) + 3.0
+
+    @property
+    def real_strength(self) -> float:
+        return (self.strength * 84 / 100) * 0.2
 
 
 @dataclass(frozen=True)
@@ -91,12 +97,12 @@ class Match:
         self.init_ball_pos = ball_pos
         self.scorer = {"LOCAL": 0, "VISITANTE": 0}
 
-        # Aca voy a usar el strength de los jugadores para pasarselos cuando instanciemos el mundo, me devuelve [(posicion, strenght)]
+        # Aca uso el strength de los jugadores para pasarselos cuando instanciemos el mundo, me devuelve [(posicion, strenght)]
         players_data = []
         for profile, position in zip(
             self.player_profiles, self.kickoff_positions(), strict=True
         ):
-            players_data.append((position, profile.strength))
+            players_data.append((position, profile.real_strength))
 
         # Ahora le paso esa lista para instanciar el mundo
         self.world = create_world(
@@ -325,8 +331,7 @@ class Match:
                     and abs(shot_y - target_goal[1]) <= goal_width / 2 - 1
                 ):
                     raise ValueError("La patada debe apuntar dentro del arco rival.")
-            speed = PLAYER_BASE_SPEED + profile.speed * PLAYER_SPEED_FACTOR
-            run_to(player, action.move_target, speed, dt)
+            run_to(player, action.move_target, profile.real_speed, dt)
             return action
         except Exception:
             # Un error del programa deja quieto a ese jugador durante este paso.
