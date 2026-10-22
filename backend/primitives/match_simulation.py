@@ -39,15 +39,17 @@ class PlayerProfile:
     behaviour_id: int | None = None
     behaviour_mode: BehaviourMode = BehaviourMode.BALANCED
 
-#Esto me srive para definir el significado de control en un jugador. 100pts son 2mts y 20 son 0.4mts
+    #Esto me srive para definir el significado de control en un jugador. 100pts son 2mts y 20 son 0.4mts
     @property
     def kick_range(self) -> float:
         return PLAYER_RADIUS + BALL_RADIUS + ((self.control * 2)/100)
-    
+
+    #Esto me define la velocidad real del jugador. 100pts son 28,8m/s + 4 de base_speed, 20pts son 5,76m/s + 4
     @property
     def real_speed(self) -> float:
-        return (self.speed * 19.2 / 100) + 3.0
+        return ((self.speed * 28.8) / 100) + 4.0
 
+    #Esto define la strength real del jugador. 100pts son 84kg por R9, 20pts son 16,8kg. Se escalan a 0.2 por el motor
     @property
     def real_strength(self) -> float:
         return (self.strength * 84 / 100) * 0.2
@@ -328,7 +330,7 @@ class Match:
                     isfinite(shot_x)
                     and isfinite(shot_y)
                     and shot_x == target_goal[0]
-                    and abs(shot_y - target_goal[1]) <= goal_width / 2 - 1
+                    and 0 <= shot_y <= height                                   #Ahora no se pide que vaya adentro del arco, solo que vaya dentro de la cancha
                 ):
                     raise ValueError("La patada debe apuntar dentro del arco rival.")
             run_to(player, action.move_target, profile.real_speed, dt)
