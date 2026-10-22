@@ -182,7 +182,10 @@ def test_invalid_behaviour_action_leaves_player_idle_and_match_continues(monkeyp
 
 
 def test_match_finishes_exactly_at_duration_and_freezes_result(monkeypatch):
-    match = match_simulation.Match(team(1), team(2), match_id=42, duration_ms=50)
+    match = match_simulation.Match(
+        team(1), team(2), match_id=42, duration_ms=50,
+        hydration_break_ms=0, half_break_ms=0,
+    )
     steps = []
     monkeypatch.setattr(match_simulation, "step", lambda world, dt: steps.append(dt) or "LEFT")
 
@@ -228,7 +231,10 @@ def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
 def test_default_roster_produces_goals_for_both_sides_with_real_physics():
     # Reproduce la demo: tres titulares de atributos 60, dos equilibrados y un ofensivo.
     modes = (BehaviourMode.BALANCED, BehaviourMode.BALANCED, BehaviourMode.OFFENSIVE)
-    match = match_simulation.Match(team(1, modes=modes), team(2, modes=modes), duration_ms=30000)
+    match = match_simulation.Match(
+        team(1, modes=modes), team(2, modes=modes), duration_ms=30000,
+        hydration_break_ms=0, half_break_ms=0,
+    )
     min_x, max_x = 50, 50
     for _ in range(900):
         match.run_match(1 / 30)

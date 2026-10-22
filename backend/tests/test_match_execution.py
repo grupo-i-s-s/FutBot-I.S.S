@@ -1,6 +1,7 @@
 import pytest
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -28,6 +29,14 @@ from primitives.behaviours import DEFAULT_CODES
 
 @pytest.fixture
 def database(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.match_builder_service.Match",
+        partial(
+            match_simulation.Match,
+            hydration_break_ms=0,
+            half_break_ms=0,
+        ),
+    )
     # Persistencia real con sesiones independientes, sin requerir Docker.
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     tables = [User.__table__, Club.__table__, Behavior.__table__, Player.__table__, Matches.__table__]
