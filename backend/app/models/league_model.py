@@ -36,6 +36,11 @@ class League(Base):
         nullable=False,
         default="open",
     )
+    
+    draw_seed: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+    )
 
     access_code: Mapped[str | None] = mapped_column(
         String(50),

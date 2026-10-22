@@ -20,6 +20,7 @@ class Matches(Base):
                         name="ck_matches_cancellation_reason"),
     )
     match_id: Mapped[int] = mapped_column(primary_key=True)
+    league_round_id: Mapped[int | None] = mapped_column(ForeignKey("league_rounds.id", ondelete="CASCADE"),nullable=True,index=True)
     creator_id: Mapped[int] = mapped_column(ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
     visitor_id: Mapped[int | None] = mapped_column(ForeignKey("clubs.id", ondelete="CASCADE"), nullable=True)
     init_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
