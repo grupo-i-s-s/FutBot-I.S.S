@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 
@@ -101,5 +101,44 @@ class LeagueRegistration(Base):
             "league_id",
             "club_id",
             name="uq_league_registrations_league_club",
+        ),
+    )
+
+
+class LeagueRound(Base):
+    __tablename__ = "league_rounds"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    league_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("leagues.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    scheduled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    bye_club_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("clubs.id"),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "league_id",
+            "number",
+            name="uq_league_rounds_league_number",
         ),
     )
