@@ -54,6 +54,10 @@ class PlayerProfile:
     def real_strength(self) -> float:
         return (self.strength * 84 / 100) * 0.2
 
+    @property
+    def real_agility(self) -> float:
+        return (100 / self.agility)
+
 
 @dataclass(frozen=True)
 class Team:
@@ -376,7 +380,7 @@ class Match:
             )
             shot_speed = SHOT_BASE_SPEED + profile.power * SHOT_POWER_FACTOR
             if kick(player, self.world.ball, target, shot_speed, profile.kick_range):
-                self.next_kick_at[profile.id] = self.time + KICK_COOLDOWN_SECONDS
+                self.next_kick_at[profile.id] = self.time + profile.real_agility
 
         scoring_side = step(self.world, dt)
         self.time = min(duration, self.time + dt)
