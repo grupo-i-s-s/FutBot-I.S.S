@@ -6,11 +6,11 @@ from app.models.behaviour_model import Behavior
 from app.models.player_model import Player
 
 DEFAULT_PLAYERS = (
-    {"name": "M. Marchisone", "power": 60, "agility": 60, "control": 60, "speed": 60, "strength": 60},
-    {"name": "C. Gavilán", "power": 60, "agility": 60, "control": 60, "speed": 60, "strength": 60},
-    {"name": "L. Heredia", "power": 60, "agility": 60, "control": 60, "speed": 60, "strength": 60},
+    {"name": "M. Marchisone", "power": 60, "agility": 60, "control": 40, "speed": 60, "strength": 80},
+    {"name": "C. Gavilán", "power": 100, "agility": 60, "control": 60, "speed": 60, "strength": 20},
+    {"name": "L. Heredia", "power": 60, "agility": 100, "control": 60, "speed": 60, "strength": 20},
     {"name": "V. Issidoro", "power": 60, "agility": 60, "control": 60, "speed": 60, "strength": 60},
-    {"name": "S. Medina", "power": 60, "agility": 60, "control": 60, "speed": 60, "strength": 60},
+    {"name": "S. Medina", "power": 20, "agility": 60, "control": 60, "speed": 60, "strength": 100},
     {"name": "G. Cisterna", "power": 60, "agility": 60, "control": 60, "speed": 60, "strength": 60},
 )
 

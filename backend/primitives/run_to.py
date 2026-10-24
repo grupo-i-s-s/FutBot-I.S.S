@@ -3,10 +3,10 @@ from pymunk.vec2d import Vec2d
 
 
 def run_to(
-        player: pymunk.Body,
-        target_position: tuple[float, float],
-        speed: float,
-        dt: float
+    player: pymunk.Body, 
+    target_position: tuple[float, float], 
+    speed: float, 
+    dt: float
 ) -> None:
     """Prepara la velocidad del jugador para el próximo step."""
     if dt <= 0:
@@ -24,4 +24,5 @@ def run_to(
 
     # Reduce la velocidad cerca del destino para evitar pasarse.
     actual_speed = min(speed, distance / dt)
-    player.velocity = direction.normalized() * actual_speed
+    target_velocity = direction.normalized() * actual_speed
+    player.velocity = target_velocity * 0.18 + Vec2d(*player.velocity) * 0.82
