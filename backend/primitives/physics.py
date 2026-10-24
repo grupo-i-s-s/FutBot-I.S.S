@@ -84,7 +84,7 @@ def create_world(
         body.position = position
 
         shape = pymunk.Circle(body, radius)
-        shape.elasticity = 0.5
+        shape.elasticity = 0.6
         shape.friction = 0.5
         shape.filter = pymunk.ShapeFilter(categories=category, mask=mask)
 
@@ -108,6 +108,9 @@ def create_world(
         category=BALL,
         mask=PLAYER | FIELD_WALL,
     )
+
+    collision_handler = space.add_collision_handler(PLAYER,PLAYER)
+    collision_handler.post_Solve = chesting
 
     return World(field=field, space=space, players=players, ball=ball)
 
