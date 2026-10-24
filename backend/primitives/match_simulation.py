@@ -2,6 +2,7 @@ import logging
 import pymunk
 from dataclasses import asdict, dataclass
 from math import isfinite
+import random
 
 from primitives.behaviours import Action, BehaviourMode, Observation, decide
 from primitives.physics import PLAYER_RADIUS, BALL_RADIUS
@@ -369,11 +370,13 @@ class Match:
                 and distance <= profile.kick_range
                 and self.time >= self.next_kick_at.get(profile.id, 0)
             ):
+
+                relative_distance = distance / profile.kick_range               # Uso esta distancia para usar el control del jugador, no solo quien está mas cerca
+                decider = random.random()                                       #Ahora usamos un numero random para decidir quien patea, en vez de id
                 shots.append(
-                    (distance, profile.id, player, profile, action.kick_target)
+                    (relative_distance, decider, player, profile, action.kick_target)
                 )
 
-        # Sólo el candidato más cercano puede patear; el ID desempata de forma estable.
         if shots:
             _, _, player, profile, target = min(
                 shots, key=lambda shot: (shot[0], shot[1])
