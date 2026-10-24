@@ -84,7 +84,7 @@ def create_world(
         body.position = position
 
         shape = pymunk.Circle(body, radius)
-        shape.elasticity = 0.6
+        shape.elasticity = 0.8
         shape.friction = 0.5
         shape.filter = pymunk.ShapeFilter(categories=category, mask=mask)
         shape.collision_type = category
@@ -155,16 +155,14 @@ def chesting(arbiter: pymunk.Arbiter, space: pymunk.Space, data: dict) -> None:
     body_playerA = shape_playerA.body
     body_playerB = shape_playerB.body
 
-    collisions = arbiter.contact_point_set
+    normal = arbiter.contact_point_set.normal
 
-    collision = collisions.points[0].point_a
-    normal = collisions.normal
+    #En mass ya teniamos la real_strength asi que el pacss tiene efecto real 
+    bounce_playerA = -normal * body_playerB.mass * 20
+    bounce_playerB = normal * body_playerA.mass * 20 
 
-    bounce_playerA = -normal * body_playerB.mass
-    bounce_playerB = normal * body_playerA.mass
-
-    body_playerA.apply_impulse_at_world_point(bounce_playerA, collision)
-    body_playerB.apply_impulse_at_world_point(bounce_playerB, collision)
+    body_playerA.apply_impulse_at_world_point(bounce_playerA, body_playerA.position)
+    body_playerB.apply_impulse_at_world_point(bounce_playerB, body_playerB.position)
 
     return
 

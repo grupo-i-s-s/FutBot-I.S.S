@@ -52,7 +52,7 @@ class PlayerProfile:
     #Esto define la strength real del jugador. 100pts son 84kg por R9, 20pts son 16,8kg. Se escalan a 0.2 por el motor
     @property
     def real_strength(self) -> float:
-        return (self.strength * 84 / 100) * 0.2
+        return (self.strength * 84 / 100)
 
     @property
     def real_agility(self) -> float:
