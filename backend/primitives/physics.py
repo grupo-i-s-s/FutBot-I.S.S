@@ -146,3 +146,26 @@ def step(world: World, dt: float) -> str | None:
     if world.ball.velocity.length > 60.0:
         world.ball.velocity = world.ball.velocity.normalized() * 60
     return scorer
+
+#Funcion para detectar las colisiones y hacer los rebotes. Es un post_solve() de pymunk.
+# NO HACE FALTA LLAMAR A LA FUNCION.  
+def chesting(arbiter: pymunk.Arbiter, space: pymunk.Space, data: dict) -> None:
+
+    shape_playerA, shape_playerB = arbiter.shapes
+    body_playerA = shape_playerA.body
+    body_playerB = shape_playerB.body
+
+    collisions = arbiter.contact_point_set
+
+    collision = collisions.points[0].point_a
+    normal = collisions.normal
+
+    bounce_playerA = -normal * body_playerB.mass
+    bounce_playerB = normal * body_playerA.mass
+
+    body_playerA.apply_impulse_at_world_point(bounce_playerA, collision)
+    body_playerB.apply_impulse_at_world_point(bounce_playerB, collision)
+
+    return
+
+
