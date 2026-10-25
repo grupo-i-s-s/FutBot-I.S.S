@@ -82,12 +82,15 @@ class MatchBreaks:
 
         while remaining > EPSILON and not match.finished:
             if self.paused:
+                was_half_break = self.phase == "HALF_BREAK"
                 consumed = min(remaining, self.remaining_seconds)
                 self.remaining_seconds -= consumed
                 remaining -= consumed
 
                 if self.remaining_seconds <= EPSILON:
                     self.remaining_seconds = 0.0
+                    if was_half_break:
+                        match.start_second_half()
 
                 continue
 
