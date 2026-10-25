@@ -16,7 +16,6 @@ height = 60.0
 goal_width = 15.0
 
 ball_pos = (50, 30)
-SCORER_BY_SIDE = {"LEFT": "LOCAL", "RIGHT": "VISITANTE"}
 KICK_RANGE = 2.5
 KICK_COOLDOWN_SECONDS = 0.5
 # Los atributos 20–100 se traducen a unidades de cancha por segundo.
@@ -96,6 +95,8 @@ class Match:
 
         self.local_team = local_team
         self.visitor_team = visitor_team
+        self.sides_swapped = False
+        self.kickoff_club_id = local_team.club_id
         self.player_profiles = local_team.players + visitor_team.players
 
         ids = [profile.id for profile in self.player_profiles]
@@ -139,6 +140,32 @@ class Match:
             half_ms=half_break_ms,
         )
 
+    def team_side(self, club_id: int) -> str:
+        if club_id not in (self.local_team.club_id, self.visitor_team.club_id):
+            raise ValueError("El club no participa del partido.")
+        on_left = (club_id == self.local_team.club_id) != self.sides_swapped
+        return "LEFT" if on_left else "RIGHT"
+
+    def _set_sides(self, swapped: bool) -> None:
+        if self.sides_swapped == swapped:
+            return
+        self.sides_swapped = swapped
+        self.init_players_pos = tuple(
+            (width - x, y) for x, y in self.init_players_pos
+        )
+        self.home_positions = dict(zip(
+            (profile.id for profile in self.player_profiles),
+            self.init_players_pos,
+            strict=True,
+        ))
+
+    def start_second_half(self) -> None:
+        """Cambia de arco y rearma la formación una sola vez por partido."""
+        if self.sides_swapped:
+            return
+        self._set_sides(True)
+        self.restart(kickoff_club_id=self.visitor_team.club_id)
+
     @property
     def finished(self) -> bool:
         return self.time >= self.duration_ms / 1000
@@ -156,14 +183,15 @@ class Match:
                 "status": self.status,
                 "clockMs": min(round(self.time * 1000), self.duration_ms),
                 "durationMs": self.duration_ms,
+                "period": 2 if self.sides_swapped else 1,
                 **self._breaks.public_state(),
                 "field": {"width": width, "height": height, "goalWidth": goal_width},
                 "teams": [
-                    {"id": team.club_id, "name": team.name, "side": side,
+                    {"id": team.club_id, "name": team.name, "side": self.team_side(team.club_id),
                      "score": self.scorer[score_key], "color": color}
-                    for team, side, score_key, color in (
-                        (self.local_team, "LEFT", "LOCAL", "#2563eb"),
-                        (self.visitor_team, "RIGHT", "VISITANTE", "#dc2626"),
+                    for team, score_key, color in (
+                        (self.local_team, "LOCAL", "#2563eb"),
+                        (self.visitor_team, "VISITANTE", "#dc2626"),
                     )
                 ],
                 "players": [{**player, "radius": 1.4} for player in self.get_players_state()],
@@ -183,6 +211,8 @@ class Match:
             "time": self.time,
             "scorer": dict(self.scorer),
             "breaks": self._breaks.checkpoint(),
+            "sides_swapped": self.sides_swapped,
+            "kickoff_club_id": self.kickoff_club_id,
             "next_kick_at": {
                 str(key): value
                 for key, value in self.next_kick_at.items()
@@ -245,6 +275,16 @@ class Match:
 
         match.time = data["time"]
         match.scorer = dict(data["scorer"])
+        swapped = data.get("sides_swapped", False)
+        if type(swapped) is not bool:
+            raise ValueError("Estado de cambio de arco inválido.")
+        match._set_sides(swapped)
+        match.kickoff_club_id = data.get(
+            "kickoff_club_id",
+            match.local_team.club_id if sum(match.scorer.values()) % 2 == 0
+            else match.visitor_team.club_id,
+        )
+        match.team_side(match.kickoff_club_id)
         match.next_kick_at = {
             int(key): value
             for key, value in data["next_kick_at"].items()
@@ -286,12 +326,17 @@ class Match:
 
     def kickoff_positions(self) -> list[tuple[float, float]]:
         positions = list(self.init_players_pos)
-        # El saque inicial es local; luego alternamos para romper la simetría.
-        local_kickoff = sum(self.scorer.values()) % 2 == 0
-        positions[2 if local_kickoff else 5] = (42 if local_kickoff else 58, 30)
+        local_kickoff = self.kickoff_club_id == self.local_team.club_id
+        side = self.team_side(self.kickoff_club_id)
+        positions[2 if local_kickoff else 5] = (42 if side == "LEFT" else 58, 30)
         return positions
 
-    def restart(self) -> None:
+    def restart(self, *, kickoff_club_id: int | None = None) -> None:
+        self.kickoff_club_id = kickoff_club_id if kickoff_club_id is not None else (
+            self.local_team.club_id if sum(self.scorer.values()) % 2 == 0
+            else self.visitor_team.club_id
+        )
+        self.team_side(self.kickoff_club_id)
         self.next_kick_at.clear()
         self.world.ball.position = self.init_ball_pos
         self.world.ball.velocity = (0, 0)
@@ -314,7 +359,7 @@ class Match:
     ) -> Action | None:
         ball_position = self.world.ball.position
         ball_in_own_half = (
-            ball_position.x <= width / 2 if profile.club_id == self.local_team.club_id
+            ball_position.x <= width / 2 if self.team_side(profile.club_id) == "LEFT"
             else ball_position.x >= width / 2
         )
         teammates = [teammate for teammate in self.player_profiles
@@ -373,7 +418,7 @@ class Match:
                 zip(self.world.players, self.player_profiles, strict=True)
         ):
             target_goal = (
-                (width, height / 2) if profile.club_id == self.local_team.club_id
+                (width, height / 2) if self.team_side(profile.club_id) == "LEFT"
                 else (0, height / 2)
             )
             action = self.run_behaviour(player, profile, target_goal, dt)
@@ -396,7 +441,11 @@ class Match:
             self.time = duration
 
         if scoring_side is not None:
-            self.scorer[SCORER_BY_SIDE[scoring_side]] += 1
+            scorer_by_side = {
+                self.team_side(self.local_team.club_id): "LOCAL",
+                self.team_side(self.visitor_team.club_id): "VISITANTE",
+            }
+            self.scorer[scorer_by_side[scoring_side]] += 1
             self.restart()
             logger.info("Partido %s: goles %s", self.match_id, self.scorer)
 
