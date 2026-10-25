@@ -1,4 +1,5 @@
 import ast
+from primitives.behaviours import Action
 
 def validate_syntax(code: str) -> list[dict]:
     try: 
@@ -78,6 +79,49 @@ def validate_imports(tree: ast.Module) -> list[dict]:
 
     return diagnostics
 
+def is_valid_target(target, width:float, height:float) -> bool:
+    if not isinstance(target, tuple) or len(target) != 2:
+        return False
+
+    x, y= target
+
+    if not (isinstance(x, (int, float)) and isinstance(y, (int, float))):
+        return False
+
+    if isinstance(x, bool) or isinstance(y,bool):
+        return False
+
+    return(
+        0<= x <= width
+        and 0<= y <= height
+    )
+
+def validate_action(action: object, width: float, height: float)->list[dict]:
+    if not isinstance(action, Action):
+        return[{
+            "line": 1,
+            "column": 1,
+            "code": "INVALID_ACTION",
+            "message": "El comportamiento debe devolver una Action."
+        }]
+
+    if not is_valid_target(action.move_target, width, height):
+        return[{
+            "line": 1,
+            "column": 1,
+            "code": "INVALID_POSITION",
+            "message": "La posicion deben ser coordenadas dentro de la cancha."
+        }]
+
+    if (action.kick_target is not None) and (not is_valid_target(action.kick_target, width, height)):
+        return [{
+            "line": 1,
+            "column": 1,
+            "code": "INVALID_POSITION",
+            "message": "El destino debe contener coordenadas dentro de la cancha."
+        }]
+
+    return []
 
 def validate_program(code: str) -> list[dict]:
     diagnostics = validate_syntax(code)
