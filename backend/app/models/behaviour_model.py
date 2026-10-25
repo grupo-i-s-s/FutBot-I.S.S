@@ -6,6 +6,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
     Integer,
+    CheckConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,7 +17,8 @@ class Behavior(Base):
     __tablename__ = "behaviors"
     __table_args__ = (
         UniqueConstraint("club_id", "name", name="uq_behaviors_club_name"),
-        UniqueConstraint("club_id", "id", name="uq_behaviors_club_id_id")
+        UniqueConstraint("club_id", "id", name="uq_behaviors_club_id_id"),
+        CheckConstraint(" version >= 1", name="ck_behaviors_version")
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
