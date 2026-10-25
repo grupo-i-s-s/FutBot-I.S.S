@@ -142,5 +142,8 @@ def test_configuration_changes_apply_to_future_matches_and_not_resumed_matches(c
         assert final["state"]["status"] == "FINISHED"
         assert row.runtime_state["local_team"]["formation_id"] == 2
         restored = match_simulation.Match.from_checkpoint(row.runtime_state)
-        assert restored.init_players_pos == simulation.init_players_pos
+        assert restored.local_team.formation_positions == simulation.local_team.formation_positions
+        assert restored.init_players_pos == tuple(
+            (100 - x, y) for x, y in simulation.init_players_pos
+        )
         assert build_match(db, 43).local_team.formation_id == 1
