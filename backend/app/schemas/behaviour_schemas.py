@@ -48,6 +48,9 @@ class BehaviourCreate(BaseModel):
         clean = value.strip()
         if not clean: raise ValueError("El nombre no puede estar vacio")
         return clean
+
+    @field_validator("code")
+    @classmethod
     def validate_code_size(cls, value: str)->str:
         if len(value.encode("utf-8")) > 65_536: raise ValueError("El codigo no puede superar los 64KiB")
         return value

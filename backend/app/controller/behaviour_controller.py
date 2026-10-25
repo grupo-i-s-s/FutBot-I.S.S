@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status
+from typing import Literal
 
 from app.dependencies import CurrentClub, Database
 from app.schemas.behaviour_schemas import BehaviourListResponse, BehaviourReadDetail
@@ -11,8 +12,8 @@ behaviour_router = APIRouter(prefix="/behaviours", tags=["behaviours"])
 # Obtengo la lista de comportamientos y un comportamiento en especifico
 
 @behaviour_router.get("", response_model=BehaviourListResponse)
-def get_behaviours(club: CurrentClub, db: Database):
-    behaviours = behaviour_service.list_behaviours(db, club.id)
+def get_behaviours(club: CurrentClub, db: Database, kind: Literal["PLAYER"]|None=None):
+    behaviours = behaviour_service.list_behaviours(db, club.id, kind=kind)
     return {"items": behaviours}
 
 

@@ -33,18 +33,22 @@ def create_default_behaviours(db: Session, club_id: int) -> list[Behavior]:
 def get_default_behaviour(db: Session, club_id: int) -> Behavior | None:
     return db.scalar(
         select(Behavior)
-        .where(Behavior.club_id == club_id, Behavior.is_deleted.is_(False))
+        .where(Behavior.club_id == club_id, Behavior.is_deleted.is_(False),
+               Behavior.kind == "PLAYER",
+               Behavior.validation_status=="VALID")
         .order_by(Behavior.id)
         .limit(1)
     )
 
 
-def get_all_behaviours(db: Session, club_id: int) -> list[Behavior]:
+def get_all_behaviours(db: Session, club_id: int, kind: str|None=None) -> list[Behavior]:
     query = (
         select(Behavior)
         .where(Behavior.club_id == club_id, Behavior.is_deleted.is_(False))
         .order_by(Behavior.id)
     )
+    if kind is not None:
+        query = query.where(Behavior.kind == kind)
     return list(db.scalars(query).all())
 
 
@@ -53,3 +57,8 @@ def get_behaviour_by_id(db: Session, club_id: int, behaviour_id: int) -> Behavio
         select(Behavior)
         .where(Behavior.club_id == club_id, Behavior.is_deleted.is_(False), Behavior.id == behaviour_id)
     )
+
+def create_behaviour(db:Session, behaviour: Behavior) -> Behavior:
+    db.add(behaviour)
+    db.flush()
+    return behaviour
