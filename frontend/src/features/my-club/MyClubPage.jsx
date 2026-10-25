@@ -7,12 +7,11 @@ import ClubHeader from './components/ClubHeader';
 import ClubSettingsDialog from './components/ClubSettingsDialog';
 import LeagueList from './components/LeagueList';
 import PlayerList from './components/PlayerList';
-import TeamSettings from './components/TeamSettings';
 import {useMyClub} from './hooks/useMyClub';
 import {updateMyClub} from './api';
 
 
-const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12 xl:w-[calc(100%_-_560px)]';
+const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12 xl:w-[calc(100%_-_280px)]';
 
 export default function MyClubPage() {
     const {status, error, club, players, behaviours, leagues, reload, setClub, updatePlayer} = useMyClub();
@@ -22,8 +21,6 @@ export default function MyClubPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
 
-    // SIMULADO: los cambios se aplican solo en esta vista.
-    // Reemplazar por PATCH /club/me cuando el endpoint exista.
     async function handleSettingsSave(changes) {
         if (isSaving) return;
 
@@ -101,22 +98,12 @@ export default function MyClubPage() {
                 >
                     <LeagueList leagues={leagues}/>
                 </aside>
-
-                <aside
-                    aria-label="Mi equipo"
-                    className="mt-6 xl:absolute xl:top-0 xl:mt-0 xl:right-[-280px] xl:w-64"
-                >
-                    <TeamSettings
-                        key={club.id}
-                        clubId={club.id}
-                        players={players}
-                        behaviours={behaviours}
-                    />
-                </aside>
             </div>
 
             <ClubSettingsDialog
                 club={club}
+                players={players}
+                behaviours={behaviours}
                 isOpen={isSettingsOpen}
                 onOpenChange={(open) => {
                     if (isSaving) return;
