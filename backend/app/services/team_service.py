@@ -41,7 +41,9 @@ def update_default_team(db: Session, club_id: int, data: Lineup) -> DefaultTeamR
         behaviours = behaviour_repository.get_all_behaviours(db, club_id)
 
         player_ids = {player.id for player in players}
-        behaviour_ids = {behaviour.id for behaviour in behaviours}
+        behaviour_ids = {behaviour.id for behaviour in behaviours
+                          if behaviour.kind == "PLAYER" 
+                          and behaviour.validation_status=="VALID"}
 
         for group_name, group in (
                 ("starters", data.starters),
