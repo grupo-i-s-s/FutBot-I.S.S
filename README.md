@@ -40,19 +40,25 @@ docker compose up --build -d --wait
 ```
 
 Compose espera a que PostgreSQL esté disponible antes de iniciar FastAPI y a que
-FastAPI pueda consultar la base antes de iniciar el frontend.
+FastAPI pueda consultar la base y tenga todas las migraciones registradas antes de
+iniciar el frontend.
 
 | Servicio | Dirección predeterminada |
 | --- | --- |
 | Aplicación React | http://localhost:5173 |
 | Documentación interactiva de la API | http://localhost:8000/docs |
 | API disponible | http://localhost:8000/health |
-| API y base conectadas | http://localhost:8000/health/ready |
+| API, base y migraciones listas | http://localhost:8000/health/ready |
 | PostgreSQL, para DataGrip u otro cliente | `localhost:5432` |
 
 La pantalla inicial comprueba la conexión real con la API y PostgreSQL. La ruta
-`/health/ready` devuelve `200 {"status":"ok","database":"ok"}` cuando puede
-consultar la base, y `503` cuando no puede hacerlo.
+`/health/ready` devuelve
+`200 {"status":"ok","database":"ok","migrations":"ok"}` cuando puede
+consultar la base y todos los archivos SQL de `backend/migrations/` figuran en
+`schema_migrations`. Si falta alguna migración o no existe el historial, devuelve
+`503` con `migrations: "pending"` y la lista `pending_migrations`. También devuelve
+`503` si no puede consultar la base o leer los archivos de migración. Docker usa
+esta ruta para el healthcheck; `/health` sigue comprobando solamente que la API responde.
 
 Para PostgreSQL, usar el usuario, contraseña y base definidos en `.env`.
 Si un puerto ya está ocupado, cambiar `FRONTEND_PORT`, `BACKEND_PORT` o
