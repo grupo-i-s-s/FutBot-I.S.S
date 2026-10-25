@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from math import isfinite
 
 from primitives.behaviours import Action, BehaviourMode, Observation, decide
+from primitives.formations import FORMATIONS
 from primitives.kick import kick
 from primitives.physics import Field, create_world, step
 from primitives.run_to import run_to
@@ -12,7 +13,6 @@ width = 100.0
 height = 60.0
 goal_width = 15.0
 
-line_up = [(18, 18), (18, 42), (30, 30), (82, 18), (82, 42), (70, 30)]
 ball_pos = (50, 30)
 SCORER_BY_SIDE = {"LEFT": "LOCAL", "RIGHT": "VISITANTE"}
 KICK_RANGE = 2.5
@@ -43,6 +43,32 @@ class Team:
     club_id: int
     name: str
     players: tuple[PlayerProfile, ...]
+    formation_id: int = 1
+    formation_positions: tuple[tuple[float, float], ...] | None = None
+
+    def __post_init__(self):
+        positions = self.formation_positions
+
+        if positions is None:
+            try:
+                positions = FORMATIONS[self.formation_id].positions
+            except KeyError as exc:
+                raise ValueError("La formación seleccionada no existe.") from exc
+
+        positions = tuple(
+            (float(x), float(y))
+            for x, y in positions
+        )
+
+        if len(positions) != 3 or any(
+            not (0 < x < 0.5 and 0 < y < 1)
+            for x, y in positions
+        ):
+            raise ValueError(
+                "La formación necesita tres posiciones válidas en su mitad."
+            )
+
+        object.__setattr__(self, "formation_positions", positions)
 
 
 class Match:
@@ -72,7 +98,17 @@ class Match:
             raise ValueError("Un jugador no puede ocupar dos lugares en la cancha.")
 
         self.cord = Field(width, height, goal_width)
-        self.init_players_pos = tuple(line_up)
+        local_positions = tuple(
+            (x * width, y * height)
+            for x, y in local_team.formation_positions
+        )
+
+        visitor_positions = tuple(
+            ((1 - x) * width, y * height)
+            for x, y in visitor_team.formation_positions
+        )
+
+        self.init_players_pos = local_positions + visitor_positions
         self.init_ball_pos = ball_pos
         self.scorer = {"LOCAL": 0, "VISITANTE": 0}
         self.world = create_world(
@@ -128,7 +164,7 @@ class Match:
     def checkpoint(self) -> dict:
         """Estado privado para retomar desde el último snapshot confirmado."""
         return {
-            "version": 1, "match_id": self.match_id, "duration_ms": self.duration_ms,
+            "version": 2, "match_id": self.match_id, "duration_ms": self.duration_ms,
             "local_team": asdict(self.local_team), "visitor_team": asdict(self.visitor_team),
             "time": self.time, "scorer": dict(self.scorer),
             "next_kick_at": {str(key): value for key, value in self.next_kick_at.items()},
@@ -141,14 +177,27 @@ class Match:
 
     @classmethod
     def from_checkpoint(cls, data: dict) -> "Match":
-        if data["version"] != 1:
+        if data["version"] not in (1, 2):
             raise ValueError("Versión de checkpoint incompatible.")
 
         def team_from_data(team: dict) -> Team:
-            return Team(team["club_id"], team["name"], tuple(
-                PlayerProfile(**{**player, "behaviour_mode": BehaviourMode(player["behaviour_mode"])})
-                for player in team["players"]
-            ))
+            return Team(
+                club_id=team["club_id"],
+                name=team["name"],
+                players=tuple(
+                    PlayerProfile(
+                        **{
+                            **player,
+                            "behaviour_mode": BehaviourMode(
+                                player["behaviour_mode"]
+                            ),
+                        }
+                    )
+                    for player in team["players"]
+                ),
+                formation_id=team.get("formation_id", 1),
+                formation_positions=team.get("formation_positions"),
+            )
 
         match = cls(
             team_from_data(data["local_team"]), team_from_data(data["visitor_team"]),
