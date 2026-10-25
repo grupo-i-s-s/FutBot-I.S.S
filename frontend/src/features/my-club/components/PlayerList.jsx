@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Plus, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -16,20 +15,7 @@ const PACSS_ATTRIBUTES = [
     ['Strength', 'strength'],
 ];
 
-const ITEMS_PER_PAGE = 9;
-
-export default function PlayerList({ players, behaviours, onBehaviourAssigned }) {
-    const [currentPage, setCurrentPage] = useState(1);
-    const totalPages = Math.ceil(players.length / ITEMS_PER_PAGE);
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const currentPlayers = players.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-    const handlePageChange = (newPage) => {
-        if (newPage >= 1 && newPage <= totalPages) {
-            setCurrentPage(newPage);
-        }
-    };
-
+export default function PlayerList({ players, behaviours, onBehaviourAssigned, currentPage, totalPages, totalPlayers, onPageChange }) {
     return (
         <Card>
             <CardHeader>
@@ -37,7 +23,7 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned })
                     <Users className="size-5" aria-hidden="true" />
                     Jugadores
                 </CardTitle>
-                <CardDescription>{players.length} jugadores en el plantel</CardDescription>
+                <CardDescription>{totalPlayers} jugadores en el plantel</CardDescription>
 
                 <CardAction>
                     <Link to="/crear-jugador" className={buttonVariants({ size: 'sm' })}>
@@ -63,7 +49,7 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned })
                 ) : (
                     <>
                         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {currentPlayers.map((player) => (
+                            {players.map((player) => (
                                 <li key={player.id}>
                                     <Item variant="outline">
                                         <ItemMedia>
@@ -114,8 +100,8 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned })
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => handlePageChange(currentPage - 1)}
-                                        disabled={currentPage === 1}
+                                        onClick={() => onPageChange?.(currentPage - 1)}
+                                        disabled={currentPage <= 1}
                                         className={buttonVariants({ variant: 'outline', size: 'sm' })}
                                     >
                                         <ChevronLeft className="size-4 mr-1" />
@@ -123,8 +109,8 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned })
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => handlePageChange(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
+                                        onClick={() => onPageChange?.(currentPage + 1)}
+                                        disabled={currentPage >= totalPages}
                                         className={buttonVariants({ variant: 'outline', size: 'sm' })}
                                     >
                                         Siguiente
@@ -136,6 +122,6 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned })
                     </>
                 )}
             </CardContent>
-        </Card>
+        </Card >
     );
 }

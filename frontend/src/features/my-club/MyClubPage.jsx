@@ -1,21 +1,22 @@
-import {useState} from 'react';
-import {CircleAlert, Info} from 'lucide-react';
-import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
-import {Button} from '@/components/ui/button';
-import {Skeleton} from '@/components/ui/skeleton';
+import { useState } from 'react';
+import { CircleAlert, Info } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import ClubHeader from './components/ClubHeader';
 import ClubSettingsDialog from './components/ClubSettingsDialog';
 import LeagueList from './components/LeagueList';
 import PlayerList from './components/PlayerList';
 import TeamSettings from './components/TeamSettings';
-import {useMyClub} from './hooks/useMyClub';
-import {updateMyClub} from './api';
+import { useMyClub } from './hooks/useMyClub';
+import { updateMyClub } from './api';
 
 
 const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12 xl:w-[calc(100%_-_560px)]';
 
 export default function MyClubPage() {
-    const {status, error, club, players, behaviours, leagues, reload, setClub, updatePlayer} = useMyClub();
+    const [page, setPage] = useState(1);
+    const { status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub, updatePlayer, } = useMyClub(page, 9);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [notice, setNotice] = useState('');
 
@@ -48,9 +49,9 @@ export default function MyClubPage() {
         return (
             <main className={PAGE_CLASSES} aria-busy="true">
                 <p className="sr-only" role="status">Cargando tu club…</p>
-                <Skeleton className="h-32 w-full rounded-xl"/>
-                <Skeleton className="h-56 w-full rounded-xl"/>
-                <Skeleton className="h-40 w-full rounded-xl"/>
+                <Skeleton className="h-32 w-full rounded-xl" />
+                <Skeleton className="h-56 w-full rounded-xl" />
+                <Skeleton className="h-40 w-full rounded-xl" />
             </main>
         );
     }
@@ -60,7 +61,7 @@ export default function MyClubPage() {
         return (
             <main className={PAGE_CLASSES}>
                 <Alert variant="destructive">
-                    <CircleAlert/>
+                    <CircleAlert />
                     <AlertTitle>No se pudo cargar tu club</AlertTitle>
                     <AlertDescription>
                         <p>
@@ -79,11 +80,11 @@ export default function MyClubPage() {
 
     return (
         <main className={PAGE_CLASSES}>
-            <ClubHeader club={club} onSettingsClick={() => setIsSettingsOpen(true)}/>
+            <ClubHeader club={club} onSettingsClick={() => setIsSettingsOpen(true)} />
 
             {notice && (
                 <Alert>
-                    <Info/>
+                    <Info />
                     <AlertDescription>{notice}</AlertDescription>
                 </Alert>
             )}
@@ -93,13 +94,17 @@ export default function MyClubPage() {
                     players={players}
                     behaviours={behaviours}
                     onBehaviourAssigned={updatePlayer}
+                    currentPage={page}
+                    totalPages={totalPages}
+                    totalPlayers={totalPlayers}
+                    onPageChange={setPage}
                 />
 
                 <aside
                     aria-label="Ligas inscriptas"
                     className="mt-6 xl:absolute xl:top-0 xl:mt-0 xl:left-[-280px] xl:w-64"
                 >
-                    <LeagueList leagues={leagues}/>
+                    <LeagueList leagues={leagues} />
                 </aside>
 
                 <aside
