@@ -52,7 +52,7 @@ def assign_behaviour(
     return player
 
 
-def get_players(db: Database, club_id: int, page: int, limit: int):
+def get_players(db: Session, club_id: int, page: int, limit: int):
     offset = (page - 1) * limit
     players = db.query(Player).filter(Player.club_id == club_id).offset(offset).limit(limit).all()
     total_count = db.query(Player).filter(Player.club_id == club_id).count()
