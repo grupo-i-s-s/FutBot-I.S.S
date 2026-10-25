@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.errors import AppError
-from app.schemas.team_schemas import Lineup
+from app.schemas.team_schemas import FormationListResponse, Lineup
 from app.services import team_service as service
 
 
@@ -40,6 +40,24 @@ def test_missing_default_team_is_account_incomplete(db, team):
     with pytest.raises(AppError) as error:
         service.get_default_team(db, 7)
     assert error.value.code == "ACCOUNT_INCOMPLETE"
+
+
+def test_catalog_contains_three_positions_for_each_formation():
+    catalog = FormationListResponse.model_validate(service.get_formations())
+    assert [(item.id, item.name) for item in catalog.items] == [
+        (1, "2-1"), (2, "1-2"), (3, "1-1-1"),
+    ]
+    assert all(len(item.slots) == 3 for item in catalog.items)
+
+
+@pytest.mark.parametrize("formation_id", [1, 2, 3])
+def test_each_catalog_formation_can_be_saved(db, team, formation_id):
+    data, repos = team
+    data["formationId"] = formation_id
+    result = service.update_default_team(db, 7, Lineup.model_validate(data))
+    assert result.line_up.formation_id == formation_id
+    assert repos.teams.save.call_args.args[2]["formationId"] == formation_id
+    db.commit.assert_called_once()
 
 
 def test_save_team_keeps_selected_starters_substitutes_and_behaviours(db, team):
