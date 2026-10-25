@@ -161,6 +161,29 @@
     font-variant-numeric: tabular-nums;
 }
 
+.match-break-notice {
+    margin: 16px 0;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid #d8bd76;
+    border-radius: 16px;
+    background: #fff8e3;
+    color: #61491c;
+}
+
+.match-break-title {
+    margin-bottom: 6px;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.match-break-countdown {
+    margin: 8px 0;
+    font-size: 32px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 540px) {
     .match-page {
         padding: 24px 12px;

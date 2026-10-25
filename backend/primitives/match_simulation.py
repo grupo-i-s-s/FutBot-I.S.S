@@ -8,6 +8,8 @@ from primitives.formations import FORMATIONS
 from primitives.kick import kick
 from primitives.physics import Field, create_world, step
 from primitives.run_to import run_to
+from primitives.match_breaks import DEFAULT_HALF_BREAK_MS, DEFAULT_HYDRATION_BREAK_MS, MatchBreaks
+
 
 width = 100.0
 height = 60.0
@@ -74,7 +76,10 @@ class Team:
 class Match:
     def __init__(
             self, local_team: Team, visitor_team: Team,
-            *, match_id: int | None = None, duration_ms: int = DEFAULT_DURATION_MS,
+            *, match_id: int | None = None,
+            duration_ms: int = DEFAULT_DURATION_MS,
+            hydration_break_ms: int = DEFAULT_HYDRATION_BREAK_MS,
+            half_break_ms: int = DEFAULT_HALF_BREAK_MS,
     ):
         if type(duration_ms) is not int or duration_ms <= 0:
             raise ValueError("La duración debe ser un entero positivo en milisegundos.")
@@ -129,6 +134,11 @@ class Match:
 
         self.time = 0.0
 
+        self._breaks = MatchBreaks(
+            hydration_ms=hydration_break_ms,
+            half_ms=half_break_ms,
+        )
+
     @property
     def finished(self) -> bool:
         return self.time >= self.duration_ms / 1000
@@ -146,6 +156,7 @@ class Match:
                 "status": self.status,
                 "clockMs": min(round(self.time * 1000), self.duration_ms),
                 "durationMs": self.duration_ms,
+                **self._breaks.public_state(),
                 "field": {"width": width, "height": height, "goalWidth": goal_width},
                 "teams": [
                     {"id": team.club_id, "name": team.name, "side": side,
@@ -164,20 +175,34 @@ class Match:
     def checkpoint(self) -> dict:
         """Estado privado para retomar desde el último snapshot confirmado."""
         return {
-            "version": 2, "match_id": self.match_id, "duration_ms": self.duration_ms,
-            "local_team": asdict(self.local_team), "visitor_team": asdict(self.visitor_team),
-            "time": self.time, "scorer": dict(self.scorer),
-            "next_kick_at": {str(key): value for key, value in self.next_kick_at.items()},
+            "version": 3,
+            "match_id": self.match_id,
+            "duration_ms": self.duration_ms,
+            "local_team": asdict(self.local_team),
+            "visitor_team": asdict(self.visitor_team),
+            "time": self.time,
+            "scorer": dict(self.scorer),
+            "breaks": self._breaks.checkpoint(),
+            "next_kick_at": {
+                str(key): value
+                for key, value in self.next_kick_at.items()
+            },
             "bodies": [
-                {"position": list(body.position), "velocity": list(body.velocity),
-                 "angle": body.angle, "angular_velocity": body.angular_velocity}
+                {
+                    "position": list(body.position),
+                    "velocity": list(body.velocity),
+                    "angle": body.angle,
+                    "angular_velocity": body.angular_velocity,
+                }
                 for body in (*self.world.players, self.world.ball)
             ],
         }
 
     @classmethod
     def from_checkpoint(cls, data: dict) -> "Match":
-        if data["version"] not in (1, 2):
+        version = data.get("version")
+
+        if version not in (1, 2, 3):
             raise ValueError("Versión de checkpoint incompatible.")
 
         def team_from_data(team: dict) -> Team:
@@ -200,21 +225,48 @@ class Match:
             )
 
         match = cls(
-            team_from_data(data["local_team"]), team_from_data(data["visitor_team"]),
-            match_id=data["match_id"], duration_ms=data["duration_ms"],
+            team_from_data(data["local_team"]),
+            team_from_data(data["visitor_team"]),
+            match_id=data["match_id"],
+            duration_ms=data["duration_ms"],
         )
+
+        if "breaks" in data:
+            match._breaks = MatchBreaks(**data["breaks"])
+        elif version < 3:
+            # v2 también fue usado por formaciones, sin información de pausas.
+            match._breaks = MatchBreaks(
+                hydration_ms=0,
+                half_ms=0,
+                next_index=3,
+            )
+        else:
+            raise ValueError("Falta el estado de pausas del partido.")
+
         match.time = data["time"]
         match.scorer = dict(data["scorer"])
-        match.next_kick_at = {int(key): value for key, value in data["next_kick_at"].items()}
-        for body, state in zip((*match.world.players, match.world.ball), data["bodies"], strict=True):
+        match.next_kick_at = {
+            int(key): value
+            for key, value in data["next_kick_at"].items()
+        }
+
+        for body, state in zip(
+                (*match.world.players, match.world.ball),
+                data["bodies"],
+                strict=True,
+        ):
             body.position = state["position"]
             body.velocity = state["velocity"]
             body.angle = state["angle"]
             body.angular_velocity = state["angular_velocity"]
+
         match.world.space.reindex_shapes_for_body(match.world.ball)
+
         for body in match.world.players:
             match.world.space.reindex_shapes_for_body(body)
+
         return match
+
 
     def get_players_state(self) -> list[dict]:
         return [
@@ -309,7 +361,7 @@ class Match:
             logger.exception("Falló el comportamiento del jugador %s", profile.id)
             return None
 
-    def run_match(self, dt: float) -> None:
+    def _run_play(self, dt: float) -> None:
         if not isfinite(dt) or dt <= 0:
             raise ValueError("dt debe ser positivo y finito")
         if self.finished:
@@ -347,3 +399,8 @@ class Match:
             self.scorer[SCORER_BY_SIDE[scoring_side]] += 1
             self.restart()
             logger.info("Partido %s: goles %s", self.match_id, self.scorer)
+
+
+    def run_match(self, dt: float) -> None:
+        """Avanza el encuentro, incluyendo tiempo de juego y descansos."""
+        self._breaks.advance(self, dt)
