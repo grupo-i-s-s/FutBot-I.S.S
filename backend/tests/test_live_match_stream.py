@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -18,6 +19,7 @@ from app.repository import matches_repository
 from app.security import hash_session_token, new_session_token
 from app.services.match_execution_service import run_persisted_match
 from primitives.behaviours import DEFAULT_CODES
+from primitives.match_simulation import Match
 
 
 def seed_match_database(engine, duration_ms=700):
@@ -43,7 +45,12 @@ def seed_match_database(engine, duration_ms=700):
     return tokens
 
 
-def test_live_stream_continues_after_one_observer_disconnects(tmp_path, monkeypatch):
+def test_live_stream_continues_after_one_observer_disconnects(tmp_path, monkeypatch, sqlite_match_dates):
+    # Aislamos la transmisión de las pausas, que tienen pruebas propias.
+    monkeypatch.setattr(
+        "app.services.match_builder_service.Match",
+        partial(Match, hydration_break_ms=0, half_break_ms=0),
+    )
     engine = create_engine(f'sqlite:///{tmp_path / "match.db"}', connect_args={'check_same_thread': False})
     tokens = seed_match_database(engine)
     sessions = sessionmaker(bind=engine, expire_on_commit=False)

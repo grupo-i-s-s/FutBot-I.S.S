@@ -28,7 +28,7 @@ from primitives.behaviours import DEFAULT_CODES
 
 
 @pytest.fixture
-def database(monkeypatch):
+def database(monkeypatch, sqlite_match_dates):
     monkeypatch.setattr(
         "app.services.match_builder_service.Match",
         partial(
@@ -52,7 +52,7 @@ def database(monkeypatch):
                               name=f"Jugador {club_id}-{index}", power=60, agility=60,
                               control=60, speed=60, strength=60))
         db.add(Matches(match_id=42, creator_id=1, visitor_id=2,
-                       init_date=datetime.now(timezone.utc) + timedelta(hours=1), duration_ms=200))
+                       init_date=datetime.now(timezone.utc) - timedelta(seconds=1), duration_ms=200))
         db.commit()
 
     @contextmanager
@@ -179,7 +179,10 @@ def test_get_and_websocket_return_same_persisted_final_snapshot(database, monkey
                 with client.websocket_connect("/matches/42/stream",
                                               headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
                     assert socket.receive_json() == final
-                    assert socket.receive() == {"type": "websocket.close", "code": 1000, "reason": "Partido finalizado"}
+                    assert socket.receive() == {
+                        "type": "websocket.close", "code": 1000,
+                        "reason": "Partido finalizado o cancelado",
+                    }
         finally:
             app.dependency_overrides.clear()
 

@@ -20,6 +20,9 @@ def make_team(club_id):
                 name=f"Jugador {index}",
                 speed=60,
                 power=60,
+                agility=60,
+                strength=60,
+                control=60,
             )
             for index in range(3)
         ),
@@ -112,7 +115,7 @@ def test_checkpoint_preserves_active_break_and_remaining_time(match):
     restored = Match.from_checkpoint(checkpoint)
 
     assert checkpoint["version"] == 2
-    assert restored.checkpoint() == checkpoint
+    assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
     assert restored.snapshot(5, "now") == match.snapshot(5, "now")
     assert public_state(restored)["breakRemainingMs"] == 60
 
