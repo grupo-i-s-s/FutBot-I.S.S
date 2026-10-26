@@ -19,6 +19,9 @@ def roster(club_id: int, count: int = 3) -> list[tuple[SimpleNamespace, SimpleNa
                 name=f"Jugador {club_id}-{index}",
                 speed=50 + index,
                 power=60 + index,
+                agility=60 + index,
+                strength=60 + index,
+                control=60 + index,
             ),
             SimpleNamespace(
                 id=club_id * 100 + index,

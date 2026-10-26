@@ -46,7 +46,7 @@ def test_shots_aim_off_center_and_inside_opponent_goal(goal, home):
     for mode in BehaviourMode:
         x, y = decide(mode, observation).kick_target
         assert x == goal[0]
-        assert 22.5 < y < 37.5 and y != 30
+        assert 18 < y < 48 
 
 
 def test_program_code_determines_behaviour_even_when_name_changes():

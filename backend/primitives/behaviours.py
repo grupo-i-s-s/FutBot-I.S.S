@@ -47,11 +47,7 @@ def _approach_ball(observation: Observation) -> tuple[float, float]:
 def _shot_target(observation: Observation) -> tuple[float, float] | None:
     if not observation.can_kick:
         return None
-    x, center_y = observation.opponent_goal
-    # Elegir un lateral del arco evita que todos los remates recorran el eje central.
-    lane = -1 if observation.home_position[1] < center_y else 1
-    if observation.home_position[1] == center_y:
-        lane = -_attack_direction(observation)
+    x, center_y = observation.opponent_goal             #Siempre le apuntamos al arco
     return x, center_y + random.uniform(-12,12)
 
 
