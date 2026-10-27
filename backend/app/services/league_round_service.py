@@ -1,5 +1,10 @@
 import random
+import secrets
 from dataclasses import dataclass
+
+from sqlalchemy.orm import Session
+
+from app.models.league_model import League
 
 # Devuelve una ronda y que club descansa o no
 @dataclass
@@ -9,9 +14,20 @@ class RoundDraw:
     bye_club_id: int | None = None
 
 
+def generate_league_rounds(db: Session, league: League) -> list[RoundDraw]:
+    club_ids = [registration.club_id for registration in league.registrations]
+    seed = league.draw_seed
+    if seed is None:
+        seed = secrets.randbits(63)
+
+    rounds = generate_rounds(club_ids, seed=seed)
+    league.draw_seed = seed
+    db.flush()
+    return rounds
+
+
 # Genera todas las rondas del fixture
 def generate_rounds(club_ids: list[int], *, seed: int) -> list[RoundDraw]:
-   
     _validate_inputs(club_ids, seed)
 
     participants: list[int | None] = sorted(club_ids)
