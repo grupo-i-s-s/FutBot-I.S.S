@@ -42,7 +42,7 @@ def test_join_league_creates_registration(db_session):
         db_session.add(league)
         db_session.flush()
 
-        line_up = [1, 2, 3, 4, 5, 6]
+        line_up = [player.id for player in club.players][:6]
 
         response = client.post(
             f"/leagues/{league.id}/join",
@@ -53,7 +53,7 @@ def test_join_league_creates_registration(db_session):
             headers=BROWSER_HEADERS,
         )
 
-    assert response.status_code == 201
+    assert response.status_code == 201, response.json()
 
     registration = db_session.scalar(
         select(LeagueRegistration).where(
@@ -101,7 +101,7 @@ def test_join_league_uses_one_available_slot(db_session):
             f"/leagues/{league.id}/join",
             json={
                 "clubId": club.id,
-                "lineUp": [1, 2, 3, 4, 5, 6],
+                "lineUp": [player.id for player in club.players][:6],
             },
             headers=BROWSER_HEADERS,
         )
@@ -136,7 +136,6 @@ def test_join_league_rejects_when_full(db_session):
         )
 
         assert login_response.status_code == 200
-
         league = League(
             name="Liga Test Full",
             min_teams=2,
@@ -153,7 +152,7 @@ def test_join_league_rejects_when_full(db_session):
             f"/leagues/{league.id}/join",
             json={
                 "clubId": club_a.id,
-                "lineUp": [1, 2, 3, 4, 5, 6],
+                "lineUp": [player.id for player in club_a.players][:6],
             },
             headers=BROWSER_HEADERS,
         )
@@ -181,7 +180,7 @@ def test_join_league_rejects_when_full(db_session):
             f"/leagues/{league.id}/join",
             json={
                 "clubId": club_b.id,
-                "lineUp": [1, 2, 3, 4, 5, 6],
+                "lineUp": [player.id for player in club_b.players][:6],
             },
             headers=BROWSER_HEADERS,
         )
@@ -209,7 +208,7 @@ def test_join_league_rejects_when_full(db_session):
             f"/leagues/{league.id}/join",
             json={
                 "clubId": club_c.id,
-                "lineUp": [1, 2, 3, 4, 5, 6],
+                "lineUp": [player.id for player in club_c.players][:6],
             },
             headers=BROWSER_HEADERS,
         )
@@ -256,7 +255,7 @@ def test_join_league_keeps_registered_line_up(db_session):
         db_session.add(league)
         db_session.flush()
 
-        original_line_up = [1, 2, 3, 4, 5, 6]
+        original_line_up = [player.id for player in club.players][:6]
 
         response = client.post(
             f"/leagues/{league.id}/join",
@@ -282,4 +281,4 @@ def test_join_league_keeps_registered_line_up(db_session):
 
         db_session.refresh(registration)
 
-        assert registration.line_up == [1, 2, 3, 4, 5, 6]
+        assert registration.line_up == [player.id for player in club.players][:6]

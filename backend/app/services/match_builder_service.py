@@ -15,12 +15,8 @@ def build_match(db: Session, match_id: int, *, duration_ms: int | None = None) -
     if match.visitor_id is None:
         raise AppError("MATCH_NO_VISITOR", "El partido todavía no tiene visitante.")
 
-    local_rows = matches_repository.get_starting_players(
-        db, match.creator_id
-    )
-    visitor_rows = matches_repository.get_starting_players(
-        db, match.visitor_id
-    )
+    local_rows = matches_repository.get_starting_players(db, match.creator_id)
+    visitor_rows = matches_repository.get_starting_players(db, match.visitor_id)
 
     if len(local_rows) != 3 or len(visitor_rows) != 3:
         raise AppError(
@@ -28,9 +24,7 @@ def build_match(db: Session, match_id: int, *, duration_ms: int | None = None) -
             "Cada club necesita tres jugadores activos con comportamiento.",
         )
 
-    names = matches_repository.get_club_names(
-        db, (match.creator_id, match.visitor_id)
-    )
+    names = matches_repository.get_club_names(db, (match.creator_id, match.visitor_id))
 
     def profile(row) -> PlayerProfile:
         player, behaviour = row
@@ -47,6 +41,9 @@ def build_match(db: Session, match_id: int, *, duration_ms: int | None = None) -
             name=player.name,
             speed=player.speed,
             power=player.power,
+            agility=player.agility,
+            strength=player.strength,
+            control=player.control,
             behaviour_id=behaviour.id,
             behaviour_mode=mode,
         )
