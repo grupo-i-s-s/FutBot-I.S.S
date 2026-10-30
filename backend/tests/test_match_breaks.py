@@ -20,6 +20,9 @@ def make_team(club_id):
                 name=f"Jugador {index}",
                 speed=60,
                 power=60,
+                agility=60,
+                strength=60,
+                control=60,
             )
             for index in range(3)
         ),

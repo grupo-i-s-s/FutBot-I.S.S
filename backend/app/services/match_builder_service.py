@@ -75,6 +75,9 @@ def _build_team(db: Session, club_id: int, name: str) -> Team:
                 name=player.name,
                 speed=player.speed,
                 power=player.power,
+                agility=player.agility,
+                strength=player.strength,
+                control=player.control,
                 behaviour_id=behaviour.id,
                 behaviour_mode=mode,
             )

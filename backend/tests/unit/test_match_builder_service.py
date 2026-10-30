@@ -16,7 +16,8 @@ def teams(monkeypatch):
         players[club_id] = [
             SimpleNamespace(
                 id=club_id * 10 + index, club_id=club_id,
-                name=f"Jugador {club_id}-{index}", speed=60, power=60,
+                name=f"Jugador {club_id}-{index}", speed=40 + index * 4, power=60,
+                agility=50 + index * 2, strength=80 - index * 4, control=70 - index * 2,
                 behavior_id=club_id * 100,
             )
             for index in range(6)
@@ -77,6 +78,16 @@ def test_builder_uses_saved_starter_order_formation_and_slot_behaviours(db, team
     assert match.home_positions[94] == pytest.approx((86, 30))
     assert match.player_bodies[74] is match.world.players[0]
     assert match.player_bodies[92] is match.world.players[5]
+    source_players = {
+        player.id: player
+        for roster in teams.players.values()
+        for player in roster
+    }
+    for profile in match.player_profiles:
+        original = source_players[profile.id]
+        for attribute in ("power", "agility", "control", "speed", "strength"):
+            assert getattr(profile, attribute) == getattr(original, attribute)
+        assert match.player_bodies[profile.id].mass == pytest.approx(profile.real_strength)
     teams.matches.get_starting_players.assert_not_called()
     db.commit.assert_not_called()
 

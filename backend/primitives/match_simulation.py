@@ -2,9 +2,11 @@ import logging
 import pymunk
 from dataclasses import asdict, dataclass
 from math import isfinite
+import random
 
 from primitives.behaviours import Action, BehaviourMode, Observation, decide
 from primitives.formations import FORMATIONS
+from primitives.physics import PLAYER_RADIUS, BALL_RADIUS
 from primitives.kick import kick
 from primitives.physics import Field, create_world, step
 from primitives.run_to import run_to
@@ -20,8 +22,6 @@ KICK_RANGE = 2.5
 KICK_COOLDOWN_SECONDS = 0.5
 # Los atributos 20–100 se traducen a unidades de cancha por segundo.
 # La pelota debe viajar más rápido que los jugadores para que un remate se libere.
-PLAYER_BASE_SPEED = 8.0
-PLAYER_SPEED_FACTOR = 0.15
 SHOT_BASE_SPEED = 40.0
 SHOT_POWER_FACTOR = 0.6
 DEFAULT_DURATION_MS = 300_000
@@ -35,8 +35,30 @@ class PlayerProfile:
     name: str
     speed: int
     power: int
+    agility: int
+    strength: int
+    control: int
     behaviour_id: int | None = None
     behaviour_mode: BehaviourMode = BehaviourMode.BALANCED
+
+    #Esto me srive para definir el significado de control en un jugador. 100pts son 2mts y 20 son 0.4mts
+    @property
+    def kick_range(self) -> float:
+        return PLAYER_RADIUS + BALL_RADIUS + ((self.control * 2)/100)
+
+    #Esto me define la velocidad real del jugador. 100pts son 28,8m/s + 4 de base_speed, 20pts son 5,76m/s + 4
+    @property
+    def real_speed(self) -> float:
+        return ((self.speed * 28.8) / 100) + 4.0
+
+    #Esto define la strength real del jugador. 100pts son 84kg por R9, 20pts son 16,8kg. Se escalan a 0.2 por el motor
+    @property
+    def real_strength(self) -> float:
+        return (self.strength * 84 / 100)
+
+    @property
+    def real_agility(self) -> float:
+        return (100 / self.agility)
 
 
 @dataclass(frozen=True)
@@ -90,7 +112,9 @@ class Match:
         if any(player.club_id != local_team.club_id for player in local_team.players):
             raise ValueError("Hay un jugador ajeno al equipo local.")
 
-        if any(player.club_id != visitor_team.club_id for player in visitor_team.players):
+        if any(
+            player.club_id != visitor_team.club_id for player in visitor_team.players
+        ):
             raise ValueError("Hay un jugador ajeno al equipo visitante.")
 
         self.local_team = local_team
@@ -117,9 +141,18 @@ class Match:
         self.init_players_pos = local_positions + visitor_positions
         self.init_ball_pos = ball_pos
         self.scorer = {"LOCAL": 0, "VISITANTE": 0}
+
+        # Aca uso el strength de los jugadores para pasarselos cuando instanciemos el mundo, me devuelve [(posicion, strenght)]
+        players_data = []
+        for profile, position in zip(
+            self.player_profiles, self.kickoff_positions(), strict=True
+        ):
+            players_data.append((position, profile.real_strength))
+
+        # Ahora le paso esa lista para instanciar el mundo
         self.world = create_world(
             self.cord,
-            self.kickoff_positions(),
+            players_data,
             self.init_ball_pos,
         )
 
@@ -177,8 +210,11 @@ class Match:
     def snapshot(self, sequence: int, sent_at: str) -> dict:
         """Estado público completo; no contiene cuerpos ni objetos de Pymunk."""
         return {
-            "schemaVersion": 1, "type": "match.snapshot", "matchId": self.match_id,
-            "sequence": sequence, "sentAt": sent_at,
+            "schemaVersion": 1,
+            "type": "match.snapshot",
+            "matchId": self.match_id,
+            "sequence": sequence,
+            "sentAt": sent_at,
             "state": {
                 "status": self.status,
                 "clockMs": min(round(self.time * 1000), self.duration_ms),
@@ -194,9 +230,14 @@ class Match:
                         (self.visitor_team, "VISITANTE", "#dc2626"),
                     )
                 ],
-                "players": [{**player, "radius": 1.4} for player in self.get_players_state()],
-                "ball": {"x": float(self.world.ball.position.x),
-                         "y": float(self.world.ball.position.y), "radius": 0.5},
+                "players": [
+                    {**player, "radius": PLAYER_RADIUS} for player in self.get_players_state()
+                ],
+                "ball": {
+                    "x": float(self.world.ball.position.x),
+                    "y": float(self.world.ball.position.y),
+                    "radius": BALL_RADIUS,
+                },
             },
         }
 
@@ -243,9 +284,7 @@ class Match:
                     PlayerProfile(
                         **{
                             **player,
-                            "behaviour_mode": BehaviourMode(
-                                player["behaviour_mode"]
-                            ),
+                            "behaviour_mode": BehaviourMode(player["behaviour_mode"]),
                         }
                     )
                     for player in team["players"]
@@ -286,14 +325,10 @@ class Match:
         )
         match.team_side(match.kickoff_club_id)
         match.next_kick_at = {
-            int(key): value
-            for key, value in data["next_kick_at"].items()
+            int(key): value for key, value in data["next_kick_at"].items()
         }
-
         for body, state in zip(
-                (*match.world.players, match.world.ball),
-                data["bodies"],
-                strict=True,
+            (*match.world.players, match.world.ball), data["bodies"], strict=True
         ):
             body.position = state["position"]
             body.velocity = state["velocity"]
@@ -341,7 +376,7 @@ class Match:
         self.world.ball.position = self.init_ball_pos
         self.world.ball.velocity = (0, 0)
         for body, position in zip(
-                self.world.players, self.kickoff_positions(), strict=True
+            self.world.players, self.kickoff_positions(), strict=True
         ):
             body.position = position
             body.velocity = (0, 0)
@@ -351,21 +386,27 @@ class Match:
             self.world.space.reindex_shapes_for_body(body)
 
     def run_behaviour(
-            self,
-            player: pymunk.Body,
-            profile: PlayerProfile,
-            target_goal: tuple[float, float],
-            dt: float,
+        self,
+        player: pymunk.Body,
+        profile: PlayerProfile,
+        target_goal: tuple[float, float],
+        dt: float,
     ) -> Action | None:
         ball_position = self.world.ball.position
         ball_in_own_half = (
             ball_position.x <= width / 2 if self.team_side(profile.club_id) == "LEFT"
             else ball_position.x >= width / 2
         )
-        teammates = [teammate for teammate in self.player_profiles
-                     if teammate.club_id == profile.club_id]
-        chasers = [teammate for teammate in teammates
-                   if ball_in_own_half or teammate.behaviour_mode != BehaviourMode.DEFENSIVE]
+        teammates = [
+            teammate
+            for teammate in self.player_profiles
+            if teammate.club_id == profile.club_id
+        ]
+        chasers = [
+            teammate
+            for teammate in teammates
+            if ball_in_own_half or teammate.behaviour_mode != BehaviourMode.DEFENSIVE
+        ]
         closest_teammate = min(
             chasers or teammates,
             key=lambda teammate: (
@@ -380,7 +421,7 @@ class Match:
             opponent_goal=target_goal,
             is_closest_teammate=closest_teammate.id == profile.id,
             ball_in_own_half=ball_in_own_half,
-            can_kick=(player.position - ball_position).length <= KICK_RANGE,
+            can_kick=(player.position - ball_position).length <= profile.kick_range,
             field_size=(width, height),
             goal_width=goal_width,
         )
@@ -389,16 +430,20 @@ class Match:
             if not isinstance(action, Action):
                 raise ValueError("El comportamiento debe devolver Action.")
             x, y = action.move_target
-            if not (isfinite(x) and isfinite(y) and 0 <= x <= width and 0 <= y <= height):
+            if not (
+                isfinite(x) and isfinite(y) and 0 <= x <= width and 0 <= y <= height
+            ):
                 raise ValueError("Destino de movimiento fuera de la cancha.")
             if action.kick_target is not None:
                 shot_x, shot_y = action.kick_target
-                if not (isfinite(shot_x) and isfinite(shot_y)
-                        and shot_x == target_goal[0]
-                        and abs(shot_y - target_goal[1]) <= goal_width / 2 - 1):
+                if not (
+                    isfinite(shot_x)
+                    and isfinite(shot_y)
+                    and shot_x == target_goal[0]
+                    and 0 <= shot_y <= height                                   #Ahora no se pide que vaya adentro del arco, solo que vaya dentro de la cancha
+                ):
                     raise ValueError("La patada debe apuntar dentro del arco rival.")
-            speed = PLAYER_BASE_SPEED + profile.speed * PLAYER_SPEED_FACTOR
-            run_to(player, action.move_target, speed, dt)
+            run_to(player, action.move_target, profile.real_speed, dt)
             return action
         except Exception:
             # Un error del programa deja quieto a ese jugador durante este paso.
@@ -414,8 +459,8 @@ class Match:
         duration = self.duration_ms / 1000
         dt = min(dt, duration - self.time)
         shots = []
-        for player, profile in (
-                zip(self.world.players, self.player_profiles, strict=True)
+        for player, profile in zip(
+            self.world.players, self.player_profiles, strict=True
         ):
             target_goal = (
                 (width, height / 2) if self.team_side(profile.club_id) == "LEFT"
@@ -423,16 +468,26 @@ class Match:
             )
             action = self.run_behaviour(player, profile, target_goal, dt)
             distance = (player.position - self.world.ball.position).length
-            if (action is not None and action.kick_target is not None
-                    and distance <= KICK_RANGE and self.time >= self.next_kick_at.get(profile.id, 0)):
-                shots.append((distance, profile.id, player, profile, action.kick_target))
+            if (
+                action is not None
+                and action.kick_target is not None
+                and distance <= profile.kick_range
+                and self.time >= self.next_kick_at.get(profile.id, 0)
+            ):
 
-        # Sólo el candidato más cercano puede patear; el ID desempata de forma estable.
+                relative_distance = distance / profile.kick_range               # Uso esta distancia para usar el control del jugador, no solo quien está mas cerca
+                decider = random.random()                                       #Ahora usamos un numero random para decidir quien patea, en vez de id
+                shots.append(
+                    (relative_distance, decider, player, profile, action.kick_target)
+                )
+
         if shots:
-            _, _, player, profile, target = min(shots, key=lambda shot: (shot[0], shot[1]))
+            _, _, player, profile, target = min(
+                shots, key=lambda shot: (shot[0], shot[1])
+            )
             shot_speed = SHOT_BASE_SPEED + profile.power * SHOT_POWER_FACTOR
-            if kick(player, self.world.ball, target, shot_speed, KICK_RANGE):
-                self.next_kick_at[profile.id] = self.time + KICK_COOLDOWN_SECONDS
+            if kick(player, self.world.ball, target, shot_speed, profile.kick_range):
+                self.next_kick_at[profile.id] = self.time + profile.real_agility
 
         scoring_side = step(self.world, dt)
         self.time = min(duration, self.time + dt)
