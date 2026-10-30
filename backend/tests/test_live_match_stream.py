@@ -15,6 +15,7 @@ from app.models.auth_model import AuthSession, Club, User
 from app.models.behaviour_model import Behavior
 from app.models.matches_model import Matches
 from app.models.player_model import Player
+from app.models.team_model import DefaultTeam
 from app.repository import matches_repository
 from app.security import hash_session_token, new_session_token
 from app.services.match_execution_service import run_persisted_match
@@ -23,8 +24,7 @@ from primitives.match_simulation import Match
 
 
 def seed_match_database(engine, duration_ms=700):
-    tables = [User.__table__, Club.__table__, AuthSession.__table__, Behavior.__table__, Player.__table__,
-              Matches.__table__]
+    tables = [model.__table__ for model in (User, Club, AuthSession, Behavior, Player, DefaultTeam, Matches)]
     Base.metadata.create_all(engine, tables=tables)
     tokens = [new_session_token(), new_session_token()]
     now = datetime.now(timezone.utc)
@@ -36,10 +36,21 @@ def seed_match_database(engine, duration_ms=700):
                                expires_at=now + timedelta(hours=1)))
             db.add(Behavior(id=club_id, club_id=club_id, name='Equilibrado', description='test',
                             code=DEFAULT_CODES['Equilibrado']))
-            for index in range(3):
+            for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f'Jugador {club_id}-{index + 1}', power=60, agility=60,
                               control=60, speed=60, strength=60))
+            db.add(DefaultTeam(club_id=club_id, line_up={
+                "formationId": 1,
+                "starters": [
+                    {"playerId": club_id * 10 + index, "behaviourId": club_id}
+                    for index in range(3)
+                ],
+                "substitutes": [
+                    {"playerId": club_id * 10 + index, "behaviourId": club_id}
+                    for index in range(3, 6)
+                ],
+            }))
         db.add(Matches(match_id=42, creator_id=1, visitor_id=2, init_date=now, duration_ms=duration_ms))
         db.commit()
     return tokens

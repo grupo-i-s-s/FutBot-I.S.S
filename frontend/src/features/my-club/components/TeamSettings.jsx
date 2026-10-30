@@ -22,7 +22,9 @@ function loadTeam(response) {
     };
 }
 
-export default function TeamSettings({clubId, players, behaviours}) {
+export default function TeamSettings({
+    clubId, players, behaviours, disabled = false, onSavingChange,
+}) {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [team, setTeam] = useState(null);
@@ -102,7 +104,7 @@ export default function TeamSettings({clubId, players, behaviours}) {
 
     async function handleSubmit(event) {
         event.preventDefault();
-        if (isSaving || !team) return;
+        if (disabled || isSaving || !team) return;
         clearFeedback();
 
         const playerIds = team.slots.map((slot) => slot.playerId);
@@ -139,6 +141,7 @@ export default function TeamSettings({clubId, players, behaviours}) {
         }));
 
         setIsSaving(true);
+        onSavingChange?.(true);
 
         try {
             const response = await updateDefaultTeam({
@@ -156,6 +159,7 @@ export default function TeamSettings({clubId, players, behaviours}) {
             );
         } finally {
             setIsSaving(false);
+            onSavingChange?.(false);
         }
     }
 
@@ -166,6 +170,10 @@ export default function TeamSettings({clubId, players, behaviours}) {
         return <p role="alert">{error}</p>;
     }
 
+    const selectedFormation = formations.find(
+        (formation) => String(formation.id) === team.formation
+    );
+
     return (
         <Card>
             <CardHeader>
@@ -174,12 +182,13 @@ export default function TeamSettings({clubId, players, behaviours}) {
                     Mi equipo
                 </CardTitle>
                 <CardDescription>
-                    3 titulares y 3 suplentes.
+                    Elegí la formación, los 3 titulares y los 3 suplentes
+                    para tus próximos partidos.
                 </CardDescription>
             </CardHeader>
 
             <CardContent>
-                <form onSubmit={handleSubmit} noValidate className="space-y-4">
+                <form aria-label="Equipo para próximos partidos" onSubmit={handleSubmit} noValidate className="space-y-4">
                     <div className="space-y-1">
                         <label htmlFor="team-formation" className="text-sm font-medium">
                             Formación
@@ -187,7 +196,7 @@ export default function TeamSettings({clubId, players, behaviours}) {
 
                         <select
                             id="team-formation"
-                            disabled={isSaving}
+                            disabled={disabled || isSaving}
                             className={SELECT_CLASSES}
                             value={team.formation}
                             onChange={(event) => {
@@ -204,17 +213,26 @@ export default function TeamSettings({clubId, players, behaviours}) {
                                 </option>
                             ))}
                         </select>
+
+                        <p className="text-sm text-muted-foreground">
+                            {selectedFormation?.description}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                            Se aplica a los próximos partidos. Los partidos ya
+                            iniciados conservan su formación.
+                        </p>
                     </div>
 
                     {team.slots.map((slot, index) => (
                         <fieldset
                             key={index}
-                            disabled={isSaving}
+                            disabled={disabled || isSaving}
                             className="min-w-0 space-y-2 rounded-md border p-2"
                         >
                             <legend className="px-1 text-sm font-semibold">
                                 {index < 3
-                                    ? `Titular ${index + 1}`
+                                    ? `Titular ${index + 1}${selectedFormation?.slots?.[index]?.label
+                                        ? ` — ${selectedFormation.slots[index].label}` : ''}`
                                     : `Suplente ${index - 2}`}
                             </legend>
 
@@ -289,7 +307,7 @@ export default function TeamSettings({clubId, players, behaviours}) {
                     <Button
                         type="submit"
                         className="w-full"
-                        disabled={isSaving || players.length < 6 || behaviours.length === 0 || formations.length === 0}
+                        disabled={disabled || isSaving || players.length < 6 || behaviours.length === 0 || formations.length === 0}
                     >
                         {isSaving ? 'Guardando...' : 'Guardar equipo'}
                     </Button>

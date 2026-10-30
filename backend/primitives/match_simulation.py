@@ -5,6 +5,7 @@ from math import isfinite
 import random
 
 from primitives.behaviours import Action, BehaviourMode, Observation, decide
+from primitives.formations import FORMATIONS
 from primitives.physics import PLAYER_RADIUS, BALL_RADIUS
 from primitives.kick import kick
 from primitives.physics import Field, create_world, step
@@ -16,9 +17,7 @@ width = 100.0
 height = 60.0
 goal_width = 15.0
 
-line_up = [(18, 18), (18, 42), (30, 30), (82, 18), (82, 42), (70, 30)]
 ball_pos = (50, 30)
-SCORER_BY_SIDE = {"LEFT": "LOCAL", "RIGHT": "VISITANTE"}
 KICK_RANGE = 2.5
 KICK_COOLDOWN_SECONDS = 0.5
 # Los atributos 20–100 se traducen a unidades de cancha por segundo.
@@ -67,6 +66,32 @@ class Team:
     club_id: int
     name: str
     players: tuple[PlayerProfile, ...]
+    formation_id: int = 1
+    formation_positions: tuple[tuple[float, float], ...] | None = None
+
+    def __post_init__(self):
+        positions = self.formation_positions
+
+        if positions is None:
+            try:
+                positions = FORMATIONS[self.formation_id].positions
+            except KeyError as exc:
+                raise ValueError("La formación seleccionada no existe.") from exc
+
+        positions = tuple(
+            (float(x), float(y))
+            for x, y in positions
+        )
+
+        if len(positions) != 3 or any(
+            not (0 < x < 0.5 and 0 < y < 1)
+            for x, y in positions
+        ):
+            raise ValueError(
+                "La formación necesita tres posiciones válidas en su mitad."
+            )
+
+        object.__setattr__(self, "formation_positions", positions)
 
 
 class Match:
@@ -94,6 +119,8 @@ class Match:
 
         self.local_team = local_team
         self.visitor_team = visitor_team
+        self.sides_swapped = False
+        self.kickoff_club_id = local_team.club_id
         self.player_profiles = local_team.players + visitor_team.players
 
         ids = [profile.id for profile in self.player_profiles]
@@ -101,7 +128,17 @@ class Match:
             raise ValueError("Un jugador no puede ocupar dos lugares en la cancha.")
 
         self.cord = Field(width, height, goal_width)
-        self.init_players_pos = tuple(line_up)
+        local_positions = tuple(
+            (x * width, y * height)
+            for x, y in local_team.formation_positions
+        )
+
+        visitor_positions = tuple(
+            ((1 - x) * width, y * height)
+            for x, y in visitor_team.formation_positions
+        )
+
+        self.init_players_pos = local_positions + visitor_positions
         self.init_ball_pos = ball_pos
         self.scorer = {"LOCAL": 0, "VISITANTE": 0}
 
@@ -136,6 +173,32 @@ class Match:
             half_ms=half_break_ms,
         )
 
+    def team_side(self, club_id: int) -> str:
+        if club_id not in (self.local_team.club_id, self.visitor_team.club_id):
+            raise ValueError("El club no participa del partido.")
+        on_left = (club_id == self.local_team.club_id) != self.sides_swapped
+        return "LEFT" if on_left else "RIGHT"
+
+    def _set_sides(self, swapped: bool) -> None:
+        if self.sides_swapped == swapped:
+            return
+        self.sides_swapped = swapped
+        self.init_players_pos = tuple(
+            (width - x, y) for x, y in self.init_players_pos
+        )
+        self.home_positions = dict(zip(
+            (profile.id for profile in self.player_profiles),
+            self.init_players_pos,
+            strict=True,
+        ))
+
+    def start_second_half(self) -> None:
+        """Cambia de arco y rearma la formación una sola vez por partido."""
+        if self.sides_swapped:
+            return
+        self._set_sides(True)
+        self.restart(kickoff_club_id=self.visitor_team.club_id)
+
     @property
     def finished(self) -> bool:
         return self.time >= self.duration_ms / 1000
@@ -156,19 +219,15 @@ class Match:
                 "status": self.status,
                 "clockMs": min(round(self.time * 1000), self.duration_ms),
                 "durationMs": self.duration_ms,
+                "period": 2 if self.sides_swapped else 1,
                 **self._breaks.public_state(),
                 "field": {"width": width, "height": height, "goalWidth": goal_width},
                 "teams": [
-                    {
-                        "id": team.club_id,
-                        "name": team.name,
-                        "side": side,
-                        "score": self.scorer[score_key],
-                        "color": color,
-                    }
-                    for team, side, score_key, color in (
-                        (self.local_team, "LEFT", "LOCAL", "#2563eb"),
-                        (self.visitor_team, "RIGHT", "VISITANTE", "#dc2626"),
+                    {"id": team.club_id, "name": team.name, "side": self.team_side(team.club_id),
+                     "score": self.scorer[score_key], "color": color}
+                    for team, score_key, color in (
+                        (self.local_team, "LOCAL", "#2563eb"),
+                        (self.visitor_team, "VISITANTE", "#dc2626"),
                     )
                 ],
                 "players": [
@@ -185,7 +244,7 @@ class Match:
     def checkpoint(self) -> dict:
         """Estado privado para retomar desde el último snapshot confirmado."""
         return {
-            "version": 2,
+            "version": 3,
             "match_id": self.match_id,
             "duration_ms": self.duration_ms,
             "local_team": asdict(self.local_team),
@@ -193,6 +252,8 @@ class Match:
             "time": self.time,
             "scorer": dict(self.scorer),
             "breaks": self._breaks.checkpoint(),
+            "sides_swapped": self.sides_swapped,
+            "kickoff_club_id": self.kickoff_club_id,
             "next_kick_at": {
                 str(key): value
                 for key, value in self.next_kick_at.items()
@@ -212,14 +273,14 @@ class Match:
     def from_checkpoint(cls, data: dict) -> "Match":
         version = data.get("version")
 
-        if version not in (1, 2):
+        if version not in (1, 2, 3):
             raise ValueError("Versión de checkpoint incompatible.")
 
         def team_from_data(team: dict) -> Team:
             return Team(
-                team["club_id"],
-                team["name"],
-                tuple(
+                club_id=team["club_id"],
+                name=team["name"],
+                players=tuple(
                     PlayerProfile(
                         **{
                             **player,
@@ -228,6 +289,8 @@ class Match:
                     )
                     for player in team["players"]
                 ),
+                formation_id=team.get("formation_id", 1),
+                formation_positions=team.get("formation_positions"),
             )
 
         match = cls(
@@ -237,19 +300,30 @@ class Match:
             duration_ms=data["duration_ms"],
         )
 
-        if version == 1:
-            # Los encuentros anteriores a esta funcionalidad conservan sus reglas.
+        if "breaks" in data:
+            match._breaks = MatchBreaks(**data["breaks"])
+        elif version < 3:
+            # v2 también fue usado por formaciones, sin información de pausas.
             match._breaks = MatchBreaks(
                 hydration_ms=0,
                 half_ms=0,
                 next_index=3,
             )
         else:
-            # Recupera también las duraciones originales del encuentro.
-            match._breaks = MatchBreaks(**data["breaks"])
+            raise ValueError("Falta el estado de pausas del partido.")
 
         match.time = data["time"]
         match.scorer = dict(data["scorer"])
+        swapped = data.get("sides_swapped", False)
+        if type(swapped) is not bool:
+            raise ValueError("Estado de cambio de arco inválido.")
+        match._set_sides(swapped)
+        match.kickoff_club_id = data.get(
+            "kickoff_club_id",
+            match.local_team.club_id if sum(match.scorer.values()) % 2 == 0
+            else match.visitor_team.club_id,
+        )
+        match.team_side(match.kickoff_club_id)
         match.next_kick_at = {
             int(key): value for key, value in data["next_kick_at"].items()
         }
@@ -287,12 +361,17 @@ class Match:
 
     def kickoff_positions(self) -> list[tuple[float, float]]:
         positions = list(self.init_players_pos)
-        # El saque inicial es local; luego alternamos para romper la simetría.
-        local_kickoff = sum(self.scorer.values()) % 2 == 0
-        positions[2 if local_kickoff else 5] = (42 if local_kickoff else 58, 30)
+        local_kickoff = self.kickoff_club_id == self.local_team.club_id
+        side = self.team_side(self.kickoff_club_id)
+        positions[2 if local_kickoff else 5] = (42 if side == "LEFT" else 58, 30)
         return positions
 
-    def restart(self) -> None:
+    def restart(self, *, kickoff_club_id: int | None = None) -> None:
+        self.kickoff_club_id = kickoff_club_id if kickoff_club_id is not None else (
+            self.local_team.club_id if sum(self.scorer.values()) % 2 == 0
+            else self.visitor_team.club_id
+        )
+        self.team_side(self.kickoff_club_id)
         self.next_kick_at.clear()
         self.world.ball.position = self.init_ball_pos
         self.world.ball.velocity = (0, 0)
@@ -315,8 +394,7 @@ class Match:
     ) -> Action | None:
         ball_position = self.world.ball.position
         ball_in_own_half = (
-            ball_position.x <= width / 2
-            if profile.club_id == self.local_team.club_id
+            ball_position.x <= width / 2 if self.team_side(profile.club_id) == "LEFT"
             else ball_position.x >= width / 2
         )
         teammates = [
@@ -385,8 +463,7 @@ class Match:
             self.world.players, self.player_profiles, strict=True
         ):
             target_goal = (
-                (width, height / 2)
-                if profile.club_id == self.local_team.club_id
+                (width, height / 2) if self.team_side(profile.club_id) == "LEFT"
                 else (0, height / 2)
             )
             action = self.run_behaviour(player, profile, target_goal, dt)
@@ -419,7 +496,11 @@ class Match:
             self.time = duration
 
         if scoring_side is not None:
-            self.scorer[SCORER_BY_SIDE[scoring_side]] += 1
+            scorer_by_side = {
+                self.team_side(self.local_team.club_id): "LOCAL",
+                self.team_side(self.visitor_team.club_id): "VISITANTE",
+            }
+            self.scorer[scorer_by_side[scoring_side]] += 1
             self.restart()
             logger.info("Partido %s: goles %s", self.match_id, self.scorer)
 

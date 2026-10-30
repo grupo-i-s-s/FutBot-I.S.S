@@ -96,7 +96,7 @@ def create_world(
         add_circle(
             position,
             radius=PLAYER_RADIUS,
-            mass=strenght,                   
+            mass=strenght,
             category=PLAYER,
             mask=PLAYER | BALL | FIELD_WALL | PLAYER_WALL,
         )
@@ -142,13 +142,13 @@ def step(world: World, dt: float) -> str | None:
 
         if scorer is not None:
             break
-                
+
     if world.ball.velocity.length > 60.0:
         world.ball.velocity = world.ball.velocity.normalized() * 60
     return scorer
 
 #Funcion para detectar las colisiones y hacer los rebotes. Es un post_solve() de pymunk.
-# NO HACE FALTA LLAMAR A LA FUNCION.  
+# NO HACE FALTA LLAMAR A LA FUNCION.
 def chesting(arbiter: pymunk.Arbiter, space: pymunk.Space, data: dict) -> None:
 
     shape_playerA, shape_playerB = arbiter.shapes
@@ -157,13 +157,11 @@ def chesting(arbiter: pymunk.Arbiter, space: pymunk.Space, data: dict) -> None:
 
     normal = arbiter.contact_point_set.normal
 
-    #En mass ya teniamos la real_strength asi que el pacss tiene efecto real 
+    #En mass ya teniamos la real_strength asi que el pacss tiene efecto real
     bounce_playerA = -normal * body_playerB.mass * 20
-    bounce_playerB = normal * body_playerA.mass * 20 
+    bounce_playerB = normal * body_playerA.mass * 20
 
     body_playerA.apply_impulse_at_world_point(bounce_playerA, body_playerA.position)
     body_playerB.apply_impulse_at_world_point(bounce_playerB, body_playerB.position)
 
     return
-
-

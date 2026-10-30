@@ -2,9 +2,11 @@ import json
 import random
 from dataclasses import replace
 import pytest
+from itertools import product
 
 from primitives import match_simulation
 from primitives.behaviours import Action, BehaviourMode
+from primitives.formations import FORMATIONS
 
 
 @pytest.fixture(autouse=True)
@@ -14,10 +16,11 @@ def deterministic_decisions(monkeypatch):
     monkeypatch.setattr(match_simulation.random, "uniform", rng.uniform)
 
 
-def team(club_id, count=3, modes=None):
+def team(club_id, count=3, modes=None, formation_id=1):
     return match_simulation.Team(
         club_id=club_id,
         name=f"Club {club_id}",
+        formation_id=formation_id,
         players=tuple(
             match_simulation.PlayerProfile(
                 id=club_id * 10 + index,
@@ -287,3 +290,73 @@ def test_player_speed_remains_lower_than_shot_speed_at_attribute_limits():
     max_run = replace(team(1).players[0], speed=100, power=20).real_speed
     min_shot = match_simulation.SHOT_BASE_SPEED + 20 * match_simulation.SHOT_POWER_FACTOR
     assert max_run < min_shot
+
+
+@pytest.mark.parametrize("local_id,visitor_id", list(product((1, 2, 3), repeat=2)))
+@pytest.mark.parametrize("scoring_side", ["LEFT", "RIGHT"])
+def test_formations_apply_at_start_and_after_goals(monkeypatch, local_id, visitor_id, scoring_side):
+    match = match_simulation.Match(
+        team(1, formation_id=local_id), team(2, formation_id=visitor_id),
+    )
+    expected = tuple(
+        (x * 100, y * 60) for x, y in FORMATIONS[local_id].positions
+    ) + tuple(
+        ((1 - x) * 100, y * 60) for x, y in FORMATIONS[visitor_id].positions
+    )
+    assert len(match.world.players) == 6
+    for actual, base in zip(match.init_players_pos, expected, strict=True):
+        assert actual == pytest.approx(base)
+    for body, position in zip(match.world.players, match.kickoff_positions(), strict=True):
+        assert tuple(body.position) == pytest.approx(position)
+
+    monkeypatch.setattr(match, "run_behaviour", lambda *_: None)
+    monkeypatch.setattr(match_simulation, "step", lambda *_: scoring_side)
+    for body in match.world.players:
+        body.position = (40, 10)
+        body.velocity = (2, 3)
+    match.run_match(1 / 30)
+
+    assert sum(match.scorer.values()) == 1
+    for body, position in zip(match.world.players, match.kickoff_positions(), strict=True):
+        assert tuple(body.position) == pytest.approx(position)
+        assert tuple(body.velocity) == (0, 0)
+    assert tuple(match.world.ball.position) == (50, 30)
+    assert tuple(match.home_positions.values()) == expected
+
+
+def test_checkpoint_preserves_formation_geometry_even_after_catalog_changes(monkeypatch):
+    match = match_simulation.Match(team(1, formation_id=2), team(2, formation_id=3))
+    match.run_match(1 / 30)
+    checkpoint = json.loads(json.dumps(match.checkpoint()))
+    monkeypatch.setitem(FORMATIONS, 2, replace(
+        FORMATIONS[2], positions=FORMATIONS[1].positions,
+    ))
+    restored = match_simulation.Match.from_checkpoint(checkpoint)
+
+    assert restored.local_team.formation_id == 2
+    assert restored.visitor_team.formation_id == 3
+    assert restored.init_players_pos == match.init_players_pos
+    assert restored.home_positions == match.home_positions
+    assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
+    restored.restart()
+    for body, position in zip(restored.world.players, restored.kickoff_positions(), strict=True):
+        assert tuple(body.position) == pytest.approx(position)
+
+
+def test_legacy_checkpoint_restores_default_formation():
+    match = match_simulation.Match(team(1), team(2))
+    checkpoint = json.loads(json.dumps(match.checkpoint()))
+    checkpoint["version"] = 1
+    for key in ("local_team", "visitor_team"):
+        checkpoint[key].pop("formation_id")
+        checkpoint[key].pop("formation_positions")
+    restored = match_simulation.Match.from_checkpoint(checkpoint)
+
+    assert restored.local_team.formation_id == restored.visitor_team.formation_id == 1
+    assert restored.init_players_pos == match.init_players_pos
+    assert restored.snapshot(1, "now") == match.snapshot(1, "now")
+
+
+def test_unknown_formation_is_rejected():
+    with pytest.raises(ValueError, match="formación"):
+        team(1, formation_id=999)

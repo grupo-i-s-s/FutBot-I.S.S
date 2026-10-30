@@ -3,15 +3,26 @@ from sqlalchemy.orm import Session
 from app.errors import AppError
 from app.repository import (behaviour_repository, player_repository, team_repository)
 from app.schemas.team_schemas import DefaultTeamRead, Lineup
-
-FORMATIONS = {1: "Formación 1"}
+from primitives.formations import FORMATIONS
 
 
 def get_formations() -> dict:
     return {
         "items": [
-            {"id": formation_id, "name": name}
-            for formation_id, name in FORMATIONS.items()
+            {
+                "id": formation.id,
+                "name": formation.name,
+                "description": formation.description,
+                "slots": [
+                    {"label": label, "x": x, "y": y}
+                    for label, (x, y) in zip(
+                        formation.labels,
+                        formation.positions,
+                        strict=True,
+                    )
+                ],
+            }
+            for formation in FORMATIONS.values()
         ]
     }
 

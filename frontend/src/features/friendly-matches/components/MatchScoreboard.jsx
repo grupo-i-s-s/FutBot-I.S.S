@@ -4,8 +4,7 @@ export function formatClock(milliseconds) {
 }
 
 export default function MatchScoreboard({state}) {
-    const local = state.teams.find((team) => team.side === 'LEFT');
-    const visitor = state.teams.find((team) => team.side === 'RIGHT');
+    const [local, visitor] = state.teams;
     return (
         <section className="match-scoreboard" aria-label="Marcador del partido">
             <div className="match-team">

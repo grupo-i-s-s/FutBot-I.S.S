@@ -114,7 +114,7 @@ def test_checkpoint_preserves_active_break_and_remaining_time(match):
     checkpoint = json.loads(json.dumps(match.checkpoint()))
     restored = Match.from_checkpoint(checkpoint)
 
-    assert checkpoint["version"] == 2
+    assert checkpoint["version"] == 3
     assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
     assert restored.snapshot(5, "now") == match.snapshot(5, "now")
     assert public_state(restored)["breakRemainingMs"] == 60

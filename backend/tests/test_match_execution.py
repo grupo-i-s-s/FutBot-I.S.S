@@ -19,6 +19,7 @@ from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
 from app.models.matches_model import Matches
 from app.models.player_model import Player
+from app.models.team_model import DefaultTeam
 from app.repository import matches_repository
 from app.services import match_execution_service as execution
 from app.services.match_snapshot_service import read_snapshot
@@ -39,7 +40,7 @@ def database(monkeypatch, sqlite_match_dates):
     )
     # Persistencia real con sesiones independientes, sin requerir Docker.
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
-    tables = [User.__table__, Club.__table__, Behavior.__table__, Player.__table__, Matches.__table__]
+    tables = [model.__table__ for model in (User, Club, Behavior, Player, DefaultTeam, Matches)]
     Base.metadata.create_all(engine, tables=tables)
     with Session(engine) as db:
         for club_id in (1, 2):
@@ -47,10 +48,21 @@ def database(monkeypatch, sqlite_match_dates):
             db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}", avatar="avatar"))
             db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
                             code=DEFAULT_CODES["Equilibrado"]))
-            for index in range(3):
+            for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f"Jugador {club_id}-{index}", power=60, agility=60,
                               control=60, speed=60, strength=60))
+            db.add(DefaultTeam(club_id=club_id, line_up={
+                "formationId": 1,
+                "starters": [
+                    {"playerId": club_id * 10 + index, "behaviourId": club_id}
+                    for index in range(3)
+                ],
+                "substitutes": [
+                    {"playerId": club_id * 10 + index, "behaviourId": club_id}
+                    for index in range(3, 6)
+                ],
+            }))
         db.add(Matches(match_id=42, creator_id=1, visitor_id=2,
                        init_date=datetime.now(timezone.utc) - timedelta(seconds=1), duration_ms=200))
         db.commit()
