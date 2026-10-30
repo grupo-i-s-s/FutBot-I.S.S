@@ -60,6 +60,7 @@ error_status = {
     "MATCH_STATE_INVALID": 409,
     "MATCH_INVALID_DURATION": 400,
     "BEHAVIOUR_INVALID": 400,
+    "BEHAVIOUR_IN_USE": 409,
 }
 
 

@@ -24,3 +24,9 @@ def get_behaviour(club: CurrentClub, db: Database, behaviour_id: int):
 @behaviour_router.post("",response_model=BehaviourRead,status_code=status.HTTP_201_CREATED)
 def create_behaviour(payload: BehaviourCreate, club: CurrentClub, db: Database):
     return behaviour_service.create_behaviour(db=db, club_id=club.id, data=payload)
+
+@behaviour_router.delete("/{behaviour_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_behaviour(behaviour_id: int, club: CurrentClub, db:Database) -> None:
+    behaviour_service.delete_behaviour(db=db, club_id=club.id, behaviour_id=behaviour_id)
+
+    
