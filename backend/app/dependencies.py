@@ -1,7 +1,7 @@
-from typing import Annotated
-
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
+from starlette.requests import HTTPConnection
+from typing import Annotated
 
 from app.config import settings
 from app.database import get_db
@@ -16,12 +16,15 @@ from app.services.auth_service import (
 Database = Annotated[Session, Depends(get_db)]
 
 
-def require_browser_write(request: Request) -> None:
-    if request.method in {"GET", "HEAD", "OPTIONS"}:
+def require_browser_write(connection: HTTPConnection) -> None:
+    if connection.scope["type"] == "websocket":
         return
 
-    origin = request.headers.get("origin")
-    marker = request.headers.get("x-futbot-request")
+    if connection.scope["method"] in {"GET", "HEAD", "OPTIONS"}:
+        return
+
+    origin = connection.headers.get("origin")
+    marker = connection.headers.get("x-futbot-request")
 
     if origin not in settings.allowed_origins or marker != "1":
         raise AppError(

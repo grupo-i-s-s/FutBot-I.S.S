@@ -1,8 +1,7 @@
-from types import SimpleNamespace
-from unittest.mock import Mock
-
 import pytest
 from fastapi.testclient import TestClient
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from app.config import settings
 from app.database import get_db

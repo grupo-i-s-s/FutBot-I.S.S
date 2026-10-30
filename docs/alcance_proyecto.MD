@@ -11,7 +11,7 @@ Para poder comenzar a jugar, el usuario deberá registrarse, cada mail podrá te
 
 
 
-El sistema te proporciona 6 jugadores default con 1 comportamiento para jugar, una vez dentro del club el usuario podrá comenzar a crear sus propios jugadores y comportamientos. Podrá crear o participar en partidos amistosos, contra clubes que estén disponibles.  Además al usuario se le habilitan la participación en las ligas, donde podrá crear / unirse, iniciar (sólo si es el creador), cancelar (si es club creador) /  (si no es club creador) abandonar, sólo si la liga no ha iniciado. Existen ligas privadas y públicas, dentro de cada liga hay un ranking propio de la misma.
+El sistema te proporciona 6 jugadores default y 3 comportamientos iniciales, cada uno asignado a 2 jugadores. Una vez dentro del club, el usuario podrá comenzar a crear sus propios jugadores y comportamientos. Podrá crear o participar en partidos amistosos, contra clubes que estén disponibles.  Además al usuario se le habilitan la participación en las ligas, donde podrá crear / unirse, iniciar (sólo si es el creador), cancelar (si es club creador) /  (si no es club creador) abandonar, sólo si la liga no ha iniciado. Existen ligas privadas y públicas, dentro de cada liga hay un ranking propio de la misma.
 
 
   --- 

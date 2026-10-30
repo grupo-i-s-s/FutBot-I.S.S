@@ -1,10 +1,21 @@
-import {Users} from 'lucide-react';
+import {Plus, Users} from 'lucide-react';
+import {Link} from 'react-router';
 import {Avatar, AvatarFallback} from '@/components/ui/avatar';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
 import {Item, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item';
+import {BehaviorSelector} from './BehaviorSelector';
+import {buttonVariants} from '@/components/ui/button';
 
-export default function PlayerList({players}) {
+const PACSS_ATTRIBUTES = [
+    ['Power', 'power'],
+    ['Agility', 'agility'],
+    ['Control', 'control'],
+    ['Speed', 'speed'],
+    ['Strength', 'strength'],
+];
+
+export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
     return (
         <Card>
             <CardHeader>
@@ -13,7 +24,15 @@ export default function PlayerList({players}) {
                     Jugadores
                 </CardTitle>
                 <CardDescription>{players.length} jugadores en el plantel</CardDescription>
+
+                <CardAction>
+                    <Link to="/crear-jugador" className={buttonVariants({size: 'sm'})}>
+                        <Plus className="size-4" aria-hidden="true"/>
+                        Crear Nuevo jugador
+                    </Link>
+                </CardAction>
             </CardHeader>
+
             <CardContent>
                 {players.length === 0 ? (
                     <Empty className="border">
@@ -22,7 +41,9 @@ export default function PlayerList({players}) {
                                 <Users/>
                             </EmptyMedia>
                             <EmptyTitle>Sin jugadores</EmptyTitle>
-                            <EmptyDescription>El club todavía no tiene jugadores.</EmptyDescription>
+                            <EmptyDescription>
+                                El club todavía no tiene jugadores.
+                            </EmptyDescription>
                         </EmptyHeader>
                     </Empty>
                 ) : (
@@ -37,12 +58,32 @@ export default function PlayerList({players}) {
                                             </AvatarFallback>
                                         </Avatar>
                                     </ItemMedia>
+
                                     <ItemContent className="min-w-0">
-                                        <ItemTitle className="truncate">{player.name}</ItemTitle>
-                                        <ItemDescription>
-                                            <span className="sr-only">Comportamiento: </span>
+                                        <ItemTitle className="truncate">
+                                            {player.name}
+                                        </ItemTitle>
+
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-sm">
+                                            {PACSS_ATTRIBUTES.map(([label, key]) => (
+                                                <span key={key}>
+                                                    <strong>{label}:</strong> {player[key]}
+                                                </span>
+                                            ))}
+                                        </div>
+
+                                        <ItemDescription className="mt-2">
+                                            <span className="font-medium">
+                                                Comportamiento:
+                                            </span>{' '}
                                             {player.behaviourName}
                                         </ItemDescription>
+
+                                        <BehaviorSelector
+                                            player={player}
+                                            behaviours={behaviours}
+                                            onBehaviourAssigned={onBehaviourAssigned}
+                                        />
                                     </ItemContent>
                                 </Item>
                             </li>

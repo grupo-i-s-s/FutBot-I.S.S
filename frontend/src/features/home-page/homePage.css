@@ -1,0 +1,431 @@
+.futbot-home {
+    --home-green: #164b35;
+    --home-muted: #718176;
+    --home-border: #dde6dd;
+
+    min-height: 100vh;
+    padding: 0 32px;
+    color: #19362b;
+    background: radial-gradient(ellipse at 50% 40%, #dfeedd 0%, transparent 55%),
+    #f5f7f2;
+}
+
+.futbot-home,
+.futbot-home * {
+    box-sizing: border-box;
+}
+
+.futbot-home :is(h1, h2, h3, p) {
+    margin: 0;
+}
+
+.futbot-home a {
+    text-decoration: none;
+}
+
+.futbot-home a:focus-visible {
+    outline: 3px solid #80b688;
+    outline-offset: 5px;
+}
+
+/* Barra superior */
+
+.home-nav {
+    width: 100%;
+    max-width: 1440px;
+    min-height: 88px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border-bottom: 1px solid var(--home-border);
+}
+
+.home-brand {
+    display: flex;
+    gap: 10px;
+    color: var(--home-green);
+    font-size: 18px;
+    font-weight: 850;
+    letter-spacing: 2px;
+}
+
+.home-brand-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    color: white;
+    border-radius: 12px;
+    background: transparent;
+}
+
+.home-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.home-login {
+    color: var(--home-green);
+}
+
+.home-register {
+    padding: 11px 18px;
+    color: var(--home-green);
+    border: 1px solid #b9cdbd;
+    border-radius: 12px;
+    transition: background 180ms ease;
+}
+
+.home-register:hover {
+    background: #e5eee2;
+}
+
+/* Tres columnas: los costados iguales mantienen el centro */
+
+.home-layout {
+    width: 100%;
+    max-width: 1440px;
+    min-height: calc(100svh - 168px);
+    margin: 0 auto;
+    padding: 48px 0;
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) 280px;
+    grid-template-areas: "ligas bienvenida amistosos";
+    align-items: center;
+    gap: 32px;
+}
+
+.home-leagues {
+    grid-area: ligas;
+}
+
+.home-welcome {
+    grid-area: bienvenida;
+    min-width: 0;
+    padding: 24px 0;
+    text-align: center;
+}
+
+.home-matches {
+    grid-area: amistosos;
+}
+
+/* Paneles laterales */
+
+.home-panel {
+    min-width: 0;
+    padding: 22px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--home-border);
+    border-radius: 24px;
+    box-shadow: 0 14px 40px rgb(22 75 53 / 5%);
+}
+
+.home-panel-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.home-panel-icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    color: var(--home-green);
+    background: #eaf2e7;
+    border-radius: 14px;
+}
+
+.home-match-icon {
+    color: #9a6a21;
+    background: #faf0dc;
+}
+
+.home-panel-heading h2 {
+    font-size: 17px;
+    font-weight: 750;
+    line-height: 1.3;
+}
+
+.home-panel-heading p {
+    margin-top: 5px;
+    color: var(--home-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.home-example-label {
+    display: inline-block;
+    margin-bottom: 14px;
+    padding: 4px 8px;
+    color: #68756a;
+    background: #f1f4ef;
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+.home-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.home-list-card {
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #e6ece3;
+    border-radius: 14px;
+}
+
+.home-item-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.home-list-card h3 {
+    overflow-wrap: anywhere;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.home-tag {
+    padding: 3px 7px;
+    color: #2d6844;
+    background: #edf5eb;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.home-tag-private {
+    color: #966a25;
+    background: #fbf1dd;
+}
+
+.home-list-card .home-item-description {
+    margin-top: 6px;
+    color: var(--home-muted);
+    font-size: 12px;
+}
+
+.home-progress {
+    height: 5px;
+    margin-top: 12px;
+    overflow: hidden;
+    background: #edf2e9;
+    border-radius: 20px;
+}
+
+.home-progress span {
+    display: block;
+    height: 100%;
+    background: #6ba777;
+    border-radius: inherit;
+}
+
+.home-panel-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 12px 14px;
+    color: var(--home-green);
+    background: #edf3e9;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: background 180ms ease;
+}
+
+.home-panel-link:hover {
+    background: #dfead9;
+}
+
+.home-secondary-link {
+    display: block;
+    margin-top: 12px;
+    color: var(--home-muted);
+    font-size: 11px;
+    text-align: center;
+}
+
+.home-secondary-link:hover {
+    color: var(--home-green);
+    text-decoration: underline;
+}
+
+/* Bienvenida */
+
+.home-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: #4c7157;
+    background: #e8f0e1;
+    border: 1px solid #d7e5d0;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.home-emblem {
+    width: 96px;
+    height: 96px;
+    margin: 32px auto 24px;
+    display: grid;
+    place-items: center;
+    color: #e1f0da;
+    background: linear-gradient(145deg, #347354, #123c2c);
+    border: 5px solid #edf4e6;
+    border-radius: 28px;
+    box-shadow: 0 18px 32px rgb(22 75 53 / 15%);
+    transform: rotate(-6deg);
+}
+
+.home-emblem svg {
+    transform: rotate(6deg);
+}
+
+.home-greeting {
+    display: block;
+    color: #5d7664;
+    font-size: clamp(20px, 2vw, 28px);
+    font-weight: 500;
+}
+
+.home-title {
+    display: block;
+    margin-top: 6px;
+    color: var(--home-green);
+    font-size: clamp(58px, 7vw, 104px);
+    font-weight: 850;
+    letter-spacing: -5px;
+    line-height: 1.05;
+}
+
+.home-title span {
+    color: #8cae64;
+}
+
+.home-welcome .home-intro {
+    margin-top: 22px;
+    color: #66786a;
+    font-size: 15px;
+    line-height: 1.8;
+}
+
+.home-teams {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 30px;
+    padding: 17px 28px;
+    color: white;
+    background: var(--home-green);
+    border-radius: 15px;
+    box-shadow: 0 10px 22px rgb(22 75 53 / 15%);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+
+.home-welcome .home-welcome-note {
+    margin-top: 18px;
+    color: #809083;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* Amistosos */
+
+.home-match-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.home-club-avatar {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    color: #6c7959;
+    background: #eef1e6;
+    border-radius: 11px;
+    font-size: 14px;
+    font-weight: 750;
+}
+
+.home-match-caption {
+    display: block;
+    margin-top: 12px;
+    padding-top: 10px;
+    color: #8a7548;
+    border-top: 1px solid #f0eee7;
+    font-size: 11px;
+}
+
+/* Pie de página */
+
+.home-footer {
+    max-width: 1440px;
+    min-height: 80px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: #849087;
+    border-top: 1px solid var(--home-border);
+    font-size: 12px;
+}
+
+.home-footer > span {
+    color: var(--home-green);
+    font-weight: 750;
+}
+
+/* Tablet: bienvenida arriba y paneles abajo */
+
+@media (max-width: 1100px) {
+    .home-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas:
+            "bienvenida bienvenida"
+            "ligas amistosos";
+        align-items: start;
+        gap: 24px;
+    }
+
+    .home-welcome {
+        padding-bottom: 30px;
+    }
+}
+
+.home-brand-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.home-brand-club {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--home-muted);
+}

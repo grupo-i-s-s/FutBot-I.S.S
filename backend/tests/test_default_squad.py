@@ -1,14 +1,12 @@
-"""Pruebas del plantel inicial (comportamiento y jugadores default) creado al registrarse.
+"""Pruebas del plantel inicial (comportamientos y jugadores default) creado al registrarse.
 
-- Las pruebas unitarias usan sesiones simuladas y no necesitan base de datos.
+- Las pruebas unitarias están en tests/unit/test_default_squad.py y test_auth_service.py.
 - Las de integración usan la base configurada, pero trabajan dentro de una
   transacción que se revierte al final: no dejan datos. Requieren que las
   migraciones 001 y 002 estén aplicadas.
 """
-from collections.abc import Iterator
-from unittest.mock import Mock
-
 import pytest
+from collections.abc import Iterator
 from fastapi.testclient import TestClient
 from sqlalchemy import func, inspect, select
 from sqlalchemy.orm import Session
@@ -20,10 +18,7 @@ from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
 from app.models.player_model import Player
 from app.repository import behaviour_repository, player_repository
-from app.schemas.auth_schemas import RegisterRequest
-from app.services import auth_service
 
-PACSS = ("power", "agility", "control", "speed", "strength")
 BROWSER_HEADERS = {
     "Origin": next(iter(settings.allowed_origins)),
     "X-Futbot-Request": "1",
@@ -32,123 +27,12 @@ BROWSER_HEADERS = {
 
 def register_payload(suffix: str = "a") -> dict:
     return {
-        "name": f"Usuario {suffix}",
-        "username": f"test_squad_{suffix}",
         "email": f"test_squad_{suffix}@example.com",
         "password": "password-segura",
         "passwordConfirmation": "password-segura",
         "clubName": f"Club {suffix}",
         "avatar": "avatar-1",
     }
-
-
-# --- Datos default -----------------------------------------------------------
-
-def test_there_are_exactly_six_default_players_with_unique_names():
-    names = [player["name"] for player in player_repository.DEFAULT_PLAYERS]
-
-    assert len(names) == 6
-    assert len(set(names)) == 6
-    assert all(0 < len(name) <= 50 for name in names)
-
-
-@pytest.mark.parametrize(
-    "player",
-    player_repository.DEFAULT_PLAYERS,
-    ids=lambda player: player["name"],
-)
-def test_default_player_has_valid_pacss(player):
-    # Mismas reglas que los CHECK de la tabla players.
-    assert set(PACSS) <= player.keys()
-    assert all(20 <= player[attr] <= 100 for attr in PACSS)
-    assert sum(player[attr] for attr in PACSS) == 300
-
-
-# --- Repositorios -----------------------------------------------------------
-
-def test_create_default_behaviour_belongs_to_club_and_is_flushed():
-    db = Mock()
-
-    behavior = behaviour_repository.create_default_behaviour(db, club_id=7)
-
-    assert isinstance(behavior, Behavior)
-    assert behavior.club_id == 7
-    assert behavior.name and behavior.description and behavior.code
-    db.add.assert_called_once_with(behavior)
-    db.flush.assert_called_once_with()
-
-
-def test_create_default_players_assigns_club_and_behaviour():
-    db = Mock()
-
-    players = player_repository.create_default_players(db, club_id=7, behaviour_id=3)
-
-    assert len(players) == len(player_repository.DEFAULT_PLAYERS)
-    assert all(isinstance(player, Player) for player in players)
-    assert all(player.club_id == 7 for player in players)
-    assert all(player.behavior_id == 3 for player in players)
-    assert [p.name for p in players] == [p["name"] for p in player_repository.DEFAULT_PLAYERS]
-    db.add_all.assert_called_once_with(players)
-    db.flush.assert_called_once_with()
-
-
-# --- Servicio de registro (sin base) ---------------------------------------
-
-@pytest.fixture
-def fake_registration(monkeypatch):
-    """Simula los repositorios y registra el orden de las llamadas."""
-    calls = []
-    db = Mock()
-    db.commit.side_effect = lambda: calls.append("commit")
-
-    repo = auth_service.user_repository
-    monkeypatch.setattr(repo, "get_by_email", lambda *a, **k: None)
-    monkeypatch.setattr(repo, "get_by_username", lambda *a, **k: None)
-    monkeypatch.setattr(
-        repo, "create_user",
-        lambda *a, **k: User(id=1, name=k["name"], username=k["username"],
-                             email=k["email"], password_hash="x"),
-    )
-    monkeypatch.setattr(
-        repo, "create_club",
-        lambda *a, **k: Club(id=10, user_id=k["user_id"], name=k["name"], avatar=k["avatar"]),
-    )
-
-    def fake_behaviour(session, club_id):
-        calls.append(("behaviour", club_id))
-        return Behavior(id=99, club_id=club_id, name="b", description="d", code="c")
-
-    def fake_players(session, club_id, behaviour_id):
-        calls.append(("players", club_id, behaviour_id))
-        return []
-
-    monkeypatch.setattr(auth_service.behaviour_repository, "create_default_behaviour", fake_behaviour)
-    monkeypatch.setattr(auth_service.player_repository, "create_default_players", fake_players)
-    return db, calls
-
-
-def test_register_creates_default_squad_before_commit(fake_registration):
-    db, calls = fake_registration
-
-    auth_service.register(db, RegisterRequest.model_validate(register_payload()))
-
-    assert calls == [("behaviour", 10), ("players", 10, 99), "commit"]
-    db.rollback.assert_not_called()
-
-
-def test_register_rolls_back_everything_if_default_squad_fails(fake_registration, monkeypatch):
-    db, calls = fake_registration
-
-    def failing_players(*args, **kwargs):
-        raise RuntimeError("falló la creación de jugadores")
-
-    monkeypatch.setattr(auth_service.player_repository, "create_default_players", failing_players)
-
-    with pytest.raises(RuntimeError):
-        auth_service.register(db, RegisterRequest.model_validate(register_payload()))
-
-    db.commit.assert_not_called()
-    db.rollback.assert_called_once_with()
 
 
 # --- Integración con PostgreSQL (con rollback) ------------------------------
@@ -182,23 +66,25 @@ def register_and_get_club(client: TestClient, session: Session, suffix: str) -> 
     assert response.status_code == 201, response.text
 
     return session.scalar(
-        select(Club).join(User, User.id == Club.user_id).where(User.username == payload["username"])
+        select(Club).join(User, User.id == Club.user_id).where(User.email == payload["email"])
     )
 
 
-def test_register_endpoint_persists_default_behaviour_and_players(db_session):
+def test_register_endpoint_persists_default_behaviours_and_players(db_session):
     with TestClient(app) as client:
         club = register_and_get_club(client, db_session, "a")
 
     behaviors = db_session.scalars(select(Behavior).where(Behavior.club_id == club.id)).all()
     players = db_session.scalars(select(Player).where(Player.club_id == club.id)).all()
 
-    assert len(behaviors) == 1
+    assert len(behaviors) == 3
     assert len(players) == 6
     assert {p.name for p in players} == {p["name"] for p in player_repository.DEFAULT_PLAYERS}
-    assert all(p.behavior_id == behaviors[0].id for p in players)
+    assert {behavior.name for behavior in behaviors} == {name for name, _ in behaviour_repository.DEFAULT_BEHAVIOURS}
+    assert {p.behavior_id for p in players} == {behavior.id for behavior in behaviors}
+    assert all(sum(p.behavior_id == behavior.id for p in players) == 2 for behavior in behaviors)
     assert all(not p.is_deleted for p in players)
-    assert not behaviors[0].is_deleted
+    assert all(not behavior.is_deleted for behavior in behaviors)
 
 
 def test_each_club_gets_its_own_default_squad(db_session):
@@ -215,6 +101,7 @@ def test_each_club_gets_its_own_default_squad(db_session):
     players_b, behaviors_b = squad(club_b)
 
     assert len(players_a) == len(players_b) == 6
+    assert len(behaviors_a) == len(behaviors_b) == 3
     assert {p.id for p in players_a}.isdisjoint({p.id for p in players_b})
     assert behaviors_a.isdisjoint(behaviors_b)
     # Cada jugador usa un comportamiento de su propio club.

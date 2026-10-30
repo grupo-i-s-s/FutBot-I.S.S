@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -7,12 +6,12 @@ from app.models.auth_model import AuthSession
 
 
 def create(
-    db: Session,
-    *,
-    token_hash: str,
-    user_id: int,
-    created_at: datetime,
-    expires_at: datetime
+        db: Session,
+        *,
+        token_hash: str,
+        user_id: int,
+        created_at: datetime,
+        expires_at: datetime
 ) -> None:
     session = AuthSession(
         token_hash=token_hash,

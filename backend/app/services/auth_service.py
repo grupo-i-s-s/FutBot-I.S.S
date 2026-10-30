@@ -1,9 +1,17 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
+from app.config import settings
+from app.errors import AppError
+from app.models.auth_model import Club, User
 from app.repository import (
     session_repository,
-    user_repository, behaviour_repository, player_repository
+    user_repository,
+    behaviour_repository,
+    player_repository,
+    team_repository,
 )
 from app.schemas.auth_schemas import (
     ChangePasswordRequest,
@@ -11,12 +19,7 @@ from app.schemas.auth_schemas import (
     RegisterRequest,
     UserResponse
 )
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-
-from app.config import settings
-from app.errors import AppError
-from app.models.auth_model import Club, User
+from app.schemas.team_schemas import Lineup
 from app.security import (
     DUMMY_PASSWORD_HASH,
     hash_password,
@@ -44,22 +47,21 @@ def session_error() -> AppError:
 
 def duplicate_error(field: str) -> AppError:
     if field == "email":
-        message = "El email ya está registrado."
+        messages = {"email": "El email ya está registrado.", "clubName": "Ya existe un club con ese nombre."}
+        message = messages[field]
     else:
         message = "El nombre de usuario ya está registrado."
 
     return AppError(
         "ACCOUNT_DUPLICATE",
         message,
-        {field: message}
+        {field: message},
     )
 
 
 def public_user(user: User, club: Club) -> UserResponse:
     return UserResponse(
         id=user.id,
-        name=user.name,
-        username=user.username,
         email=user.email,
         club_id=club.id
     )
@@ -72,15 +74,8 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
         if existing_email:
             raise duplicate_error("email")
 
-        existing_username = user_repository.get_by_username(db, data.username)
-
-        if existing_username:
-            raise duplicate_error("username")
-
         user = user_repository.create_user(
             db,
-            name=data.name,
-            username=data.username,
             email=str(data.email),
             password_hash=hash_password(data.password)
         )
@@ -92,10 +87,29 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
             avatar=data.avatar
         )
 
-        behaviour = behaviour_repository.create_default_behaviour(db, club.id)
+        behaviours = behaviour_repository.create_default_behaviours(db, club.id)
 
-        players = player_repository.create_default_players(db, club.id, behaviour.id)
+        players = player_repository.create_default_players(db, club.id, behaviours)
 
+        line_up = Lineup.model_validate({
+            "formationId": 1,
+            "starters": [
+                {
+                    "playerId": player.id,
+                    "behaviourId": player.behavior_id,
+                }
+                for player in players[:3]
+            ],
+            "substitutes": [
+                {
+                    "playerId": player.id,
+                    "behaviourId": player.behavior_id,
+                }
+                for player in players[3:]
+            ],
+        })
+
+        team_repository.save(db, club.id, line_up.model_dump(by_alias=True))
 
         result = public_user(user, club)
 
@@ -112,8 +126,8 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
         if constraint == "uq_users_email":
             raise duplicate_error("email") from exc
 
-        if constraint == "uq_users_username":
-            raise duplicate_error("username") from exc
+        if constraint == "clubs_name_key":
+            raise duplicate_error("clubName") from exc
 
         raise
 

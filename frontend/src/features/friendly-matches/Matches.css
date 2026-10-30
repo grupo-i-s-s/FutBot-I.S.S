@@ -1,0 +1,107 @@
+.Friendly-Matches {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 20px;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.main-card {
+    background-color: white;
+    border-radius: 24px;
+    padding: 40px;
+    border: 1px solid #d5e1d5;
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.page-title {
+    color: #0f172a;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 32px;
+}
+
+.main-card form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    color: #0f172a;
+}
+
+.main-card form input {
+    padding: 8px;
+    border: 1px solid #64748b;
+    border-radius: 6px;
+    color: #0f172a;
+    background: white;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 650px;
+}
+
+.match-box {
+    background-color: rgb(191, 206, 228);
+    border-radius: 12px;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.match-title {
+    color: #0e0f0f;
+    font-weight: 500;
+    font-size: 16px;
+}
+
+.match-date {
+    color: #0f0f0f;
+    font-size: 14px;
+}
+
+.join-button {
+    background-color: #059669;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.matches-section {
+    width: 100%;
+    margin-top: 24px;
+}
+
+.matches-section h2 {
+    margin-bottom: 12px;
+    color: #0f172a;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.match-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+a.join-button {
+    text-decoration: none;
+}
