@@ -16,7 +16,7 @@ width = 100.0
 height = 60.0
 goal_width = 15.0
 
-line_up = [(18, 18), (18, 42), (30, 30), (82, 18), (82, 42), (70, 30)]
+line_up = [(18, 18), (18, 42), (30, 30), (30,20), (82, 18), (82, 42), (70, 30), (70,20)]
 ball_pos = (50, 30)
 SCORER_BY_SIDE = {"LEFT": "LOCAL", "RIGHT": "VISITANTE"}
 KICK_RANGE = 2.5
@@ -81,7 +81,7 @@ class Match:
             raise ValueError("La duración debe ser un entero positivo en milisegundos.")
         self.match_id = match_id
         self.duration_ms = duration_ms
-        if len(local_team.players) != 3 or len(visitor_team.players) != 3:
+        if len(local_team.players) != 4 or len(visitor_team.players) != 4:
             raise ValueError("Cada equipo necesita exactamente tres titulares.")
 
         if any(player.club_id != local_team.club_id for player in local_team.players):
