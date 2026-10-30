@@ -16,7 +16,7 @@ width = 100.0
 height = 60.0
 goal_width = 15.0
 
-line_up = [(18, 18), (18, 42), (30, 30), (30,20), (82, 18), (82, 42), (70, 30), (70,20)]
+line_up = [(18, 18), (18, 42), (30, 35), (30,27), (82, 18), (82, 42), (70, 35), (70,27)]
 ball_pos = (50, 30)
 SCORER_BY_SIDE = {"LEFT": "LOCAL", "RIGHT": "VISITANTE"}
 KICK_RANGE = 2.5
@@ -289,7 +289,7 @@ class Match:
         positions = list(self.init_players_pos)
         # El saque inicial es local; luego alternamos para romper la simetría.
         local_kickoff = sum(self.scorer.values()) % 2 == 0
-        positions[2 if local_kickoff else 5] = (42 if local_kickoff else 58, 30)
+        positions[3 if local_kickoff else 7] = (42 if local_kickoff else 58, 30)
         return positions
 
     def restart(self) -> None:
