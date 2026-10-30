@@ -10,7 +10,10 @@ from primitives.match_simulation import Match, PlayerProfile, Team
 def make_match():
     teams = [
         Team(club_id, f"Club {club_id}", tuple(
-            PlayerProfile(club_id * 10 + index, club_id, f"Jugador {index}", 60, 60)
+            PlayerProfile(
+                club_id * 10 + index, club_id, f"Jugador {index}",
+                speed=60, power=60, agility=60, strength=60, control=60,
+            )
             for index in range(3)
         ), formation_id=formation_id)
         for club_id, formation_id in ((1, 2), (2, 3))
