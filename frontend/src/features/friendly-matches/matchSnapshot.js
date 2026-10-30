@@ -66,7 +66,7 @@ export function validateSnapshot(snapshot, matchId) {
         && (state.ball === null || entity(state.ball))
         && (state.status !== 'WAITING' || (players.length === 0 && state.ball === null))
         && (!['RUNNING', 'FINISHED'].includes(state.status)
-            || (teams.length === 2 && state.ball !== null && teams.every((team) => players.filter((player) => player.teamId === team.id).length === 3)));
+            || (teams.length === 2 && state.ball !== null && teams.every((team) => players.filter((player) => player.teamId === team.id).length === 4)));
     if (!valid) throw new Error('El servidor envió un estado de partido incompatible.');
     return snapshot;
 }
