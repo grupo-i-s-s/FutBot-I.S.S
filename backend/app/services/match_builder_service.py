@@ -18,7 +18,7 @@ def build_match(db: Session, match_id: int, *, duration_ms: int | None = None) -
     local_rows = matches_repository.get_starting_players(db, match.creator_id)
     visitor_rows = matches_repository.get_starting_players(db, match.visitor_id)
 
-    if len(local_rows) != 3 or len(visitor_rows) != 3:
+    if len(local_rows) != 4 or len(visitor_rows) != 4:
         raise AppError(
             "MATCH_INVALID_LINEUP",
             "Cada club necesita tres jugadores activos con comportamiento.",

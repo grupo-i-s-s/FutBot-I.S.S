@@ -23,7 +23,7 @@ def get_starting_players(db: Session, club_id: int) -> list[tuple[Player, Behavi
                 Behavior.is_deleted.is_(False),
             )
             .order_by(Player.id)
-            .limit(3)
+            .limit(4)
         ).all()
     )
 
