@@ -134,6 +134,10 @@ class LeagueRound(Base):
         nullable=False,
     )
 
+    schedule_confirmed: Mapped[bool] = mapped_column(
+        default=False, server_default="false",
+    )
+
     bye_club_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("clubs.id"),
