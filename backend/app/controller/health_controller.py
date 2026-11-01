@@ -7,6 +7,7 @@ from typing import Annotated
 
 from app.database import get_db
 from app.migrate import get_migration_files
+from app.schema_state import SCHEMA_COLUMNS_SQL, find_schema_issues
 
 health_router = APIRouter(tags=["health"])
 
@@ -18,7 +19,7 @@ def health() -> dict[str, str]:
 
 @health_router.get(
     "/health/ready",
-    responses={503: {"description": "Base de datos no disponible o migraciones pendientes"}},
+    responses={503: {"description": "Base de datos no disponible, migraciones pendientes o esquema incompleto"}},
 )
 def readiness(db: Annotated[Session, Depends(get_db)]):
     try:
@@ -61,6 +62,26 @@ def readiness(db: Annotated[Session, Depends(get_db)]):
                 "database": "ok",
                 "migrations": "pending",
                 "pending_migrations": pending,
+            },
+        )
+
+    try:
+        issues = find_schema_issues(db.execute(text(SCHEMA_COLUMNS_SQL)).all())
+    except SQLAlchemyError:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "database": "unavailable"},
+        )
+
+    if issues["missing_tables"] or issues["missing_columns"]:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unavailable",
+                "database": "ok",
+                "migrations": "ok",
+                "schema": "incomplete",
+                **issues,
             },
         )
 
