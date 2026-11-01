@@ -83,7 +83,7 @@ def test_create_player_rolls_back_on_error(monkeypatch):
 def test_assign_behaviour_updates_player_in_own_club(monkeypatch):
     db = MagicMock()
     player = MagicMock(id=11, club_id=3)
-    behaviour = MagicMock(id=7, club_id=3)
+    behaviour = MagicMock(id=7, club_id=3, kind="PLAYER", validation_status="VALID")
     get_player = MagicMock(return_value=player)
     get_behaviour = MagicMock(return_value=behaviour)
     set_behaviour = MagicMock()
@@ -134,7 +134,7 @@ def test_assign_behaviour_rolls_back_failed_write(monkeypatch):
         player_service.player_repository, "get_player_by_id", MagicMock(return_value=MagicMock(id=11))
     )
     monkeypatch.setattr(
-        player_service.behaviour_repository, "get_behaviour_by_id", MagicMock(return_value=MagicMock(id=7))
+        player_service.behaviour_repository, "get_behaviour_by_id", MagicMock(return_value=MagicMock(id=7, kind="PLAYER", validation_status="VALID"))
     )
     monkeypatch.setattr(
         player_service.player_repository,
@@ -168,7 +168,7 @@ def test_player_write_commit_failure_rolls_back(db, monkeypatch, operation):
             player_service.behaviour_repository.get_default_behaviour.return_value = MagicMock(id=7)
             player_service.create_player(db, 7, valid_payload())
         else:
-            player_service.behaviour_repository.get_behaviour_by_id.return_value = MagicMock(id=7)
+            player_service.behaviour_repository.get_behaviour_by_id.return_value = MagicMock(id=7, kind="PLAYER", validation_status="VALID")
             player_service.assign_behaviour(db, 7, 11, 7)
     db.rollback.assert_called_once()
     db.refresh.assert_not_called()
