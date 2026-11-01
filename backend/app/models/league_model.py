@@ -147,3 +147,21 @@ class LeagueRound(Base):
             name="uq_league_rounds_league_number",
         ),
     )
+
+
+class LeagueStanding(Base):
+    __tablename__ = "league_standings"
+
+    league_id: Mapped[int] = mapped_column(
+        ForeignKey("leagues.id", ondelete="CASCADE"), primary_key=True,
+    )
+    club_id: Mapped[int] = mapped_column(
+        ForeignKey("clubs.id", ondelete="CASCADE"), primary_key=True,
+    )
+    played: Mapped[int] = mapped_column(default=0, server_default="0")
+    wins: Mapped[int] = mapped_column(default=0, server_default="0")
+    draws: Mapped[int] = mapped_column(default=0, server_default="0")
+    losses: Mapped[int] = mapped_column(default=0, server_default="0")
+    goals_for: Mapped[int] = mapped_column(default=0, server_default="0")
+    goals_against: Mapped[int] = mapped_column(default=0, server_default="0")
+    points: Mapped[int] = mapped_column(default=0, server_default="0")
