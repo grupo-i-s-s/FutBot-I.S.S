@@ -127,6 +127,10 @@ def test_http_start_persists_seed_fixture_and_zero_standings(database, league_da
             assert response.status_code == 200, response.text
             assert response.json() == {"leagueId": data.id, "status": "running"}
             assert client.post(f"/leagues/{data.id}/start").json() == response.json()
+            lobby = client.get(f"/leagues/{data.id}/lobby")
+            assert lobby.status_code == 200, lobby.text
+            assert {row["clubId"] for row in lobby.json()["standings"]} == set(data.clubs[:3])
+            assert all(row["points"] == 0 for row in lobby.json()["standings"])
 
     with Session(database) as db:
         league = db.get(League, data.id)

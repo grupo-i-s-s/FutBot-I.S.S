@@ -232,6 +232,17 @@ def test_lobby_handles_missing_club_and_never_reports_negative_capacity(db, leag
     assert result["remaining_slots"] == 0
 
 
+def test_running_lobby_includes_saved_standings(db, leagues):
+    leagues.row.status = "running"
+    leagues.repo.get_clubs_by_ids.return_value = [SimpleNamespace(id=1), SimpleNamespace(id=7)]
+    standings = [SimpleNamespace(club_id=7, points=3)]
+    leagues.repo.get_standings.return_value = standings
+    result = service.get_league_lobby(db, 42, 7)
+    assert result["standings"] == standings
+    leagues.repo.get_standings.assert_called_once_with(db, 42)
+    db.commit.assert_not_called()
+
+
 def test_missing_lobby_is_not_found(db, leagues):
     leagues.repo.get_league_by_id.return_value = None
     with pytest.raises(HTTPException) as error:
