@@ -113,7 +113,7 @@ export function LeagueLobby() {
                 </button>
             </div>
 
-            {pestañaActiva == 'ranking' ? (
+            {pestañaActiva == 'detalles' ? (
             <>
                 <div className="lobby-card">
                     <h2>Detalles del Lobby</h2>
