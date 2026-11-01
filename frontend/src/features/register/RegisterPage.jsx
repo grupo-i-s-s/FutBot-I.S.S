@@ -9,7 +9,6 @@ export default function RegisterPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [repeatPassword, setRepeatPassword] = useState('');
-    const [avatar, setAvatar] = useState('.');
     const [clubName, setClubName] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -20,7 +19,7 @@ export default function RegisterPage() {
         setSuccess('');
 
         try {
-            await register(email, clubName, password, repeatPassword, avatar);
+            await register(email, clubName, password, repeatPassword);
             setSuccess('Cuenta registrada. Ya podés iniciar sesión.');
         } catch (err) {
             const fields = Object.values(err.fields || {});
