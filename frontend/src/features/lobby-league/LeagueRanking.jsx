@@ -1,13 +1,17 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
+import { getLeagueRanking } from './api.js';
 import './LeagueRanking.css';
 
-export default function LeagueRanking() {
-    // 1. Datos de prueba simulando lo que vendrá del backend
-    const clubesRanking = [
-        { id: 1, nombre: 'fidodidofc', puntos: 12, pj: 4, pg: 4, pe: 0, pp: 0, dg: 8 },
-        { id: 2, nombre: 'tintinfc', puntos: 9, pj: 4, pg: 3, pe: 0, pp: 1, dg: 5 },
-        { id: 3, nombre: 'feliputo', puntos: 4, pj: 4, pg: 1, pe: 1, pp: 2, dg: -2 }
-    ];
+export default function LeagueRanking({leagueId}) {
+    const[rankData, setRankData] = useState([]);
+    
+    useEffect(() => {
+                    async function rank() {
+                        const rank = await getLeagueRanking(leagueId);  
+                        setRankData(rank)
+                    }
+                    rank()    
+                    }, [leagueId]);
 
     return (
         <div className="lobby-card">
@@ -29,7 +33,7 @@ export default function LeagueRanking() {
 
                 {/* 3. Filas de datos (Iteración) */}
                 <div className="ranking-body">
-                    {clubesRanking.map((club, index) => (
+                    {rankData.map((club, index) => (
                         <div className="ranking-row" key={club.id}>
                             <span className="col-pos">{index + 1}</span>
                             <span className="col-club">{club.nombre}</span>
