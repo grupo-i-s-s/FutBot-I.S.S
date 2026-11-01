@@ -40,7 +40,6 @@ def test_create_list_filter_and_read_lobby_with_authenticated_club(league_databa
         **credentials,
         "passwordConfirmation": credentials["password"],
         "clubName": f"Club {prefix}",
-        "avatar": "avatar-1",
     })
     assert response.status_code == 201, response.text
     assert client.post("/auth/login", json=credentials).status_code == 200
@@ -139,7 +138,7 @@ def test_join_updates_listing_and_lobby_for_newly_created_league(league_database
         credentials = {"email": f"{prefix}_{label}@example.com", "password": "password-segura"}
         response = client.post("/auth/register", json={
             **credentials, "passwordConfirmation": credentials["password"],
-            "clubName": f"{prefix} {label}", "avatar": "avatar-1",
+            "clubName": f"{prefix} {label}",
         })
         assert response.status_code == 201, response.text
         assert client.post("/auth/login", json=credentials).status_code == 200
