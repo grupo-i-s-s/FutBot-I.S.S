@@ -14,6 +14,7 @@ def access(monkeypatch, now):
                           status="SCHEDULED", sequence=5, duration_ms=60000)
     repo.get_by_id.return_value = row
     repo.get_club_names.return_value = {1: "Home", 7: "Away"}
+    repo.get_club_avatars.return_value = {1: "avatar-03.png", 7: "avatar-17.png"}
     users.get_club.return_value = SimpleNamespace(id=7)
     authenticate = Mock(return_value=SimpleNamespace(user_id=3, session_hash="hashed-token"))
     monkeypatch.setattr(snapshots, "matches_repository", repo)
@@ -47,8 +48,50 @@ def test_waiting_snapshot_contains_available_teams_and_does_not_start_match(db, 
     assert state["players"] == [] and state["ball"] is None
     assert access.row.status == "SCHEDULED"
     assert access.row.sequence == 5 and access.row.snapshot is None
+    assert [team["avatar"] for team in state["teams"]] == (
+        ["avatar-03.png"] if visitor is None else ["avatar-03.png", "avatar-17.png"])
     db.commit.assert_not_called()
     db.flush.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["RUNNING", "FINISHED", "CANCELLED"])
+def test_legacy_snapshot_gets_missing_avatars_without_mutating_persisted_state(db, access, status):
+    persisted = {
+        "sequence": 5,
+        "state": {
+            "status": status,
+            "teams": [
+                {"id": 1, "name": "Home", "score": 2},
+                {"id": 7, "name": "Away", "score": 1, "avatar": "avatar-11.png"},
+            ],
+        },
+    }
+    access.row.snapshot = persisted
+
+    result = snapshots.read_snapshot(db, 42, 1)
+
+    assert [team["avatar"] for team in result["state"]["teams"]] == [
+        "avatar-03.png", "avatar-11.png",
+    ]
+    assert "avatar" not in persisted["state"]["teams"][0]
+    assert persisted["state"]["teams"][1]["avatar"] == "avatar-11.png"
+    assert result["sequence"] == persisted["sequence"] == 5
+    access.repo.get_club_avatars.assert_called_once_with(db, (1,))
+    db.commit.assert_not_called()
+    db.flush.assert_not_called()
+
+
+def test_saved_avatars_are_returned_without_loading_current_club_identity(db, access):
+    access.row.snapshot = {
+        "sequence": 5,
+        "state": {"status": "FINISHED", "teams": [
+            {"id": 1, "avatar": "avatar-11.png"},
+            {"id": 7, "avatar": "avatar-12.png"},
+        ]},
+    }
+
+    assert snapshots.read_snapshot(db, 42, 1) is access.row.snapshot
+    access.repo.get_club_avatars.assert_not_called()
 
 
 @pytest.mark.parametrize("case, code", [("missing", "MATCH_NOT_FOUND"), ("outsider", "MATCH_FORBIDDEN"),

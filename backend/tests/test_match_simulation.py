@@ -224,7 +224,12 @@ def test_invalid_duration_is_rejected(duration):
 
 
 def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
-    match = match_simulation.Match(team(1), team(2), match_id=42, duration_ms=1000)
+    match = match_simulation.Match(
+        replace(team(1), avatar="avatar-03.png"),
+        replace(team(2), avatar="avatar-17.png"),
+        match_id=42,
+        duration_ms=1000,
+    )
     match.run_match(1 / 30)
     match.scorer["VISITANTE"] = 2
     match.next_kick_at[10] = 0.5
@@ -237,6 +242,9 @@ def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
 
     assert restored.snapshot(4, "now") == match.snapshot(4, "now")
     assert restored.checkpoint() == match.checkpoint()
+    assert [team["avatar"] for team in restored.snapshot(4, "now")["state"]["teams"]] == [
+        "avatar-03.png", "avatar-17.png",
+    ]
     restored.run_match(1 / 30)
     assert restored.time == pytest.approx(2 / 30)
 
@@ -350,6 +358,7 @@ def test_legacy_checkpoint_restores_default_formation():
     for key in ("local_team", "visitor_team"):
         checkpoint[key].pop("formation_id")
         checkpoint[key].pop("formation_positions")
+        checkpoint[key].pop("avatar")
     restored = match_simulation.Match.from_checkpoint(checkpoint)
 
     assert restored.local_team.formation_id == restored.visitor_team.formation_id == 1
