@@ -1,3 +1,4 @@
+import re
 from uuid import uuid4
 
 import pytest
@@ -71,9 +72,22 @@ def record_migrations(session, filenames):
         )
 
 
+def apply_schema_migrations(session):
+    files = migrate.get_migration_files()
+    for path in files:
+        match = re.fullmatch(
+            r"\s*BEGIN;\s*(.*?)\s*COMMIT;\s*",
+            path.read_text(encoding="utf-8"),
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        assert match is not None, path.name
+        session.execute(text(match.group(1)))
+    record_migrations(session, [path.name for path in files])
+
+
 def test_readiness_accepts_all_applied_migrations(isolated_readiness):
     client, session = isolated_readiness
-    record_migrations(session, [path.name for path in migrate.get_migration_files()])
+    apply_schema_migrations(session)
 
     response = client.get("/health/ready")
 
@@ -81,10 +95,66 @@ def test_readiness_accepts_all_applied_migrations(isolated_readiness):
     assert response.json() == {"status": "ok", "database": "ok", "migrations": "ok"}
 
 
+def test_readiness_rejects_migration_history_without_application_tables(isolated_readiness):
+    client, session = isolated_readiness
+    record_migrations(session, [path.name for path in migrate.get_migration_files()])
+
+    response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "unavailable",
+        "database": "ok",
+        "migrations": "ok",
+        "schema": "incomplete",
+        "missing_tables": [
+            "auth_sessions", "behaviors", "clubs", "default_teams",
+            "league_registrations", "leagues", "matches", "players", "users",
+        ],
+        "missing_columns": {},
+    }
+
+
+def test_readiness_rejects_missing_matches_table_with_complete_history(isolated_readiness):
+    client, session = isolated_readiness
+    apply_schema_migrations(session)
+    session.execute(text("DROP TABLE matches"))
+
+    response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "unavailable",
+        "database": "ok",
+        "migrations": "ok",
+        "schema": "incomplete",
+        "missing_tables": ["matches"],
+        "missing_columns": {},
+    }
+
+
+def test_readiness_rejects_missing_column_with_complete_history(isolated_readiness):
+    client, session = isolated_readiness
+    apply_schema_migrations(session)
+    session.execute(text("ALTER TABLE matches DROP COLUMN runtime_state"))
+
+    response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "unavailable",
+        "database": "ok",
+        "migrations": "ok",
+        "schema": "incomplete",
+        "missing_tables": [],
+        "missing_columns": {"matches": ["runtime_state"]},
+    }
+
+
 def test_readiness_detects_new_migration_after_success(isolated_readiness, monkeypatch, tmp_path):
     client, session = isolated_readiness
     filenames = [path.name for path in migrate.get_migration_files()]
-    record_migrations(session, filenames)
+    apply_schema_migrations(session)
     for filename in filenames:
         (tmp_path / filename).write_text("BEGIN; SELECT 1; COMMIT;", encoding="utf-8")
     monkeypatch.setattr(migrate, "MIGRATIONS_DIR", tmp_path)
