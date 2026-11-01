@@ -40,8 +40,8 @@ docker compose up --build -d --wait
 ```
 
 Compose espera a que PostgreSQL esté disponible antes de iniciar FastAPI y a que
-FastAPI pueda consultar la base y tenga todas las migraciones registradas antes de
-iniciar el frontend.
+FastAPI pueda consultar la base, tenga todas las migraciones registradas y encuentre
+las tablas y columnas requeridas antes de iniciar el frontend.
 
 | Servicio | Dirección predeterminada |
 | --- | --- |
@@ -54,11 +54,27 @@ iniciar el frontend.
 La pantalla inicial comprueba la conexión real con la API y PostgreSQL. La ruta
 `/health/ready` devuelve
 `200 {"status":"ok","database":"ok","migrations":"ok"}` cuando puede
-consultar la base y todos los archivos SQL de `backend/migrations/` figuran en
-`schema_migrations`. Si falta alguna migración o no existe el historial, devuelve
+consultar la base, todos los archivos SQL de `backend/migrations/` figuran en
+`schema_migrations` y existen las tablas y columnas usadas por la API.
+Si falta alguna migración o no existe el historial, devuelve
 `503` con `migrations: "pending"` y la lista `pending_migrations`. También devuelve
 `503` si no puede consultar la base o leer los archivos de migración. Docker usa
 esta ruta para el healthcheck; `/health` sigue comprobando solamente que la API responde.
+Si el historial está completo pero falta una tabla o columna, devuelve `503` con
+`schema: "incomplete"`, `missing_tables` y `missing_columns`.
+
+Al iniciar, el migrador valida el esquema real antes de permitir que arranque la API.
+Si solo queda `schema_migrations` y no hay otras tablas, vistas ni secuencias en el
+esquema actual, reconstruye las tablas y su historial automáticamente. La reconstrucción
+y las migraciones pendientes se ejecutan en una sola transacción: cualquier error
+revierte todos esos cambios. Si faltan solo algunas tablas o columnas, el arranque
+se detiene sin borrar las tablas existentes ni reiniciar el historial. Ese caso
+requiere revisar la base y restaurar los elementos faltantes. También se rechazan
+historiales con migraciones que no están disponibles en la versión del código.
+
+La reconstrucción recupera la estructura, no los datos que hayan sido eliminados.
+Las copias de seguridad siguen siendo necesarias; esta validación comprueba presencia
+de tablas y columnas, pero no sustituye una auditoría de tipos, índices o restricciones.
 
 Para PostgreSQL, usar el usuario, contraseña y base definidos en `.env`.
 Si un puerto ya está ocupado, cambiar `FRONTEND_PORT`, `BACKEND_PORT` o
