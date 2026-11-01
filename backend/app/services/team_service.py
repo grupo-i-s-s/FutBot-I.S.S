@@ -30,6 +30,8 @@ def get_default_team(db: Session, club_id: int) -> DefaultTeamRead:
 
 def update_default_team(db: Session, club_id: int, data: Lineup) -> DefaultTeamRead:
     try:
+        behaviour_repository.lock_club(db, club_id)
+        
         if data.formation_id not in FORMATIONS:
             raise AppError(
                 "VALIDATION_ERROR",
