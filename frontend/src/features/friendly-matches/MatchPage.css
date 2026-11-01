@@ -125,14 +125,16 @@
     width: 56px;
     height: 56px;
     padding: 4px;
-    border-radius: 8px;
-    background: #f5faf6;
+}
+
+.match-team-crest [data-slot="avatar-fallback"] {
+    color: #f5faf6;
 }
 
 .match-team-pending {
     font-size: 28px;
     font-weight: 700;
-    color: #527464;
+    color: #b1c8bb;
 }
 
 .match-score {
@@ -153,9 +155,6 @@
     min-width: 48px;
     min-height: 56px;
     padding: 8px;
-    background: #f5faf6;
-    color: #102820;
-    border-radius: 4px;
 }
 
 .match-score-divider {
