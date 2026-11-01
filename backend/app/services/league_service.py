@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -14,6 +14,7 @@ from app.schemas.league_schemas import (
 from app.security import hash_password, verify_password
 from app.schemas.team_schemas import Lineup
 from app.services.league_round_service import generate_league_rounds
+from app.services.league_fixture_service import ROUND_INTERVALS
 
 
 def get_league_lobby(
@@ -210,16 +211,13 @@ def start_league(db: Session, league_id: int, club_id: int) -> dict:
         if start.tzinfo is None:
             start = start.replace(tzinfo=timezone.utc)
         first_start = max(start, datetime.now(timezone.utc))
-        interval = {
-            "CONTINUOUS": timedelta(seconds=120),
-            "DAILY": timedelta(days=1),
-            "WEEKLY": timedelta(days=7),
-        }[league.round_interval]
+        interval = ROUND_INTERVALS[league.round_interval]
 
         for draw in rounds:
             round_ = league_repository.create_round(
                 db, league.id, draw.number,
                 first_start + (draw.number - 1) * interval, draw.bye_club_id,
+                schedule_confirmed=draw.number == 1,
             )
             league_repository.create_round_matches(db, round_, draw.pairings)
 

@@ -125,3 +125,34 @@ class LeagueRead(BaseModel):
 
 class LeagueListResponse(BaseModel):
     items: list[LeagueRead]
+
+
+class LeagueFixtureMatchRead(BaseModel):
+    match_id: int = Field(serialization_alias="matchId")
+    creator_club_id: int = Field(serialization_alias="creatorClubId")
+    creator_club_name: str = Field(serialization_alias="creatorClubName")
+    visitor_club_id: int = Field(serialization_alias="visitorClubId")
+    visitor_club_name: str = Field(serialization_alias="visitorClubName")
+    status: str
+    local_score: int = Field(serialization_alias="localScore")
+    visitor_score: int = Field(serialization_alias="visitorScore")
+
+
+class LeagueFixtureRoundRead(BaseModel):
+    number: int
+    scheduled_at: datetime = Field(serialization_alias="scheduledAt")
+    schedule_confirmed: bool = Field(serialization_alias="scheduleConfirmed")
+    bye_club_id: int | None = Field(serialization_alias="byeClubId")
+    matches: list[LeagueFixtureMatchRead]
+
+
+class LeagueNextMatchRead(LeagueFixtureMatchRead):
+    round_number: int = Field(serialization_alias="roundNumber")
+    scheduled_at: datetime = Field(serialization_alias="scheduledAt")
+    schedule_confirmed: bool = Field(serialization_alias="scheduleConfirmed")
+
+
+class LeagueFixtureRead(BaseModel):
+    league_id: int = Field(serialization_alias="leagueId")
+    rounds: list[LeagueFixtureRoundRead]
+    next_match: LeagueNextMatchRead | None = Field(serialization_alias="nextMatch")
