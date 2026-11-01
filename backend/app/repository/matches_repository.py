@@ -97,6 +97,7 @@ def list_available(db: Session, club_id: int, now: datetime):
         select(Matches, Club.name)
         .join(Club, Club.id == Matches.creator_id)
         .where(
+            Club.friendly_available.is_(True),
             Matches.visitor_id.is_(None),
             Matches.creator_id != club_id,
             Matches.init_date > now,
