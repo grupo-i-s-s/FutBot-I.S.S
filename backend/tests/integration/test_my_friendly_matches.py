@@ -37,7 +37,6 @@ def match_accounts():
                         **credentials,
                         "passwordConfirmation": credentials["password"],
                         "clubName": f"{prefix} {label}",
-                        "avatar": "avatar-1",
                     })
                     assert response.status_code == 201, response.text
                     assert client.post("/auth/login", json=credentials).status_code == 200
