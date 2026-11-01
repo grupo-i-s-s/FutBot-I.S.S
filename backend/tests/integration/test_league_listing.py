@@ -193,6 +193,7 @@ def test_join_updates_listing_and_lobby_for_newly_created_league(league_database
     league.status = "open"
     league.start_datetime = datetime.now(timezone.utc) - timedelta(days=1)
     db.commit()
-    assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 409
+    assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 201
+    assert client.post(f"/leagues/{league.id}/leave").status_code == 200
     assert client.post("/auth/logout").status_code == 204
     assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 401

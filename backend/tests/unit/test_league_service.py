@@ -109,7 +109,7 @@ def test_join_uses_six_selected_players_and_authenticated_club(db, leagues):
 
 
 @pytest.mark.parametrize("case, status", [
-    ("missing", 404), ("closed", 409), ("started", 409),
+    ("missing", 404), ("closed", 409),
     ("full", 409), ("registered", 409), ("foreign_player", 400),
 ])
 def test_join_rejects_unavailable_league_or_invalid_roster(db, leagues, now, case, status):
@@ -117,8 +117,6 @@ def test_join_rejects_unavailable_league_or_invalid_roster(db, leagues, now, cas
         leagues.repo.get_league_for_join.return_value = None
     elif case == "closed":
         leagues.row.status = "finished"
-    elif case == "started":
-        leagues.row.start_datetime = now
     elif case == "full":
         leagues.repo.count_registrations.return_value = leagues.row.max_teams
     elif case == "registered":
@@ -198,6 +196,15 @@ def test_leave_removes_only_current_club_registration(db, leagues):
     leagues.repo.get_registration.assert_called_once_with(db, 42, 7)
     leagues.repo.delete_registration.assert_called_once_with(db, registration)
     db.commit.assert_called_once()
+
+
+def test_open_league_allows_join_and_leave_after_planned_start(db, leagues, now):
+    leagues.row.start_datetime = now - timedelta(days=1)
+    service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6])
+    leagues.repo.get_registration.return_value = SimpleNamespace(club_id=7)
+    service.leave_league(db, 42, 7)
+    leagues.repo.create_registration.assert_called_once()
+    leagues.repo.delete_registration.assert_called_once()
 
 
 @pytest.mark.parametrize("member", [True, False])
