@@ -123,6 +123,7 @@ def get_due_match_ids(db: Session, now: datetime) -> list[int]:
         db.scalars(
             select(Matches.match_id)
             .where(
+                Matches.league_round_id.is_(None),
                 Matches.init_date <= now,
                 Matches.status.in_(("WAITING", "WAITING_OPPONENT", "SCHEDULED", "RUNNING")),
             )

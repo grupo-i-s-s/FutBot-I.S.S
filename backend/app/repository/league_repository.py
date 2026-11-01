@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session, selectinload
 from typing import Optional
 
 from app.models.auth_model import Club
-from app.models.league_model import League, LeagueRegistration
+from app.models.league_model import League, LeagueRegistration, LeagueRound, LeagueStanding
+from app.models.matches_model import Matches
 
 
 def get_league_by_id(db: Session, league_id: int) -> Optional[League]:
@@ -13,6 +14,7 @@ def get_league_by_id(db: Session, league_id: int) -> Optional[League]:
         .options(selectinload(League.registrations))
         .filter(League.id == league_id)
         .with_for_update()
+        .populate_existing()
         .first()
     )
 
@@ -24,6 +26,7 @@ def get_league_for_join(
         db.query(League)
         .filter(League.id == league_id)
         .with_for_update()
+        .populate_existing()
         .first()
     )
 
@@ -71,6 +74,41 @@ def get_clubs_by_ids(db: Session, club_ids: list[int]) -> list[Club]:
         return []
 
     return db.query(Club).filter(Club.id.in_(club_ids)).all()
+
+
+def create_round(
+        db: Session, league_id: int, number: int,
+        scheduled_at: datetime, bye_club_id: int | None,
+) -> LeagueRound:
+    round_ = LeagueRound(
+        league_id=league_id, number=number,
+        scheduled_at=scheduled_at, bye_club_id=bye_club_id,
+    )
+    db.add(round_)
+    db.flush()
+    return round_
+
+
+def create_round_matches(
+        db: Session, round_: LeagueRound, pairings: list[tuple[int, int]],
+) -> None:
+    for home_id, away_id in pairings:
+        db.add(Matches(
+            league_round_id=round_.id,
+            creator_id=home_id,
+            visitor_id=away_id,
+            init_date=round_.scheduled_at,
+            status="SCHEDULED",
+        ))
+    db.flush()
+
+
+def create_standings(db: Session, league_id: int, club_ids: list[int]) -> None:
+    db.add_all([
+        LeagueStanding(league_id=league_id, club_id=club_id)
+        for club_id in club_ids
+    ])
+    db.flush()
 
 
 def get_registration(
