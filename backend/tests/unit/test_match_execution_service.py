@@ -32,7 +32,7 @@ class Simulation:
 def execution(monkeypatch, db, now, freeze_time):
     freeze_time(service)
     simulation = Simulation()
-    row = SimpleNamespace(match_id=42, status="SCHEDULED", duration_ms=1000,
+    row = SimpleNamespace(match_id=42, league_round_id=None, status="SCHEDULED", duration_ms=1000,
                           sequence=8, snapshot=None, runtime_state=None)
     repo = Mock()
     repo.get_by_id_for_update.return_value = row
@@ -61,6 +61,21 @@ def test_execution_persists_initial_and_final_snapshots_and_stops_at_finish(db, 
     assert db.commit.call_count == 2
     service.prepare_match_start.assert_called_once_with(db, execution.row, now, duration_ms=1000)
     service.sleep.assert_called_once_with(service.STEPS_PER_SNAPSHOT * service.PHYSICS_DT)
+
+
+def test_finished_league_match_updates_fixture_before_committing(db, execution, monkeypatch):
+    execution.row.league_round_id = 7
+
+    def update(db, round_id):
+        assert round_id == 7
+        assert execution.row.status == "FINISHED"
+        assert db.commit.call_count == 1
+
+    update_schedule = Mock(side_effect=update)
+    monkeypatch.setattr(service, "update_fixture_schedule", update_schedule)
+    service._execute(db, 42, None)
+    update_schedule.assert_called_once_with(db, 7)
+    assert db.commit.call_count == 2
 
 
 def test_execution_batches_steps_and_preserves_sequence(db, execution):

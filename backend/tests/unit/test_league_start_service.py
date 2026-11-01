@@ -47,6 +47,7 @@ def test_start_creates_fixture_and_standings_before_single_commit(db, league, no
     assert league.repo.create_round_matches.call_count == 3
     for index, call in enumerate(league.repo.create_round.call_args_list):
         assert call.args[:4] == (db, 42, index + 1, now + index * interval)
+        assert call.kwargs["schedule_confirmed"] is (index == 0)
     league.repo.create_standings.assert_called_once_with(db, 42, [1, 2, 3])
     db.commit.assert_called_once()
     db.rollback.assert_not_called()

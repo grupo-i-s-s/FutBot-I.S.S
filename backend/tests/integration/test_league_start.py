@@ -30,7 +30,7 @@ from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
 from app.repository import league_repository, matches_repository
-from app.services import league_service
+from app.services import league_fixture_service, league_service, match_execution_service
 
 
 @pytest.fixture
@@ -199,6 +199,117 @@ def test_friendly_scheduler_does_not_execute_league_fixture(database, league_dat
         db.commit()
         due_ids = matches_repository.get_due_match_ids(db, datetime.now(timezone.utc))
         assert due_ids == [friendly.match_id]
+
+
+def test_fixture_http_returns_persisted_draw_rest_and_next_match(database, league_data):
+    data = league_data
+    app = FastAPI()
+    app.include_router(league_router)
+    club = SimpleNamespace(id=data.clubs[0])
+    app.dependency_overrides[get_current_club] = lambda: club
+    with Session(database, expire_on_commit=False) as db:
+        app.dependency_overrides[get_db] = lambda: db
+        with TestClient(app) as client:
+            empty = client.get(f"/leagues/{data.id}/fixture")
+            assert empty.json() == {"leagueId": data.id, "rounds": [], "nextMatch": None}
+            assert client.get("/leagues/999999/fixture").status_code == 404
+            assert client.post(f"/leagues/{data.id}/start").status_code == 200
+            response = client.get(f"/leagues/{data.id}/fixture")
+            assert response.status_code == 200, response.text
+            fixture = response.json()
+            assert len(fixture["rounds"]) == 3
+            assert [round_["scheduleConfirmed"] for round_ in fixture["rounds"]] == [True, False, False]
+            assert all(round_["scheduledAt"].endswith("Z") for round_ in fixture["rounds"])
+            assert all(len(round_["matches"]) == 1 for round_ in fixture["rounds"])
+            seed = db.get(League, data.id).draw_seed
+            assert client.get(f"/leagues/{data.id}/fixture").json() == fixture
+            assert db.get(League, data.id).draw_seed == seed
+
+            club.id = fixture["rounds"][0]["byeClubId"]
+            resting_club = client.get(f"/leagues/{data.id}/fixture", params={"clubId": data.clubs[3]}).json()
+            next_match = resting_club["nextMatch"]
+            assert next_match["roundNumber"] > 1
+            assert club.id in (next_match["creatorClubId"], next_match["visitorClubId"])
+            club.id = data.clubs[3]
+            assert client.get(f"/leagues/{data.id}/fixture").json()["nextMatch"] is None
+
+    # Una sesión nueva representa volver a cargar el backend sin datos en memoria.
+    with Session(database) as db:
+        stored = league_fixture_service.get_league_fixture(db, data.id, data.clubs[0])
+        assert [round_["matches"][0]["match_id"] for round_ in stored["rounds"]] == [
+            round_["matches"][0]["matchId"] for round_ in fixture["rounds"]
+        ]
+        assert db.get(League, data.id).draw_seed == seed
+
+
+def finish_fixture_match(db, match, finished_at, monkeypatch):
+    monkeypatch.setattr(match_execution_service, "datetime", SimpleNamespace(now=lambda _: finished_at))
+    simulation = SimpleNamespace(
+        finished=True, status="FINISHED", duration_ms=match.duration_ms,
+        scorer={"LOCAL": 1, "VISITANTE": 0},
+        checkpoint=lambda: {"finished": True},
+        snapshot=lambda sequence, sent_at: {
+            "sequence": sequence, "sentAt": sent_at,
+            "state": {"clockMs": match.duration_ms, "status": "FINISHED"},
+        },
+    )
+    return match_execution_service._persist(db, match, simulation)
+
+
+@pytest.mark.parametrize("frequency, interval", [
+    ("CONTINUOUS", timedelta(seconds=120)),
+    ("DAILY", timedelta(days=1)),
+    ("WEEKLY", timedelta(days=7)),
+])
+def test_finished_round_persists_confirmed_schedule_and_forecasts(database, league_data, monkeypatch, frequency, interval):
+    data = league_data
+    with Session(database) as db:
+        db.get(League, data.id).round_interval = frequency
+        db.commit()
+        league_service.start_league(db, data.id, data.clubs[0])
+        before = league_fixture_service.get_league_fixture(db, data.id, data.clubs[0])
+        first_match = db.get(Matches, before["rounds"][0]["matches"][0]["match_id"])
+        finished_at = before["rounds"][0]["scheduled_at"] + timedelta(hours=2)
+        finish_fixture_match(db, first_match, finished_at, monkeypatch)
+
+    with Session(database) as db:
+        after = league_fixture_service.get_league_fixture(db, data.id, data.clubs[0])
+        assert after["rounds"][0]["matches"][0]["status"] == "FINISHED"
+        assert after["rounds"][0]["matches"][0]["local_score"] == 1
+        assert after["rounds"][1]["scheduled_at"] == finished_at + interval
+        assert after["rounds"][1]["schedule_confirmed"] is True
+        assert after["rounds"][2]["scheduled_at"] == finished_at + interval * 2
+        assert after["rounds"][2]["schedule_confirmed"] is False
+        assert [round_["matches"][0]["match_id"] for round_ in after["rounds"]] == [
+            round_["matches"][0]["match_id"] for round_ in before["rounds"]
+        ]
+        for round_ in after["rounds"][1:]:
+            match = db.get(Matches, round_["matches"][0]["match_id"])
+            actual = match.init_date
+            if actual.tzinfo is None:
+                actual = actual.replace(tzinfo=timezone.utc)
+            assert actual == round_["scheduled_at"]
+
+
+def test_fixture_update_and_final_result_roll_back_together(database, league_data, monkeypatch):
+    data = league_data
+    update_schedule = match_execution_service.update_fixture_schedule
+
+    def fail_after_schedule_update(*args):
+        update_schedule(*args)
+        raise RuntimeError("Fallo después de actualizar horarios")
+
+    with Session(database) as db:
+        league_service.start_league(db, data.id, data.clubs[0])
+        before = league_fixture_service.get_league_fixture(db, data.id, data.clubs[0])
+    monkeypatch.setattr(match_execution_service, "update_fixture_schedule", fail_after_schedule_update)
+    with pytest.raises(RuntimeError):
+        with Session(database) as db:
+            match = db.get(Matches, before["rounds"][0]["matches"][0]["match_id"])
+            finish_fixture_match(db, match, datetime.now(timezone.utc), monkeypatch)
+
+    with Session(database) as db:
+        assert league_fixture_service.get_league_fixture(db, data.id, data.clubs[0]) == before
 
 
 @pytest.mark.skipif(not os.getenv("LEAGUE_TEST_DATABASE_URL"), reason="Requiere PostgreSQL para probar bloqueos")
