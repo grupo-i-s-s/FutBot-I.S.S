@@ -46,6 +46,7 @@ def teams(monkeypatch):
         creator_id=7, visitor_id=9, duration_ms=300_000,
     )
     matches.get_club_names.return_value = {7: "Local", 9: "Visitante"}
+    matches.get_club_avatars.return_value = {7: "avatar-07.png", 9: "avatar-09.png"}
     saved = Mock()
     saved.get_by_club.side_effect = lambda db, cid: SimpleNamespace(line_up=lineups[cid])
     player_repo = Mock()
@@ -74,6 +75,8 @@ def test_builder_uses_saved_starter_order_formation_and_slot_behaviours(db, team
     ]
     assert match.local_team.formation_id == 2
     assert match.visitor_team.formation_id == 3
+    assert match.local_team.avatar == "avatar-07.png"
+    assert match.visitor_team.avatar == "avatar-09.png"
     assert match.home_positions[74] == pytest.approx((18, 30))
     assert match.home_positions[94] == pytest.approx((86, 30))
     assert match.player_bodies[74] is match.world.players[0]

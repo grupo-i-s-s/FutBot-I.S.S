@@ -45,7 +45,8 @@ def database(monkeypatch, sqlite_match_dates):
     with Session(engine) as db:
         for club_id in (1, 2):
             db.add(User(id=club_id, email=f"club{club_id}@test.com", password_hash="unused"))
-            db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}", avatar="avatar"))
+            db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}",
+                        avatar=f"avatar-{club_id:02d}.png"))
             db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
                             code=DEFAULT_CODES["Equilibrado"]))
             for index in range(6):
@@ -89,6 +90,9 @@ def test_executor_persists_result_and_second_call_does_not_play_again(database, 
         assert row.local_score == 0 and row.visitor_score == 6
         assert row.started_at is not None and row.finished_at is not None
         assert row.snapshot == final
+        assert [team["avatar"] for team in final["state"]["teams"]] == [
+            "avatar-01.png", "avatar-02.png",
+        ]
         assert read_snapshot(db, 42, 1) == final
         assert read_snapshot(db, 42, 2) == final
         sequence, finished_at = row.sequence, row.finished_at
@@ -119,6 +123,7 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
         assert row.local_score == 3 and row.sequence == 2
         # Cambiar el club después de comenzar no reconstruye la alineación.
         db.get(Behavior, 1).code = "código incompatible nuevo"
+        db.get(Club, 1).avatar = "avatar-20.png"
         db.commit()
 
     monkeypatch.setattr(execution, "sleep", lambda _: None)
@@ -128,6 +133,7 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
     final = execution.run_persisted_match(42)
     assert final["state"]["status"] == "FINISHED"
     assert final["state"]["teams"][0]["score"] == 6
+    assert final["state"]["teams"][0]["avatar"] == "avatar-01.png"
     assert final["sequence"] == 3
 
 
