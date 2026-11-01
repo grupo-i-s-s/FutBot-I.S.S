@@ -20,6 +20,19 @@ class LeagueLobbyClubRead(BaseModel):
     name: str
 
 
+class LeagueStandingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    club_id: int = Field(serialization_alias="clubId")
+    played: int
+    wins: int
+    draws: int
+    losses: int
+    goals_for: int = Field(serialization_alias="goalsFor")
+    goals_against: int = Field(serialization_alias="goalsAgainst")
+    points: int
+
+
 class LeagueLobbyRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,6 +54,7 @@ class LeagueLobbyRead(BaseModel):
     registered_teams: int = Field(serialization_alias="registeredTeams")
     remaining_slots: int = Field(serialization_alias="remainingSlots")
     is_registered: bool = Field(serialization_alias="isRegistered")
+    standings: list[LeagueStandingRead] = Field(default_factory=list)
 
 
 class LeaveLeagueResponse(BaseModel):

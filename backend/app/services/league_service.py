@@ -62,6 +62,8 @@ def get_league_lobby(
         "is_registered": any(
             registration.club_id == club_id for registration in league.registrations
         ),
+        "standings": league_repository.get_standings(db, league_id)
+        if league.status in {"running", "finished"} else [],
     }
 
 

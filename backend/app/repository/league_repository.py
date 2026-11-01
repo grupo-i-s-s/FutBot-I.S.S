@@ -113,6 +113,14 @@ def create_standings(db: Session, league_id: int, club_ids: list[int]) -> None:
     db.flush()
 
 
+def get_standings(db: Session, league_id: int) -> list[LeagueStanding]:
+    return list(db.scalars(
+        select(LeagueStanding)
+        .where(LeagueStanding.league_id == league_id)
+        .order_by(LeagueStanding.points.desc(), LeagueStanding.club_id)
+    ).all())
+
+
 def get_fixture_league(db: Session, league_id: int) -> League | None:
     return db.get(League, league_id)
 
