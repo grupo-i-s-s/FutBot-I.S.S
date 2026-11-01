@@ -36,6 +36,14 @@ def get_club_names(db: Session, club_ids: tuple[int, ...]) -> dict[int, str]:
     )
 
 
+def get_club_avatars(db: Session, club_ids: tuple[int, ...]) -> dict[int, str]:
+    return dict(
+        db.execute(
+            select(Club.id, Club.avatar).where(Club.id.in_(club_ids))
+        ).all()
+    )
+
+
 def get_by_id(db: Session, match_id: int) -> Matches | None:
     return db.get(Matches, match_id)
 

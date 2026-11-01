@@ -3,7 +3,29 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.repository import matches_repository
+from app.schemas.avatar_schemas import DEFAULT_AVATAR
 from primitives.match_simulation import goal_width, height, width
+
+
+def _with_club_avatars(db: Session, snapshot: dict) -> dict:
+    teams = snapshot["state"].get("teams", [])
+    missing_ids = tuple(team["id"] for team in teams if not team.get("avatar"))
+    if not missing_ids:
+        return snapshot
+
+    # Los snapshots anteriores al campo avatar siguen siendo legibles sin
+    # reescribir el JSON persistido ni alterar su secuencia.
+    avatars = matches_repository.get_club_avatars(db, missing_ids)
+    return {
+        **snapshot,
+        "state": {
+            **snapshot["state"],
+            "teams": [
+                {**team, "avatar": team.get("avatar") or avatars.get(team["id"], DEFAULT_AVATAR)}
+                for team in teams
+            ],
+        },
+    }
 
 
 def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
@@ -13,11 +35,12 @@ def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
     if club_id not in (match.creator_id, match.visitor_id):
         raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
     if match.snapshot is not None:
-        return match.snapshot
+        return _with_club_avatars(db, match.snapshot)
     if match.status not in ("WAITING", "WAITING_OPPONENT", "SCHEDULED"):
         raise AppError("MATCH_STATE_INVALID", "Falta el snapshot persistido del partido.")
     ids = (match.creator_id,) if match.visitor_id is None else (match.creator_id, match.visitor_id)
     names = matches_repository.get_club_names(db, ids)
+    avatars = matches_repository.get_club_avatars(db, ids)
     return {
         "schemaVersion": 1, "type": "match.snapshot", "matchId": match_id,
         "sequence": match.sequence, "sentAt": datetime.now(timezone.utc).isoformat(),
@@ -25,7 +48,8 @@ def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
             "status": "WAITING", "clockMs": 0, "durationMs": match.duration_ms,
             "field": {"width": width, "height": height, "goalWidth": goal_width},
             "teams": [
-                {"id": club, "name": names[club], "side": side, "score": 0, "color": color}
+                {"id": club, "name": names[club], "avatar": avatars.get(club, DEFAULT_AVATAR),
+                 "side": side, "score": 0, "color": color}
                 for club, side, color in (
                     (match.creator_id, "LEFT", "#2563eb"),
                     (match.visitor_id, "RIGHT", "#dc2626"),
