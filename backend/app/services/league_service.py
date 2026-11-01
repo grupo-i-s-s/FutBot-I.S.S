@@ -1,16 +1,19 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
-from app.repository import league_repository, player_repository
+from app.repository import league_repository, player_repository, team_repository
 from app.schemas.league_schemas import (
     CreateLeagueRequest,
     CreatePrivateLeagueRequest,
     LeagueRead,
 )
 from app.security import hash_password, verify_password
+from app.schemas.team_schemas import Lineup
+from app.services.league_round_service import generate_league_rounds
 
 
 def get_league_lobby(
@@ -148,6 +151,89 @@ def create_private_league(
     )
 
 
+def _validate_start_lineups(db: Session, league) -> None:
+    for registration in league.registrations:
+        line_up = registration.line_up
+        # El creador se inscribe al crear la liga, sin elegir jugadores.
+        if registration.club_id == league.creator_club_id and not line_up:
+            team = team_repository.get_by_club(db, registration.club_id)
+            line_up = team.line_up if team is not None else None
+
+        if isinstance(line_up, dict):
+            try:
+                team_lineup = Lineup.model_validate(line_up)
+            except ValidationError:
+                raise HTTPException(409, "Hay una alineación incompleta o inválida.")
+            line_up = [
+                player.player_id
+                for player in team_lineup.starters + team_lineup.substitutes
+            ]
+
+        if (
+            not isinstance(line_up, list)
+            or len(line_up) != 6
+            or any(type(id_) is not int or id_ <= 0 for id_ in line_up)
+            or len(set(line_up)) != 6
+        ):
+            raise HTTPException(409, "Cada club debe tener seis jugadores distintos.")
+
+        active_ids = {
+            player.id
+            for player in player_repository.get_players_by_club(db, registration.club_id)
+        }
+        if not set(line_up).issubset(active_ids):
+            raise HTTPException(409, "Una alineación contiene jugadores no disponibles en su club.")
+        registration.line_up = line_up
+
+
+def start_league(db: Session, league_id: int, club_id: int) -> dict:
+    try:
+        # Join y leave toman el mismo bloqueo hasta confirmar su transacción.
+        league = league_repository.get_league_by_id(db, league_id)
+        if league is None:
+            raise HTTPException(404, "La liga no existe.")
+        if league.creator_club_id != club_id:
+            raise HTTPException(403, "Sólo el creador puede iniciar la liga.")
+
+        result = {"league_id": league.id, "status": "running"}
+        if league.status == "running":
+            db.commit()
+            return result
+        if league.status != "open":
+            raise HTTPException(409, "La liga no está abierta.")
+        if len(league.registrations) < league.min_teams:
+            raise HTTPException(409, "No hay suficientes clubes para iniciar la liga.")
+
+        _validate_start_lineups(db, league)
+        rounds = generate_league_rounds(db, league)
+        start = league.start_datetime
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        first_start = max(start, datetime.now(timezone.utc))
+        interval = {
+            "CONTINUOUS": timedelta(seconds=120),
+            "DAILY": timedelta(days=1),
+            "WEEKLY": timedelta(days=7),
+        }[league.round_interval]
+
+        for draw in rounds:
+            round_ = league_repository.create_round(
+                db, league.id, draw.number,
+                first_start + (draw.number - 1) * interval, draw.bye_club_id,
+            )
+            league_repository.create_round_matches(db, round_, draw.pairings)
+
+        league_repository.create_standings(
+            db, league.id, [row.club_id for row in league.registrations],
+        )
+        league.status = "running"
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        raise
+
+
 def leave_league(db: Session, league_id: int, club_id: int) -> dict:
     league = league_repository.get_league_by_id(db, league_id)
     if not league:
@@ -162,10 +248,7 @@ def leave_league(db: Session, league_id: int, club_id: int) -> dict:
             detail="No es posible que un jugador creador abandone su propia liga",
         )
 
-    now_utc = datetime.now(timezone.utc)
-    if league.status != "open" or (
-            league.start_datetime and league.start_datetime <= now_utc
-    ):
+    if league.status != "open":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="No es posible abandonar una liga que ya ha iniciado.",
@@ -213,11 +296,7 @@ def join_league(
                 detail="El código de acceso es incorrecto.",
             )
 
-    now_utc = datetime.now(timezone.utc)
-
-    if league.status != "open" or (
-            league.start_datetime and league.start_datetime <= now_utc
-    ):
+    if league.status != "open":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="No es posible unirse a una liga que ya ha comenzado o no está abierta.",

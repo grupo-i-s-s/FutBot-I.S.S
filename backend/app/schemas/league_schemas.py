@@ -54,6 +54,11 @@ class CreateLeagueResponse(BaseModel):
     message: str
 
 
+class StartLeagueResponse(BaseModel):
+    league_id: int = Field(serialization_alias="leagueId")
+    status: str
+
+
 class RoundInterval(str, Enum):
     CONTINUOUS = "CONTINUOUS"
     DAILY = "DAILY"
