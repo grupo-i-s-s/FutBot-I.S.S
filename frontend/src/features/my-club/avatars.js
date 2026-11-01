@@ -1,16 +1,16 @@
-import {Crown, Flame, Rocket, Shield, Star, Zap} from 'lucide-react';
+export const DEFAULT_AVATAR = 'avatar-01.png';
 
-// Biblioteca de avatares provisoria. El backend guarda el avatar como texto;
-// estas claves deben acordarse con el formulario de registro.
-export const AVATAR_OPTIONS = [
-    {key: 'shield', label: 'Escudo', Icon: Shield, className: 'bg-brand text-white'},
-    {key: 'flame', label: 'Llama', Icon: Flame, className: 'bg-orange-500 text-white'},
-    {key: 'zap', label: 'Rayo', Icon: Zap, className: 'bg-yellow-400 text-ink'},
-    {key: 'star', label: 'Estrella', Icon: Star, className: 'bg-sky-600 text-white'},
-    {key: 'crown', label: 'Corona', Icon: Crown, className: 'bg-violet-600 text-white'},
-    {key: 'rocket', label: 'Cohete', Icon: Rocket, className: 'bg-rose-600 text-white'},
-];
+export const AVATAR_OPTIONS = Array.from({length: 20}, (_, index) => {
+    const number = String(index + 1).padStart(2, '0');
+    const filename = `avatar-${number}.png`;
 
-export function findAvatar(key) {
-    return AVATAR_OPTIONS.find((option) => option.key === key);
+    return {
+        key: filename,
+        label: `Escudo ${number}`,
+        src: `/avatars/${filename}`,
+    };
+});
+
+export function findAvatar(filename) {
+    return AVATAR_OPTIONS.find((option) => option.key === filename);
 }

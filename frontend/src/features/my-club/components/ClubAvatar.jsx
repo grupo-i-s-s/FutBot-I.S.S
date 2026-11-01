@@ -1,18 +1,13 @@
-import {Avatar, AvatarFallback} from "@/components/ui/avatar";
-import {findAvatar} from '../avatars';
+import { Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
+import {DEFAULT_AVATAR, findAvatar} from '../avatars';
 
 const SIZE_CLASSES = {
     md: 'size-12 text-base',
-    lg: 'size-20 text-2xl'
-};
-
-const ICON_SIZE_CLASSES = {
-    md: 'size-6',
-    lg: 'size-10'
+    lg: 'size-20 text-2xl',
 };
 
 function getInitials(name = '') {
-    return name
+    return (name ?? '')
         .split(' ')
         .filter(Boolean)
         .slice(0, 2)
@@ -21,17 +16,23 @@ function getInitials(name = '') {
 }
 
 export default function ClubAvatar({avatar, clubName, size = 'lg'}) {
-    const option = findAvatar(avatar);
+    const option = findAvatar(avatar) ?? findAvatar(DEFAULT_AVATAR);
 
     return (
-        <Avatar className={SIZE_CLASSES[size]}
-                aria-label={option ? `Avatar: ${option.label}` : `Avatar de ${clubName}`}>
+        <Avatar
+            role="img"
+            aria-label={clubName ? `Escudo de ${clubName}` : option.label}
+            className={`${SIZE_CLASSES[size] ?? SIZE_CLASSES.lg} rounded-none after:hidden`}
+        >
+            <AvatarImage
+                src={option.src}
+                alt=""
+                className="rounded-none object-contain"
+            />
 
-            <AvatarFallback className={`font-bold ${option?.className ?? 'bg-primary text-primary-foreground'}`}>
-                {option ? <option.Icon className={ICON_SIZE_CLASSES[size]}
-                                       aria-hidden="true"/> : getInitials(clubName) || '?'}
+            <AvatarFallback className="rounded-none bg-transparent font-bold text-primary">
+                {getInitials(clubName) || '?'}
             </AvatarFallback>
-
         </Avatar>
     );
 }

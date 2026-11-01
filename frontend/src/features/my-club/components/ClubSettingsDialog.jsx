@@ -22,7 +22,7 @@ import {
 import {Input} from '@/components/ui/input';
 import {Switch} from '@/components/ui/switch';
 import {ToggleGroup, ToggleGroupItem} from '@/components/ui/toggle-group';
-import {AVATAR_OPTIONS} from '../avatars';
+import {AVATAR_OPTIONS, DEFAULT_AVATAR, findAvatar} from '../avatars';
 import ClubAvatar from './ClubAvatar';
 import TeamSettings from './TeamSettings';
 
@@ -71,7 +71,7 @@ export default function ClubSettingsDialog({
 
 function ClubSettingsForm({club, onSave, isSaving, saveError}) {
     const [clubName, setClubName] = useState(club.name);
-    const [avatar, setAvatar] = useState(club.avatar);
+    const [avatar, setAvatar] = useState(() => findAvatar(club.avatar)?.key ?? DEFAULT_AVATAR);
     const [isFriendlyAvailable, setIsFriendlyAvailable] = useState(club.friendlyAvailable);
     const [nameError, setNameError] = useState('');
 
@@ -121,30 +121,38 @@ function ClubSettingsForm({club, onSave, isSaving, saveError}) {
                         <FieldError>{nameError}</FieldError>
                     </Field>
 
-                    <FieldSet>
-                        <FieldLegend variant="label">Avatar</FieldLegend>
-                        <ToggleGroup
-                            value={[avatar]}
-                            onValueChange={handleAvatarChange}
-                            variant="outline"
-                            spacing={2}
-                            className="grid w-full grid-cols-3 sm:grid-cols-6"
-                        >
-                            {AVATAR_OPTIONS.map((option) => (
-                                <ToggleGroupItem
-                                    key={option.key}
-                                    value={option.key}
-                                    aria-label={option.label}
-                                    title={option.label}
-                                    className="h-auto flex-col gap-1 py-2 text-xs data-pressed:border-primary data-pressed:ring-2 data-pressed:ring-primary"
-                                >
-                                    <ClubAvatar avatar={option.key} clubName={clubName} size="md"/>
-                                    {option.label}
-                                </ToggleGroupItem>
-                            ))}
-                        </ToggleGroup>
-                    </FieldSet>
+<FieldSet>
+    <FieldLegend variant="label">Avatar</FieldLegend>
 
+    <ToggleGroup
+        aria-label="Biblioteca de avatares"
+        value={[avatar]}
+        onValueChange={handleAvatarChange}
+        multiple={false}
+        disabled={isSaving}
+        variant="outline"
+        spacing={2}
+        className="grid w-full grid-cols-3 sm:grid-cols-5"
+    >
+        {AVATAR_OPTIONS.map((option) => (
+            <ToggleGroupItem
+                key={option.key}
+                type="button"
+                value={option.key}
+                aria-label={option.label}
+                title={option.label}
+                className="h-auto flex-col gap-1 py-2 text-xs aria-pressed:border-primary aria-pressed:ring-2 aria-pressed:ring-primary"
+            >
+                <ClubAvatar
+                    avatar={option.key}
+                    clubName={clubName}
+                    size="md"
+                />
+                {option.label}
+            </ToggleGroupItem>
+        ))}
+    </ToggleGroup>
+</FieldSet>
                     <Field orientation="horizontal">
                         <FieldContent>
                             <FieldLabel htmlFor="friendly-available">Disponible para amistosos</FieldLabel>
