@@ -22,13 +22,9 @@ function loadTeam(response) {
     };
 }
 
-<<<<<<< HEAD
-export default function TeamSettings({ clubId, behaviours }) {
-=======
 export default function TeamSettings({
     clubId, players, behaviours, disabled = false, onSavingChange,
 }) {
->>>>>>> origin/develop
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [team, setTeam] = useState(null);
@@ -257,6 +253,8 @@ export default function TeamSettings({
         .map((slot, index) => ({ slot, index }))
         .slice(firstSlot, firstSlot + 3);
 
+    const selectedFormation = formations.find((formation) => String(formation.id) === team.formation);
+
     return (
         <Card>
             <CardHeader>
@@ -444,11 +442,7 @@ export default function TeamSettings({
                     <Button
                         type="submit"
                         className="w-full"
-<<<<<<< HEAD
                         disabled={isSaving || behaviours.length === 0 || formations.length === 0}
-=======
-                        disabled={disabled || isSaving || players.length < 6 || behaviours.length === 0 || formations.length === 0}
->>>>>>> origin/develop
                     >
                         {isSaving ? 'Guardando...' : 'Guardar equipo'}
                     </Button>

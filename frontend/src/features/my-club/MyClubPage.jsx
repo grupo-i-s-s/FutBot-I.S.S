@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClubHeader from './components/ClubHeader';
 import ClubSettingsDialog from './components/ClubSettingsDialog';
+import TeamSettings from './components/TeamSettings';
 import LeagueList from './components/LeagueList';
 import PlayerList from './components/PlayerList';
 import { useMyClub } from './hooks/useMyClub';
@@ -12,7 +13,7 @@ import { updateMyClub } from './api';
 
 
 
-const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12 xl:w-[calc(100%_-_280px)]';
+const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12 xl:w-[calc(100%_-_560px)]';
 
 export default function MyClubPage() {
     const [page, setPage] = useState(1);
@@ -98,13 +99,27 @@ export default function MyClubPage() {
                     onPageChange={setPage}
                 />
 
+
                 <aside
                     aria-label="Ligas inscriptas"
                     className="mt-6 xl:absolute xl:top-0 xl:mt-0 xl:left-[-280px] xl:w-64"
                 >
                     <LeagueList leagues={leagues} />
                 </aside>
+
+                <aside
+                    aria-label="Mi equipo"
+                    className="mt-6 xl:absolute xl:top-0 xl:mt-0 xl:right-[-280px] xl:w-64"
+                >
+                    <TeamSettings
+                        key={club.id}
+                        clubId={club.id}
+                        players={players}
+                        behaviours={behaviours}
+                    />
+                </aside>
             </div>
+
 
             <ClubSettingsDialog
                 club={club}
