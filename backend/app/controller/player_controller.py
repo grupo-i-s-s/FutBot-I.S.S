@@ -19,9 +19,10 @@ def list_players(
     db: Database,
     page: int = Query(1, ge=1, description="Número de página"),
     limit: int = Query(9, ge=1, description="Cantidad de elementos por página"),
+    search: str | None = Query(None, min_length=1)
 ):
     
-    players, total_count = player_service.get_players(db=db, club_id=club.id, page=page, limit=limit)
+    players, total_count = player_service.get_players(db=db, club_id=club.id, page=page, limit=limit, search = search)
     total_pages = max(1, math.ceil(total_count / limit))
 
     return {
@@ -31,6 +32,18 @@ def list_players(
         "limit": limit,
         "total_pages": total_pages,
     }
+
+@player_router.get("/by-ids", response_model=list[PlayerRead])
+def get_players_by_ids(
+    club: CurrentClub,
+    db: Database,
+    ids: list[int] = Query(..., min_length=1),
+):
+    return player_service.get_players_by_ids(
+        db=db,
+        club_id=club.id,
+        player_ids=ids,
+    )
 
 
 @player_router.post("", response_model=PlayerRead, status_code=status.HTTP_201_CREATED)
