@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 import {Link, useLocation} from 'react-router';
 import ClubAvatar from '../my-club/components/ClubAvatar';
 import {getMyClub} from '../my-club/api';
+import {subscribeToClubUpdates} from '../my-club/clubEvents';
 import '../home-page/homePage.css';
 
 export default function NavBar() {
@@ -10,6 +11,11 @@ export default function NavBar() {
 
     useEffect(() => {
         const controller = new AbortController();
+        const unsubscribe = subscribeToClubUpdates((updatedClub) => {
+            // Un GET anterior al guardado no debe reemplazar el logo confirmado.
+            controller.abort();
+            setClub(updatedClub);
+        });
 
         getMyClub({signal: controller.signal})
             .then((data) => {
@@ -23,7 +29,10 @@ export default function NavBar() {
                 }
             });
 
-        return () => controller.abort();
+        return () => {
+            controller.abort();
+            unsubscribe();
+        };
     }, [pathname]);
 
     return (

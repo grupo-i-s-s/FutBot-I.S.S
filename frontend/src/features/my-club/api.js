@@ -1,4 +1,6 @@
 import { request } from '../../api/http';
+import { notifyClubUpdated } from './clubEvents';
+
 
 // Endpoints según docs/api_endpoints.md.
 export function getMyClub(options) {
@@ -28,11 +30,13 @@ export function assignPlayerBehaviour(playerId, behaviourId) {
     });
 }
 
-export function updateMyClub(changes) {
-    return request('/club/me', {
+export async function updateMyClub(changes) {
+    const updatedClub = await request('/club/me', {
         method: 'PATCH',
         body: changes,
     });
+    notifyClubUpdated(updatedClub);
+    return updatedClub;
 }
 
 export function listMyLeagues(options) {

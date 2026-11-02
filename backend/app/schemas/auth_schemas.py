@@ -25,7 +25,6 @@ class RegisterRequest(InputSchema):
 
     club_name: Name = Field(alias="clubName")
 
-    avatar: str = Field(min_length=1, max_length=100)
 
     @field_validator("club_name", mode="before")
     @classmethod
