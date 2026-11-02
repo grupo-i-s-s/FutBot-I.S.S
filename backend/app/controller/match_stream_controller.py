@@ -10,6 +10,7 @@ from app.errors import AppError
 from app.services import match_stream_services
 from app.services.match_snapshot_service import read_snapshot
 from app.schemas.matches_schemas import LiveRequests
+from app.services.match_request_handler import live_request
 
 match_stream_router = APIRouter(prefix="/matches", tags=["matches"])
 SESSION_CHECK_SECONDS = 15
@@ -84,3 +85,12 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
         incoming.cancel()
         with suppress(asyncio.CancelledError, WebSocketDisconnect):
             await incoming
+
+@match_stream_router.post("/{match_id}/live_request")
+def update_behaviour(match_id:int, data: LiveRequests, db:Database, club:CurrentClub):
+    live_request[match_id].append({
+        "action": "CHANGE_BEHAVIOUR"                    
+        "player_id": data.player_id,
+        "new_behaviour": behaviour.code
+    })
+    return 
