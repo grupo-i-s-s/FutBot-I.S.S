@@ -68,6 +68,7 @@ class Team:
     players: tuple[PlayerProfile, ...]
     formation_id: int = 1
     formation_positions: tuple[tuple[float, float], ...] | None = None
+    avatar: str | None = None
 
     def __post_init__(self):
         positions = self.formation_positions
@@ -223,7 +224,8 @@ class Match:
                 **self._breaks.public_state(),
                 "field": {"width": width, "height": height, "goalWidth": goal_width},
                 "teams": [
-                    {"id": team.club_id, "name": team.name, "side": self.team_side(team.club_id),
+                    {"id": team.club_id, "name": team.name, "avatar": team.avatar,
+                     "side": self.team_side(team.club_id),
                      "score": self.scorer[score_key], "color": color}
                     for team, score_key, color in (
                         (self.local_team, "LOCAL", "#2563eb"),
@@ -291,6 +293,7 @@ class Match:
                 ),
                 formation_id=team.get("formation_id", 1),
                 formation_positions=team.get("formation_positions"),
+                avatar=team.get("avatar"),
             )
 
         match = cls(
