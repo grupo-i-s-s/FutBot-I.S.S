@@ -1,6 +1,6 @@
 import logging
 import pymunk
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from math import isfinite
 import random
 
@@ -345,7 +345,6 @@ class Match:
 
         return match
 
-
     def get_players_state(self) -> list[dict]:
         return [
             {
@@ -454,6 +453,26 @@ class Match:
             logger.exception("Falló el comportamiento del jugador %s", profile.id)
             return None
 
+    def change_behaviour(self, player_id: int, new_mode: BehaviourMode) -> None:
+        target_profile = next(
+            (p for p in self.player_profiles if p.id == player_id))
+        
+        is_local = target_profile.club_id == self.local_team.club_id
+        team = self.local_team if is_local else self.visitor_team           #De aca saco a que equipo pertenece
+
+        for i, profile in enumerate(team.players):
+            if profile.id == player_id:
+                new_players = list(team.players)
+                new_players[i] = replace(profile, behaviour_mode=new_mode)      #Replace me deja "Cambiar" el comportamiento al jugador
+
+                if is_local:
+                    self.local_team = replace(team, players=tuple(new_players))
+                else:
+                    self.visitor_team = replace(team, players=tuple(new_players))
+
+                self.player_profiles = (self.local_team.players + self.visitor_team.players)    #Hay que pisar los valores viejos
+                return
+
     def _run_play(self, dt: float) -> None:
         if not isfinite(dt) or dt <= 0:
             raise ValueError("dt debe ser positivo y finito")
@@ -506,7 +525,6 @@ class Match:
             self.scorer[scorer_by_side[scoring_side]] += 1
             self.restart()
             logger.info("Partido %s: goles %s", self.match_id, self.scorer)
-
 
     def run_match(self, dt: float) -> None:
         """Avanza el encuentro, incluyendo tiempo de juego y descansos."""
