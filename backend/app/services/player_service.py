@@ -52,8 +52,16 @@ def assign_behaviour(
     return player
 
 
-def get_players(db: Session, club_id: int, page: int, limit: int):
+def get_players(db: Session, club_id: int, page: int, limit: int, search: str | None = None):
     offset = (page - 1) * limit
-    players = db.query(Player).filter(Player.club_id == club_id).offset(offset).limit(limit).all()
-    total_count = db.query(Player).filter(Player.club_id == club_id).count()
+    query = db.query(Player).filter(Player.club_id == club_id)
+    if search and search.strip():
+        query = query.filter(Player.name.ilike(f"%{search.strip()}%"))
+    players = query.offset(offset).limit(limit).all()
+    total_count = query.count()
     return players, total_count
+
+def get_players_by_ids(db: Session, club_id: int, player_ids: list[int]):
+    query = db.query(Player).filter(Player.club_id == club_id)
+    players_ids = query.filter(Player.id.in_(player_ids)).all()
+    return players_ids
