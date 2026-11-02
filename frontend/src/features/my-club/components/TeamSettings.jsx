@@ -1,15 +1,15 @@
-import {useEffect, useState} from 'react';
-import {getDefaultTeam, getFormations, updateDefaultTeam} from '../api';
-import {Users} from 'lucide-react';
-import {Button} from '@/components/ui/button';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+import { getDefaultTeam, getFormations, updateDefaultTeam, listPlayers, getPlayersByIds } from '../api';
+import { Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from '@/components/ui/card';
 
 
 const SELECT_CLASSES =
     'w-full min-w-0 rounded-md border border-input bg-background px-2 py-2 text-sm';
 
 function loadTeam(response) {
-    const {lineUp} = response;
+    const { lineUp } = response;
 
     return {
         formation: String(lineUp.formationId),
@@ -22,11 +22,16 @@ function loadTeam(response) {
     };
 }
 
-export default function TeamSettings({clubId, players, behaviours}) {
+export default function TeamSettings({ clubId, behaviours }) {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [team, setTeam] = useState(null);
     const [formations, setFormations] = useState([]);
+    const [selectedPlayers, setSelectedPlayers] = useState([]);
+    const [slotSearch, setSlotSearch] = useState({});
+    const [slotResults, setSlotResults] = useState({});
+    const [slotSearchErrors, setSlotSearchErrors] = useState({});
+    const [activeGroup, setActiveGroup] = useState('starters');
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -37,13 +42,11 @@ export default function TeamSettings({clubId, players, behaviours}) {
 
     useEffect(() => {
         const controller = new AbortController();
-        const options = {signal: controller.signal};
+        const options = { signal: controller.signal };
 
         async function fetchTeam() {
             setLoading(true);
-            setTeam(null);
             setError('');
-            setSuccess('');
 
             try {
                 const [response, catalog] = await Promise.all([
@@ -54,12 +57,17 @@ export default function TeamSettings({clubId, players, behaviours}) {
                 if (controller.signal.aborted) return;
 
                 if (!response) {
-                    throw new Error(
-                        'No se encontró el equipo del club en la base de datos.'
-                    );
+                    throw new Error('No se encontró el equipo guardado del club.');
                 }
 
-                setTeam(loadTeam(response));
+                const loadedTeam = loadTeam(response);
+                const playerIds = loadedTeam.slots.map((slot) => Number(slot.playerId));
+                const savedPlayers = await getPlayersByIds(playerIds, options);
+
+                if (controller.signal.aborted) return;
+
+                setTeam(loadedTeam);
+                setSelectedPlayers(savedPlayers);
                 setFormations(catalog.items);
             } catch (err) {
                 if (!controller.signal.aborted) {
@@ -76,27 +84,97 @@ export default function TeamSettings({clubId, players, behaviours}) {
         return () => controller.abort();
     }, [clubId]);
 
+    useEffect(() => {
+        const controllers = [];
+        const timeoutIds = [];
+
+        Object.entries(slotSearch).forEach(([slotIndex, text]) => {
+            const search = text.trim();
+            if (!search) return;
+
+            const controller = new AbortController();
+            controllers.push(controller);
+
+            const timeoutId = setTimeout(async () => {
+                setSlotSearchErrors((current) => ({
+                    ...current,
+                    [slotIndex]: '',
+                }));
+
+                try {
+                    const response = await listPlayers({
+                        search,
+                        page: 1,
+                        limit: 10,
+                        signal: controller.signal,
+                    });
+
+                    if (!controller.signal.aborted) {
+                        setSlotResults((current) => ({
+                            ...current,
+                            [slotIndex]: response.items,
+                        }));
+                    }
+                } catch (err) {
+                    if (!controller.signal.aborted && err.name !== 'AbortError') {
+                        setSlotSearchErrors((current) => ({
+                            ...current,
+                            [slotIndex]: err.message || 'No se pudieron buscar jugadores.',
+                        }));
+                    }
+                }
+            }, 250);
+
+            timeoutIds.push(timeoutId);
+        });
+
+        return () => {
+            timeoutIds.forEach(clearTimeout);
+            controllers.forEach((controller) => controller.abort());
+        };
+    }, [slotSearch]);
+
     function changeSlot(index, field, value) {
         clearFeedback();
 
         setTeam((current) => ({
             ...current,
-            slots: current.slots.map((slot, slotIndex) => {
-                if (slotIndex !== index) return slot;
+            slots: current.slots.map((slot, slotIndex) =>
+                slotIndex === index
+                    ? { ...slot, [field]: value }
+                    : slot
+            ),
+        }));
+    }
 
-                if (field === 'playerId') {
-                    const player = players.find(
-                        (item) => String(item.id) === value
-                    );
+    function selectPlayer(slotIndex, player) {
+        clearFeedback();
 
-                    return {
-                        playerId: value,
-                        behaviourId: String(player?.behaviorId ?? ''),
-                    };
-                }
+        setTeam((current) => ({
+            ...current,
+            slots: current.slots.map((slot, index) =>
+                index === slotIndex
+                    ? {
+                        playerId: String(player.id),
+                        behaviourId: String(player.behaviorId),
+                    }
+                    : slot
+            ),
+        }));
 
-                return {...slot, [field]: value};
-            }),
+        setSelectedPlayers((current) => [
+            ...current.filter((item) => item.id !== player.id),
+            player,
+        ]);
+
+        setSlotSearch((current) => ({
+            ...current,
+            [slotIndex]: '',
+        }));
+
+        setSlotResults((current) => ({
+            ...current,
+            [slotIndex]: [],
         }));
     }
 
@@ -166,11 +244,16 @@ export default function TeamSettings({clubId, players, behaviours}) {
         return <p role="alert">{error}</p>;
     }
 
+    const firstSlot = activeGroup === 'starters' ? 0 : 3;
+    const visibleSlots = team.slots
+        .map((slot, index) => ({ slot, index }))
+        .slice(firstSlot, firstSlot + 3);
+
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <Users className="size-5" aria-hidden="true"/>
+                    <Users className="size-5" aria-hidden="true" />
                     Mi equipo
                 </CardTitle>
                 <CardDescription>
@@ -206,7 +289,26 @@ export default function TeamSettings({clubId, players, behaviours}) {
                         </select>
                     </div>
 
-                    {team.slots.map((slot, index) => (
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button
+                            type="button"
+                            variant={activeGroup === 'starters' ? 'default' : 'outline'}
+                            onClick={() => setActiveGroup('starters')}
+                            aria-pressed={activeGroup === 'starters'}
+                        >
+                            Titulares
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant={activeGroup === 'substitutes' ? 'default' : 'outline'}
+                            onClick={() => setActiveGroup('substitutes')}
+                            aria-pressed={activeGroup === 'substitutes'}
+                        >
+                            Suplentes
+                        </Button>
+                    </div>
+                    {visibleSlots.map(({ slot, index }) => (
                         <fieldset
                             key={index}
                             disabled={isSaving}
@@ -223,30 +325,71 @@ export default function TeamSettings({clubId, players, behaviours}) {
                                     Jugador del lugar {index + 1}
                                 </label>
 
-                                <select
-                                    id={`team-player-${index}`}
-                                    className={SELECT_CLASSES}
-                                    value={slot.playerId}
-                                    onChange={(event) =>
-                                        changeSlot(index, 'playerId', event.target.value)
-                                    }
-                                >
-                                    <option value="">Elegir jugador</option>
+                                <div className="space-y-2">
+                                    <p className="text-sm">
+                                        Seleccionado:{' '}
+                                        <strong>
+                                            {selectedPlayers.find(
+                                                (player) => String(player.id) === slot.playerId
+                                            )?.name ?? 'Ninguno'}
+                                        </strong>
+                                    </p>
 
-                                    {players.map((player) => (
-                                        <option
-                                            key={player.id}
-                                            value={player.id}
-                                            disabled={team.slots.some(
-                                                (other, otherIndex) =>
-                                                    otherIndex !== index &&
-                                                    other.playerId === String(player.id)
-                                            )}
-                                        >
-                                            {player.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    <label htmlFor={`team-player-search-${index}`} className="sr-only">
+                                        Buscar jugador para el lugar {index + 1}
+                                    </label>
+
+                                    <input
+                                        id={`team-player-search-${index}`}
+                                        type="search"
+                                        className={SELECT_CLASSES}
+                                        value={slotSearch[index] ?? ''}
+                                        onChange={(event) => {
+                                            const value = event.target.value;
+
+                                            setSlotSearch((current) => ({
+                                                ...current,
+                                                [index]: value,
+                                            }));
+
+                                            if (!value.trim()) {
+                                                setSlotResults((current) => ({
+                                                    ...current,
+                                                    [index]: [],
+                                                }));
+                                            }
+                                        }}
+                                        placeholder="Buscar jugador por nombre"
+                                    />
+
+                                    {slotSearchErrors[index] && (
+                                        <p role="alert" className="text-sm text-destructive">
+                                            {slotSearchErrors[index]}
+                                        </p>
+                                    )}
+
+                                    <ul className="space-y-1">
+                                        {(slotResults[index] ?? [])
+                                            .filter((player) =>
+                                                !team.slots.some(
+                                                    (other, otherIndex) =>
+                                                        otherIndex !== index &&
+                                                        other.playerId === String(player.id)
+                                                )
+                                            )
+                                            .map((player) => (
+                                                <li key={player.id}>
+                                                    <button
+                                                        type="button"
+                                                        className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
+                                                        onClick={() => selectPlayer(index, player)}
+                                                    >
+                                                        {player.name}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                    </ul>
+                                </div>
                             </div>
 
                             <div>
@@ -274,12 +417,6 @@ export default function TeamSettings({clubId, players, behaviours}) {
                         </fieldset>
                     ))}
 
-                    {players.length < 6 && (
-                        <p className="text-sm text-destructive">
-                            Necesitás al menos 6 jugadores para configurar el equipo.
-                        </p>
-                    )}
-
                     {behaviours.length === 0 && (
                         <p className="text-sm text-destructive">
                             Necesitás comportamientos disponibles.
@@ -289,7 +426,7 @@ export default function TeamSettings({clubId, players, behaviours}) {
                     <Button
                         type="submit"
                         className="w-full"
-                        disabled={isSaving || players.length < 6 || behaviours.length === 0 || formations.length === 0}
+                        disabled={isSaving || behaviours.length === 0 || formations.length === 0}
                     >
                         {isSaving ? 'Guardando...' : 'Guardar equipo'}
                     </Button>
