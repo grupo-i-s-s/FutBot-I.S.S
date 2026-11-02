@@ -1,5 +1,6 @@
-import React, {useEffect, useState} from 'react';
-import {fetchBehaviours} from '../services/behavioursApi';
+import React, { useEffect, useState } from 'react';
+import { fetchBehaviours } from '../services/behavioursApi';
+import { Link } from 'react-router'
 
 export default function BehaviourList() {
     const [behaviours, setBehaviours] = useState([]);
@@ -48,6 +49,7 @@ export default function BehaviourList() {
     return (
         <div className="max-w-4xl mx-auto p-6">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Catálogo de Comportamientos</h2>
+            <Link to="/crear-comportamiento" className="text-blue-600 hover:underline text-sm font-medium self-start">Crear nuevo comportamiento</Link>
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {behaviours.map((behaviour) => (
                     <li key={behaviour.id}
@@ -57,8 +59,8 @@ export default function BehaviourList() {
                                 <h3 className="text-lg font-semibold text-gray-900">{behaviour.name}</h3>
                                 {behaviour.isDefault && (
                                     <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-medium">
-                    Default
-                  </span>
+                                        Default
+                                    </span>
                                 )}
                             </div>
                             <p className="text-gray-600 text-sm mb-4">{behaviour.description || 'Sin descripción.'}</p>
