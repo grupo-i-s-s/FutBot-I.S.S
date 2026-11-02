@@ -9,6 +9,7 @@ from app.dependencies import CurrentClub, Database
 from app.errors import AppError
 from app.services import match_stream_services
 from app.services.match_snapshot_service import read_snapshot
+from app.schemas.matches_schemas import LiveRequests
 
 match_stream_router = APIRouter(prefix="/matches", tags=["matches"])
 SESSION_CHECK_SECONDS = 15
