@@ -89,8 +89,9 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
 @match_stream_router.post("/{match_id}/live_request")
 def update_behaviour(match_id:int, data: LiveRequests, db:Database, club:CurrentClub):
     live_request[match_id].append({
-        "action": "CHANGE_BEHAVIOUR"                    
+        "action": "CHANGE_BEHAVIOUR",                   
         "player_id": data.player_id,
-        "new_behaviour": behaviour.code
+        "new_behaviour": behaviour.code,
+        "new_behaviour_name": behaviour.name
     })
     return 

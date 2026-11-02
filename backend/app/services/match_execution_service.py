@@ -81,7 +81,7 @@ def _execute(db: Session, match_id: int, duration_ms: int | None, stop_event: Ev
             while live_request[match_id]:
                 request = live_request[match_id].pop(0)
                 if request["action"] == "CHANGE_BEHAVIOUR":
-                        resolve_behaviour(request["new_behaviour"])
+                        resolve_behaviour(request["new_behaviour"], request["new_behaviour_name"])
                         simulation.update_player_behaviour(request["player_id"], mode)
         for _ in range(STEPS_PER_SNAPSHOT):
             simulation.run_match(PHYSICS_DT)
