@@ -31,7 +31,7 @@ def create_player(db: Session, club_id: int, data: PlayerCreate) -> Player:
 
 
 def assign_behaviour(
-        db: Session, club_id: int, player_id: int, behaviour_id: int
+        db: Session, club_id: int, player_id: int, behaviour_id: int,
 ) -> Player:
     player = player_repository.get_player_by_id(db, club_id, player_id)
     if player is None:
@@ -40,6 +40,10 @@ def assign_behaviour(
     behaviour = behaviour_repository.get_behaviour_by_id(db, club_id, behaviour_id)
     if behaviour is None:
         raise AppError("BEHAVIOUR_NOT_FOUND", "El comportamiento no existe en tu club.")
+    if behaviour.kind != "PLAYER":
+        raise AppError("BEHAVIOUR_INVALID", "El comportamiento debe ser de tipo PLAYER.")
+    if behaviour.validation_status!="VALID":
+        raise AppError("BEHAVIOUR_INVALID", "El comportamiento aun no esta valdado.")
 
     try:
         player_repository.set_player_behaviour(db, player, behaviour.id)
