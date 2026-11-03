@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { fetchBehaviours } from '../services/behavioursApi';
 import { Link } from 'react-router'
+import { buttonVariants } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import { CardAction } from '@/components/ui/card';
 
 export default function BehaviourList() {
     const [behaviours, setBehaviours] = useState([]);
@@ -49,7 +52,13 @@ export default function BehaviourList() {
     return (
         <div className="max-w-4xl mx-auto p-6">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Catálogo de Comportamientos</h2>
-            <Link to="/crear-comportamiento" className="text-blue-600 hover:underline text-sm font-medium self-start">Crear nuevo comportamiento</Link>
+            <div className="mb-6 flex justify-start">
+                <Link to="/crear-comportamiento" className={buttonVariants({ size: 'sm' })}>
+                    <Plus className="size-4" aria-hidden="true" />
+                    Crear nuevo comportamiento
+                </Link>
+            </div>
+
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {behaviours.map((behaviour) => (
                     <li key={behaviour.id}
