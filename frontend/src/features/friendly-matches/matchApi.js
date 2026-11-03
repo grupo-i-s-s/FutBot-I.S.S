@@ -24,9 +24,9 @@ export function changeBehaviour(matchId, playerId, behaviourId) {
     
     return request(`/matches/${id}/live_request`, {
         method: 'POST',
-        body: JSON.stringify({
+        body:{
             player_id: playerId,
             behaviour_id: behaviourId
-        })
+        }
     });
 }

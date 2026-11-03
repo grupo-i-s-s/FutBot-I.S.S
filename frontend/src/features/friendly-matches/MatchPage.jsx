@@ -57,9 +57,9 @@ const label = terminal
                     : 'En vivo'
         );
 
-const behaviours = [{id:1, name: "Ofensivo"},
-                    {id:2, name: "Defensivo"},
-                    {id:3, name: "Equilibrado"}];
+const behaviours = [{id:8, name: "Ofensivo"},
+                    {id:9, name: "Defensivo"},
+                    {id:7, name: "Equilibrado"}];
 
     return (
         <main className="match-page">
