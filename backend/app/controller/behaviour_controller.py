@@ -5,6 +5,8 @@ from app.dependencies import CurrentClub, Database
 from app.schemas.behaviour_schemas import BehaviourListResponse, BehaviourReadDetail
 from app.services import behaviour_service
 from app.schemas.behaviour_schemas import BehaviourCreate, BehaviourRead
+from app.schemas.behaviour_schemas import ( BehaviourValidateRequest, BehaviourValidateResponse)
+from primitives.behaviour_api.validation import validate_program
 
 behaviour_router = APIRouter(prefix="/behaviours", tags=["behaviours"])
 
@@ -29,4 +31,11 @@ def create_behaviour(payload: BehaviourCreate, club: CurrentClub, db: Database):
 def delete_behaviour(behaviour_id: int, club: CurrentClub, db:Database) -> None:
     behaviour_service.delete_behaviour(db=db, club_id=club.id, behaviour_id=behaviour_id)
 
-    
+@behaviour_router.post("/validate", response_model=BehaviourValidateResponse)
+def validate_behaviour( payload: BehaviourValidateRequest, club: CurrentClub) -> BehaviourValidateResponse:
+    diagnostics = validate_program(payload.code, kind=payload.kind)
+
+    return BehaviourValidateResponse(
+        valid=not diagnostics,
+        diagnostics=diagnostics,
+    )
