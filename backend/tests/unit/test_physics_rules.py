@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from primitives import physics
+from pymunk.vec2d import Vec2d
 
 
 @pytest.mark.parametrize("width, height, goal", [
@@ -20,7 +21,7 @@ def test_invalid_field_is_rejected_before_creating_physics_engine(monkeypatch, w
 
 def world(ball_position):
     return SimpleNamespace(field=physics.Field(100, 60, 20),
-                           space=Mock(), ball=SimpleNamespace(position=ball_position),
+                           space=Mock(), ball=SimpleNamespace(position=ball_position, velocity=Vec2d(0,0)),
                            players=[SimpleNamespace(velocity=(3, 4))])
 
 
@@ -33,7 +34,7 @@ def test_scoring_uses_goal_opening_and_correct_attacking_side(position, scorer):
     assert physics.step(state, 0.1) == scorer
     assert state.space.step.call_count == (1 if scorer else 4)
     assert all(call.args == (0.025,) for call in state.space.step.call_args_list)
-    assert state.players[0].velocity == (0, 0)
+    assert state.players[0].velocity == (3, 4)
 
 
 @pytest.mark.parametrize("dt", [0, -0.1])

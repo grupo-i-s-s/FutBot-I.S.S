@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from app.schemas.avatar_schemas import AvatarFilename
 
 
 class ClubRead(BaseModel):
@@ -19,9 +20,8 @@ class ClubUpdate(BaseModel):
     )
 
     name: str = Field(min_length=1, max_length=50)
-    avatar: str = Field(min_length=1, max_length=80)
+    avatar: AvatarFilename
     friendly_available: StrictBool = Field(alias="friendlyAvailable")
-
 
 class ClubLeagueRead(BaseModel):
     id: int

@@ -4,6 +4,10 @@ import {useMatchConnection} from './hooks/useMatchConnection.js';
 import MatchCanvas from './components/MatchCanvas.jsx';
 import MatchScoreboard from './components/MatchScoreboard.jsx';
 import './MatchPage.css';
+import {isPaused} from './matchSnapshot.js';
+import MatchBreakNotice, {
+    breakLabel,
+} from './components/MatchBreakNotice.jsx';
 
 const connectionLabels = {
     loading: 'Cargando partido...', connecting: 'Conectando...', reconnecting: 'Reconectando...',
@@ -22,10 +26,23 @@ export default function MatchPage() {
     const {snapshot, connectionStatus, error, retry} = useMatchConnection(matchId);
     const state = snapshot?.state;
     const terminal = ['FINISHED', 'CANCELLED'].includes(state?.status);
-    const live = connectionStatus === 'connected' && state?.status === 'RUNNING';
-    const label = terminal ? (state.status === 'FINISHED' ? 'Finalizado' : 'Cancelado')
-        : connectionLabels[connectionStatus] ?? (state?.status === 'WAITING' ? 'Esperando inicio' : 'En vivo');
+const connected = connectionStatus === 'connected';
+const paused = isPaused(state);
 
+const live = connected
+    && state?.status === 'RUNNING'
+    && !paused;
+
+const label = terminal
+    ? (state.status === 'FINISHED' ? 'Finalizado' : 'Cancelado')
+    : connectionLabels[connectionStatus]
+        ?? (
+            paused
+                ? breakLabel(state)
+                : state?.status === 'WAITING'
+                    ? 'Esperando inicio'
+                    : 'En vivo'
+        );
     return (
         <main className="match-page">
             <div className="match-page-content">
@@ -39,6 +56,10 @@ export default function MatchPage() {
                 {state && (
                     <>
                         <MatchScoreboard state={state}/>
+                        <MatchBreakNotice
+                            state={state}
+                            connected={connected}
+                        />
                         {state.status === 'WAITING' &&
                             <p className="match-notice">Esperando el inicio del partido. Podés dejar esta página
                                 abierta.</p>}

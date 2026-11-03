@@ -43,12 +43,15 @@ def registration(auth):
     ]
     return RegisterRequest.model_validate({
         "email": "user@example.com", "password": "safe-password",
-        "passwordConfirmation": "safe-password", "clubName": "My club", "avatar": "avatar-1",
+        "passwordConfirmation": "safe-password", "clubName": "My club",
     })
 
 
 def test_registration_saves_complete_default_team_before_confirming(db, auth, registration):
     def before_commit():
+        auth.users.create_club.assert_called_once_with(
+            db, user_id=1, name="my club", avatar="avatar-01.png",
+        )
         auth.teams.save.assert_called_once_with(db, 7, {
             "formationId": 1,
             "starters": [{"playerId": i, "behaviourId": 10 + (i - 1) // 2} for i in (1, 2, 3)],
