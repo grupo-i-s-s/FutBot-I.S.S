@@ -1,13 +1,22 @@
-import {request} from '../../api/http';
-import {notifyClubUpdated} from './clubEvents';
+import { request } from '../../api/http';
+import { notifyClubUpdated } from './clubEvents';
+
 
 // Endpoints según docs/api_endpoints.md.
 export function getMyClub(options) {
     return request('/club/me', options);
 }
 
-export function listPlayers(options) {
-    return request('/players', options);
+export function listPlayers({ page = 1, limit = 9, search, ...options } = {}) {
+    const params = new URLSearchParams({ page, limit });
+    if (search?.trim()) params.set('search', search.trim());
+    return request(`/players?${params.toString()}`, options);
+}
+
+export function getPlayersByIds(ids, options) {
+    const params = new URLSearchParams();
+    ids.forEach((id) => params.append('ids', id));
+    return request(`/players/by-ids?${params}`, options);
 }
 
 export function listBehaviours(options) {
@@ -17,7 +26,7 @@ export function listBehaviours(options) {
 export function assignPlayerBehaviour(playerId, behaviourId) {
     return request(`/players/${playerId}/behaviour`, {
         method: 'PATCH',
-        body: {behaviourId},
+        body: { behaviourId },
     });
 }
 
