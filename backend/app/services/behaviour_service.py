@@ -4,7 +4,7 @@ from app.errors import AppError
 from app.models.behaviour_model import Behavior
 from app.repository import behaviour_repository
 from app.schemas.behaviour_schemas import BehaviourCreate
-from app.services.behaviour_validation_service import validate_program
+from backend.primitives.behaviour_api.validation import validate_program
 from app.models.league_model import LeagueRegistration
 from app.models.matches_model import Matches
 from app.models.player_model import Player
@@ -24,7 +24,7 @@ def behaviour_id(db: Session, club_id: int, behaviour_id: int) -> Behavior:
     return behaviour
 
 def create_behaviour(db: Session, club_id: int, data: BehaviourCreate)-> Behavior:
-    diagnostics = validate_program(data.code)
+    diagnostics = validate_program(data.code, kind=data.kind)
 
     if diagnostics:
         raise AppError("BEHAVIOUR_INVALID", "El programa del comportamiento es inválido.", diagnostics=diagnostics)
@@ -91,7 +91,7 @@ def _player_ids(value) -> set[int]:
         return result
 
     if isinstance(value, list):
-        result = {item for item in value if type(item) is int}}
+        result = {item for item in value if type(item) is int}
 
         for item in value:
             result.update(_player_ids(item))
@@ -109,7 +109,7 @@ def delete_behaiour(db: Session, club_id:int, behaviour_id: int) -> None:
 
         references = []
 
-        players = behaviour_repository.get_players_using:behaviour(db, club_id, behaviour_id)
+        players = behaviour_repository.get_players_usingbehaviour(db, club_id, behaviour_id)
         references.extend(f"jugador {player.name} (#{player.id})" for player in players)
 
         default_team = behaviour_repository.get_default_team(db, club_id)
