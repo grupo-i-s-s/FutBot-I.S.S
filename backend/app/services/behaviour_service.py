@@ -91,7 +91,7 @@ def _player_ids(value) -> set[int]:
         return result
 
     if isinstance(value, list):
-        result = {item for item in value if type(item) is int}}
+        result = {item for item in value if type(item) is int}
 
         for item in value:
             result.update(_player_ids(item))
@@ -100,19 +100,19 @@ def _player_ids(value) -> set[int]:
 
     return set()
 
-def delete_behaiour(db: Session, club_id:int, behaviour_id: int) -> None: 
-    try: 
-        behaviour = behaviour_repository.get_behaviour_by_id(db, club_id, behaviour_id)
+# def delete_behaiour(db: Session, club_id:int, behaviour_id: int) -> None: 
+#     try: 
+#         behaviour = behaviour_repository.get_behaviour_by_id(db, club_id, behaviour_id)
 
-        if behaviour is None: 
-            raise AppError("BEHAVIOUR_NOT_FOUND", "No se encontró el comportamiento.")
+#         if behaviour is None: 
+#             raise AppError("BEHAVIOUR_NOT_FOUND", "No se encontró el comportamiento.")
 
-        references = []
+#         references = []
 
-        players = behaviour_repository.get_players_using:behaviour(db, club_id, behaviour_id)
-        references.extend(f"jugador {player.name} (#{player.id})" for player in players)
+#         players = behaviour_repository.get_players_using:behaviour(db, club_id, behaviour_id)
+#         references.extend(f"jugador {player.name} (#{player.id})" for player in players)
 
-        default_team = behaviour_repository.get_default_team(db, club_id)
+#         default_team = behaviour_repository.get_default_team(db, club_id)
 
-        if default_team and _contains_id( default_team.line_up, BEHAVIOUR_KEYS, behaviour_id):
-            references.append("equipo predeterminado")
+#         if default_team and _contains_id( default_team.line_up, BEHAVIOUR_KEYS, behaviour_id):
+#             references.append("equipo predeterminado")
