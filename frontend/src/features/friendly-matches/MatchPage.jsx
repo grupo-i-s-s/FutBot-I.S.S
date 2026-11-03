@@ -8,6 +8,9 @@ import {isPaused} from './matchSnapshot.js';
 import MatchBreakNotice, {
     breakLabel,
 } from './components/MatchBreakNotice.jsx';
+import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx'; 
+import {useState, useEffect} from 'react'
+import { request } from '@/api/http.js';
 
 const connectionLabels = {
     loading: 'Cargando partido...', connecting: 'Conectando...', reconnecting: 'Reconectando...',
@@ -24,6 +27,16 @@ function resultText(state) {
 export default function MatchPage() {
     const {matchId} = useParams();
     const {snapshot, connectionStatus, error, retry} = useMatchConnection(matchId);
+    const [myClubId, setMyClubId] = useState(null);
+    useEffect(() => {
+        async function fetchMyClub() {
+            const club = await request('/club/me');
+            console.log("Datps que devuelve", club);
+            setMyClubId(club.id);
+        }
+        fetchMyClub();
+    }, []);
+
     const state = snapshot?.state;
     const terminal = ['FINISHED', 'CANCELLED'].includes(state?.status);
 const connected = connectionStatus === 'connected';
@@ -43,6 +56,11 @@ const label = terminal
                     ? 'Esperando inicio'
                     : 'En vivo'
         );
+
+const behaviours = [{id:1, name: "Ofensivo"},
+                    {id:2, name: "Defensivo"},
+                    {id:3, name: "Equilibrado"}];
+
     return (
         <main className="match-page">
             <div className="match-page-content">
@@ -67,14 +85,25 @@ const label = terminal
                         <MatchCanvas snapshot={snapshot} live={live}/>
                         {state.players.length > 0 && (
                             <section className="match-lineups" aria-label="Jugadores en cancha">
-                                {state.teams.map((team) => (
-                                    <div key={team.id}>
-                                        <h2><span style={{backgroundColor: team.color}}/>{team.name}</h2>
-                                        <ul>{state.players.filter((player) => player.teamId === team.id).map((player) => (
-                                            <li key={player.id}><span>#{player.id}</span> {player.name}</li>
-                                        ))}</ul>
-                                    </div>
-                                ))}
+                                {state.teams.map((team) => {
+                                    const teamPlayers = state.players.filter((player) => player.teamId === team.id);
+
+                                    const isMyTeam = myClubId ? team.id == myClubId: false;
+                                    return (
+                                        <div key={team.id}>
+                                            <h2>
+                                                <span style={{backgroundColor: team.color}}/>
+                                                {team.name} {isMyTeam && '(Mi club)'}
+                                            </h2>
+                                            <LiveChangeBehaviour 
+                                                match_id={matchId} 
+                                                players={teamPlayers} 
+                                                behaviours={behaviours}
+                                                isMyTeam={isMyTeam}
+                                            />
+                                        </div>
+                                    );
+                                })}
                             </section>
                         )}
                     </>
