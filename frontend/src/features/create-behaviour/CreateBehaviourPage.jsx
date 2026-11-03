@@ -6,8 +6,8 @@ export default function CreateBehaviourPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto p-6 flex flex-col items-center">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center">Crear Comportamiento</h2>
+        <div className="max-w-4xl mx-auto p-6 flex flex-col">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 ">Crear Comportamiento</h2>
             <form onSubmit={(e) => e.preventDefault()} className="w-full space-y-4">
                 <div>
                     <input
