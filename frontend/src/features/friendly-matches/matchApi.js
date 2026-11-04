@@ -18,3 +18,15 @@ export function matchStreamUrl(matchId) {
 
     return url.toString();
 }
+
+export function changeBehaviour(matchId, playerId, behaviourId) {
+    const id = validateMatchId(matchId);
+    
+    return request(`/matches/${id}/live_request`, {
+        method: 'POST',
+        body:{
+            player_id: playerId,
+            behaviour_id: behaviourId
+        }
+    });
+}
