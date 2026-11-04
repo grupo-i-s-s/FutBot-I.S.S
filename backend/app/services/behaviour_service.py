@@ -5,6 +5,8 @@ from app.models.behaviour_model import Behavior
 from app.repository import behaviour_repository
 from app.schemas.behaviour_schemas import BehaviourCreate
 from app.services.behaviour_validation_service import validate_program
+from backend.primitives.behaviour_api.validation import validate_program
+from app.models.league_model import LeagueRegistration
 from app.models.matches_model import Matches
 
 def list_behaviours(db: Session, club_id: int, kind: str|None=None) -> list[Behavior]:
@@ -21,7 +23,7 @@ def behaviour_id(db: Session, club_id: int, behaviour_id: int) -> Behavior:
     return behaviour
 
 def create_behaviour(db: Session, club_id: int, data: BehaviourCreate)-> Behavior:
-    diagnostics = validate_program(data.code)
+    diagnostics = validate_program(data.code, kind=data.kind)
 
     if diagnostics:
         raise AppError("BEHAVIOUR_INVALID", "El programa del comportamiento es inválido.", diagnostics=diagnostics)
@@ -68,7 +70,6 @@ def _contains_id(value: object, keys: set[str], target: int) -> bool:
 
     return False
 
-
 def _lineup_uses_behaviour( lineup: object, behaviour_id: int, assigned_player_ids: set[int],) -> bool:
 
     if isinstance(lineup, dict):
@@ -104,7 +105,6 @@ def _lineup_uses_behaviour( lineup: object, behaviour_id: int, assigned_player_i
             )
             for item in lineup
         )
-
     return False
 
 def _match_uses_behaviour( match: Matches, club_id: int, behaviour_id: int) -> bool:
@@ -164,6 +164,7 @@ def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
             for player in players
             if not player.is_deleted
         }
+
 
         default_team = behaviour_repository.get_default_team(db, club_id)
 

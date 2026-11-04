@@ -8,6 +8,29 @@ from app.repository import matches_repository
 from app.schemas.matches_schemas import CreateFriendlyMatchRequest, MatchStateResponse
 
 
+def _require_available_clubs(
+        db: Session, club_ids: tuple[int, ...], current_club_id: int
+) -> None:
+    # Releer bajo bloqueo evita aceptar un rival con la disponibilidad que tenía
+    # al cargar el listado o al autenticar la petición.
+    clubs = {
+        club.id: club
+        for club in matches_repository.get_clubs_for_update(db, club_ids)
+    }
+    current = clubs.get(current_club_id)
+    if current is None or not current.friendly_available:
+        raise AppError(
+            "CLUB_NOT_AVAILABLE",
+            "Tu club no está disponible para amistosos. "
+            "Activá la disponibilidad desde Mi club.",
+        )
+    if any(club_id not in clubs or not clubs[club_id].friendly_available for club_id in club_ids):
+        raise AppError(
+            "CLUB_NOT_AVAILABLE",
+            "El club rival ya no está disponible para amistosos.",
+        )
+
+
 def list_available(db: Session, club_id: int) -> list[dict]:
     return [
         {
@@ -51,6 +74,10 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
     ) or match.init_date <= datetime.now(timezone.utc):
         raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
 
+    _require_available_clubs(db, (match.creator_id, club_id), club_id)
+    if match.init_date <= datetime.now(timezone.utc):
+        raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
+
     match.visitor_id = club_id
     match.status = "SCHEDULED"
     # El snapshot de espera cambia al incorporarse el rival. Los espectadores
@@ -70,6 +97,10 @@ def create_friendly_match(
         start_dt = start_dt.replace(tzinfo=timezone.utc)
 
     if start_dt <= now_utc:
+        raise AppError("MATCH_INVALID_DATE", "La fecha de inicio debe ser futura.")
+
+    _require_available_clubs(db, (club_id,), club_id)
+    if start_dt <= datetime.now(timezone.utc):
         raise AppError("MATCH_INVALID_DATE", "La fecha de inicio debe ser futura.")
 
     match = Matches(creator_id=club_id, init_date=start_dt, status="WAITING_OPPONENT")

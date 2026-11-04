@@ -66,7 +66,7 @@ def _execute(db: Session, match_id: int, duration_ms: int | None, stop_event: Ev
     deadline = monotonic()
 
     while not simulation.finished:
-        interval = min(STEPS_PER_SNAPSHOT * PHYSICS_DT, simulation.duration_ms / 1000 - simulation.time)
+        interval = STEPS_PER_SNAPSHOT * PHYSICS_DT
         deadline += interval
         delay = max(0, deadline - monotonic())
 

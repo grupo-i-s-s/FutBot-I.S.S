@@ -1,14 +1,26 @@
 import json
+import random
+from dataclasses import replace
 import pytest
+from itertools import product
 
 from primitives import match_simulation
 from primitives.behaviours import Action, BehaviourMode
+from primitives.formations import FORMATIONS
 
 
-def team(club_id, count=3, modes=None):
+@pytest.fixture(autouse=True)
+def deterministic_decisions(monkeypatch):
+    rng = random.Random(0)
+    monkeypatch.setattr(match_simulation.random, "random", rng.random)
+    monkeypatch.setattr(match_simulation.random, "uniform", rng.uniform)
+
+
+def team(club_id, count=3, modes=None, formation_id=1):
     return match_simulation.Team(
         club_id=club_id,
         name=f"Club {club_id}",
+        formation_id=formation_id,
         players=tuple(
             match_simulation.PlayerProfile(
                 id=club_id * 10 + index,
@@ -16,6 +28,9 @@ def team(club_id, count=3, modes=None):
                 name=f"Jugador {index}",
                 speed=60,
                 power=60,
+                agility=60,
+                strength=60,
+                control=60,
                 behaviour_mode=modes[index] if modes else BehaviourMode.BALANCED,
             )
             for index in range(count)
@@ -48,9 +63,7 @@ def test_goal_is_awarded_to_correct_side_and_resets_positions(monkeypatch):
 
 
 def test_match_rejects_player_from_another_club():
-    wrong_profile = match_simulation.PlayerProfile(
-        id=99, club_id=2, name="Ajeno", speed=60, power=60
-    )
+    wrong_profile = replace(team(2).players[0], id=99, name="Ajeno")
     local = team(1)
     local = match_simulation.Team(1, local.name, (wrong_profile, *local.players[1:]))
 
@@ -182,7 +195,10 @@ def test_invalid_behaviour_action_leaves_player_idle_and_match_continues(monkeyp
 
 
 def test_match_finishes_exactly_at_duration_and_freezes_result(monkeypatch):
-    match = match_simulation.Match(team(1), team(2), match_id=42, duration_ms=50)
+    match = match_simulation.Match(
+        team(1), team(2), match_id=42, duration_ms=50,
+        hydration_break_ms=0, half_break_ms=0,
+    )
     steps = []
     monkeypatch.setattr(match_simulation, "step", lambda world, dt: steps.append(dt) or "LEFT")
 
@@ -208,7 +224,12 @@ def test_invalid_duration_is_rejected(duration):
 
 
 def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
-    match = match_simulation.Match(team(1), team(2), match_id=42, duration_ms=1000)
+    match = match_simulation.Match(
+        replace(team(1), avatar="avatar-03.png"),
+        replace(team(2), avatar="avatar-17.png"),
+        match_id=42,
+        duration_ms=1000,
+    )
     match.run_match(1 / 30)
     match.scorer["VISITANTE"] = 2
     match.next_kick_at[10] = 0.5
@@ -221,14 +242,20 @@ def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
 
     assert restored.snapshot(4, "now") == match.snapshot(4, "now")
     assert restored.checkpoint() == match.checkpoint()
+    assert [team["avatar"] for team in restored.snapshot(4, "now")["state"]["teams"]] == [
+        "avatar-03.png", "avatar-17.png",
+    ]
     restored.run_match(1 / 30)
     assert restored.time == pytest.approx(2 / 30)
 
 
-def test_default_roster_produces_goals_for_both_sides_with_real_physics():
+def test_default_roster_finishes_and_scores_with_real_physics():
     # Reproduce la demo: tres titulares de atributos 60, dos equilibrados y un ofensivo.
     modes = (BehaviourMode.BALANCED, BehaviourMode.BALANCED, BehaviourMode.OFFENSIVE)
-    match = match_simulation.Match(team(1, modes=modes), team(2, modes=modes), duration_ms=30000)
+    match = match_simulation.Match(
+        team(1, modes=modes), team(2, modes=modes), duration_ms=30000,
+        hydration_break_ms=0, half_break_ms=0,
+    )
     min_x, max_x = 50, 50
     for _ in range(900):
         match.run_match(1 / 30)
@@ -236,7 +263,8 @@ def test_default_roster_produces_goals_for_both_sides_with_real_physics():
         max_x = max(max_x, match.world.ball.position.x)
 
     assert match.finished
-    assert match.scorer["LOCAL"] > 0 and match.scorer["VISITANTE"] > 0
+    # El azar no garantiza que ambos clubes conviertan en un mismo partido.
+    assert sum(match.scorer.values()) > 0
     assert min_x < 10 and max_x > 90
 
 
@@ -267,6 +295,77 @@ def test_invalid_shot_at_own_goal_is_rejected(monkeypatch):
 
 def test_player_speed_remains_lower_than_shot_speed_at_attribute_limits():
     # Incluso el jugador más veloz debe ser más lento que el remate más débil.
-    max_run = match_simulation.PLAYER_BASE_SPEED + 100 * match_simulation.PLAYER_SPEED_FACTOR
+    max_run = replace(team(1).players[0], speed=100, power=20).real_speed
     min_shot = match_simulation.SHOT_BASE_SPEED + 20 * match_simulation.SHOT_POWER_FACTOR
     assert max_run < min_shot
+
+
+@pytest.mark.parametrize("local_id,visitor_id", list(product((1, 2, 3), repeat=2)))
+@pytest.mark.parametrize("scoring_side", ["LEFT", "RIGHT"])
+def test_formations_apply_at_start_and_after_goals(monkeypatch, local_id, visitor_id, scoring_side):
+    match = match_simulation.Match(
+        team(1, formation_id=local_id), team(2, formation_id=visitor_id),
+    )
+    expected = tuple(
+        (x * 100, y * 60) for x, y in FORMATIONS[local_id].positions
+    ) + tuple(
+        ((1 - x) * 100, y * 60) for x, y in FORMATIONS[visitor_id].positions
+    )
+    assert len(match.world.players) == 6
+    for actual, base in zip(match.init_players_pos, expected, strict=True):
+        assert actual == pytest.approx(base)
+    for body, position in zip(match.world.players, match.kickoff_positions(), strict=True):
+        assert tuple(body.position) == pytest.approx(position)
+
+    monkeypatch.setattr(match, "run_behaviour", lambda *_: None)
+    monkeypatch.setattr(match_simulation, "step", lambda *_: scoring_side)
+    for body in match.world.players:
+        body.position = (40, 10)
+        body.velocity = (2, 3)
+    match.run_match(1 / 30)
+
+    assert sum(match.scorer.values()) == 1
+    for body, position in zip(match.world.players, match.kickoff_positions(), strict=True):
+        assert tuple(body.position) == pytest.approx(position)
+        assert tuple(body.velocity) == (0, 0)
+    assert tuple(match.world.ball.position) == (50, 30)
+    assert tuple(match.home_positions.values()) == expected
+
+
+def test_checkpoint_preserves_formation_geometry_even_after_catalog_changes(monkeypatch):
+    match = match_simulation.Match(team(1, formation_id=2), team(2, formation_id=3))
+    match.run_match(1 / 30)
+    checkpoint = json.loads(json.dumps(match.checkpoint()))
+    monkeypatch.setitem(FORMATIONS, 2, replace(
+        FORMATIONS[2], positions=FORMATIONS[1].positions,
+    ))
+    restored = match_simulation.Match.from_checkpoint(checkpoint)
+
+    assert restored.local_team.formation_id == 2
+    assert restored.visitor_team.formation_id == 3
+    assert restored.init_players_pos == match.init_players_pos
+    assert restored.home_positions == match.home_positions
+    assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
+    restored.restart()
+    for body, position in zip(restored.world.players, restored.kickoff_positions(), strict=True):
+        assert tuple(body.position) == pytest.approx(position)
+
+
+def test_legacy_checkpoint_restores_default_formation():
+    match = match_simulation.Match(team(1), team(2))
+    checkpoint = json.loads(json.dumps(match.checkpoint()))
+    checkpoint["version"] = 1
+    for key in ("local_team", "visitor_team"):
+        checkpoint[key].pop("formation_id")
+        checkpoint[key].pop("formation_positions")
+        checkpoint[key].pop("avatar")
+    restored = match_simulation.Match.from_checkpoint(checkpoint)
+
+    assert restored.local_team.formation_id == restored.visitor_team.formation_id == 1
+    assert restored.init_players_pos == match.init_players_pos
+    assert restored.snapshot(1, "now") == match.snapshot(1, "now")
+
+
+def test_unknown_formation_is_rejected():
+    with pytest.raises(ValueError, match="formación"):
+        team(1, formation_id=999)

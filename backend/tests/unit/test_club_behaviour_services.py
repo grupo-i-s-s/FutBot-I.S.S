@@ -15,7 +15,7 @@ def club_repo(monkeypatch):
 
 
 def changes():
-    return ClubUpdate(name="My club", avatar="avatar-1", friendlyAvailable=True)
+    return ClubUpdate(name="My club", avatar="avatar-20.png", friendlyAvailable=True)
 
 
 def test_club_update_passes_only_validated_fields_and_confirms(db, club_repo):
@@ -23,7 +23,7 @@ def test_club_update_passes_only_validated_fields_and_confirms(db, club_repo):
     club_repo.update_club.return_value = club
     assert club_services.update_club(db, club, changes()) is club
     club_repo.update_club.assert_called_once_with(
-        db, club, name="My club", avatar="avatar-1", friendly_available=True,
+        db, club, name="My club", avatar="avatar-20.png", friendly_available=True,
     )
     db.commit.assert_called_once()
 

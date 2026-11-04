@@ -1,6 +1,7 @@
 import pytest
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
 from app.models.matches_model import Matches
 from app.models.player_model import Player
+from app.models.team_model import DefaultTeam
 from app.repository import matches_repository
 from app.services import match_execution_service as execution
 from app.services.match_snapshot_service import read_snapshot
@@ -27,23 +29,43 @@ from primitives.behaviours import DEFAULT_CODES
 
 
 @pytest.fixture
-def database(monkeypatch):
+def database(monkeypatch, sqlite_match_dates):
+    monkeypatch.setattr(
+        "app.services.match_builder_service.Match",
+        partial(
+            match_simulation.Match,
+            hydration_break_ms=0,
+            half_break_ms=0,
+        ),
+    )
     # Persistencia real con sesiones independientes, sin requerir Docker.
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
-    tables = [User.__table__, Club.__table__, Behavior.__table__, Player.__table__, Matches.__table__]
+    tables = [model.__table__ for model in (User, Club, Behavior, Player, DefaultTeam, Matches)]
     Base.metadata.create_all(engine, tables=tables)
     with Session(engine) as db:
         for club_id in (1, 2):
             db.add(User(id=club_id, email=f"club{club_id}@test.com", password_hash="unused"))
-            db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}", avatar="avatar"))
+            db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}",
+                        avatar=f"avatar-{club_id:02d}.png"))
             db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
                             code=DEFAULT_CODES["Equilibrado"]))
-            for index in range(3):
+            for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f"Jugador {club_id}-{index}", power=60, agility=60,
                               control=60, speed=60, strength=60))
+            db.add(DefaultTeam(club_id=club_id, line_up={
+                "formationId": 1,
+                "starters": [
+                    {"playerId": club_id * 10 + index, "behaviourId": club_id}
+                    for index in range(3)
+                ],
+                "substitutes": [
+                    {"playerId": club_id * 10 + index, "behaviourId": club_id}
+                    for index in range(3, 6)
+                ],
+            }))
         db.add(Matches(match_id=42, creator_id=1, visitor_id=2,
-                       init_date=datetime.now(timezone.utc) + timedelta(hours=1), duration_ms=200))
+                       init_date=datetime.now(timezone.utc) - timedelta(seconds=1), duration_ms=200))
         db.commit()
 
     @contextmanager
@@ -68,6 +90,9 @@ def test_executor_persists_result_and_second_call_does_not_play_again(database, 
         assert row.local_score == 0 and row.visitor_score == 6
         assert row.started_at is not None and row.finished_at is not None
         assert row.snapshot == final
+        assert [team["avatar"] for team in final["state"]["teams"]] == [
+            "avatar-01.png", "avatar-02.png",
+        ]
         assert read_snapshot(db, 42, 1) == final
         assert read_snapshot(db, 42, 2) == final
         sequence, finished_at = row.sequence, row.finished_at
@@ -98,6 +123,7 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
         assert row.local_score == 3 and row.sequence == 2
         # Cambiar el club después de comenzar no reconstruye la alineación.
         db.get(Behavior, 1).code = "código incompatible nuevo"
+        db.get(Club, 1).avatar = "avatar-20.png"
         db.commit()
 
     monkeypatch.setattr(execution, "sleep", lambda _: None)
@@ -107,6 +133,7 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
     final = execution.run_persisted_match(42)
     assert final["state"]["status"] == "FINISHED"
     assert final["state"]["teams"][0]["score"] == 6
+    assert final["state"]["teams"][0]["avatar"] == "avatar-01.png"
     assert final["sequence"] == 3
 
 
@@ -170,7 +197,10 @@ def test_get_and_websocket_return_same_persisted_final_snapshot(database, monkey
                 with client.websocket_connect("/matches/42/stream",
                                               headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
                     assert socket.receive_json() == final
-                    assert socket.receive() == {"type": "websocket.close", "code": 1000, "reason": "Partido finalizado"}
+                    assert socket.receive() == {
+                        "type": "websocket.close", "code": 1000,
+                        "reason": "Partido finalizado o cancelado",
+                    }
         finally:
             app.dependency_overrides.clear()
 

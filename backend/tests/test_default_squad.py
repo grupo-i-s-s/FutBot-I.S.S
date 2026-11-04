@@ -31,7 +31,6 @@ def register_payload(suffix: str = "a") -> dict:
         "password": "password-segura",
         "passwordConfirmation": "password-segura",
         "clubName": f"Club {suffix}",
-        "avatar": "avatar-1",
     }
 
 
