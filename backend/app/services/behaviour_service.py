@@ -5,7 +5,6 @@ from app.models.behaviour_model import Behavior
 from app.repository import behaviour_repository
 from app.schemas.behaviour_schemas import BehaviourCreate
 from primitives.behaviour_api.validation import validate_program
-from backend.primitives.behaviour_api.validation import validate_program
 from app.models.league_model import LeagueRegistration
 from app.models.matches_model import Matches
 

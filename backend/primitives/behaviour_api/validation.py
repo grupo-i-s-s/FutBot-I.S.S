@@ -389,7 +389,7 @@ def _validation_worker() -> None:
 def validate_runtime(code: str) -> list[dict]:
     bootstrap = (
         "import sys; sys.path.insert(0, sys.argv[1]); "
-        "from primitives.behaviour_api.validation import _validation_worker"
+        "from primitives.behaviour_api.validation import _validation_worker;"
         "_validation_worker()"
     )
 

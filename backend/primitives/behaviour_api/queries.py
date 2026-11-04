@@ -36,7 +36,7 @@ class Queries:
         if closest is None:
             return None
 
-        return closest.positioon
+        return closest.position
 
     def played_time(self) -> float:
         return self.snapshot.time
