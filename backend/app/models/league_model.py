@@ -102,4 +102,12 @@ class LeagueRegistration(Base):
             "club_id",
             name="uq_league_registrations_league_club",
         ),
+        CheckConstraint("lineup_version>0", name="ck_league_registartion_lineup_version")
     )
+
+    lineup_version: Mapped[int] = mapped_column(
+        Integer, 
+        nullable=False,
+        default=0, 
+        server_default=0
+        )
