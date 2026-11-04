@@ -28,11 +28,15 @@ export default function MatchPage() {
     const {matchId} = useParams();
     const {snapshot, connectionStatus, error, retry} = useMatchConnection(matchId);
     const [myClubId, setMyClubId] = useState(null);
+    const [behaviours, setBehaviours] = useState([])
+
     useEffect(() => {
         async function fetchMyClub() {
             const club = await request('/club/me');
+            const player_behaviours = await request('/behaviours')
             console.log("Datps que devuelve", club);
             setMyClubId(club.id);
+            setBehaviours(player_behaviours.items);
         }
         fetchMyClub();
     }, []);
@@ -56,10 +60,6 @@ const label = terminal
                     ? 'Esperando inicio'
                     : 'En vivo'
         );
-
-const behaviours = [{id:8, name: "Ofensivo"},
-                    {id:9, name: "Defensivo"},
-                    {id:7, name: "Equilibrado"}];
 
     return (
         <main className="match-page">
@@ -93,7 +93,7 @@ const behaviours = [{id:8, name: "Ofensivo"},
                                         <div key={team.id}>
                                             <h2>
                                                 <span style={{backgroundColor: team.color}}/>
-                                                {team.name} {isMyTeam && '(Mi club)'}
+                                                {team.name} {isMyTeam}
                                             </h2>
                                             <LiveChangeBehaviour 
                                                 match_id={matchId} 
