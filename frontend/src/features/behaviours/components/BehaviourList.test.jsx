@@ -1,16 +1,62 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import BehaviourList from './BehaviourList';
 import {fetchBehaviours} from '../services/behavioursApi';
+import {MemoryRouter, Route, Routes} from 'react-router';
+import {deleteBehaviour, getBehaviour} from '../api';
+import BehaviourDetailPage from '../BehaviourDetailPage';
 
 // Mockeamos el servicio de API
 vi.mock('../services/behavioursApi', () => ({
     fetchBehaviours: vi.fn(),
 }));
+vi.mock('../api', () => ({
+    deleteBehaviour: vi.fn(),
+    getBehaviour: vi.fn(),
+}));
+
+async function openDeletion() {
+        fetchBehaviours.mockResolvedValueOnce([
+            {
+                id: 1,
+                name: 'Ofensivo',
+                description: 'Ataque rápido',
+            },
+        ]);
+
+        render(
+            <MemoryRouter initialEntries={['/behaviours']}>
+                <BehaviourList/>
+            </MemoryRouter>
+        );
+
+        const heading = await screen.findByRole('heading', {
+            name: 'Ofensivo',
+        });
+
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: 'Eliminar Ofensivo',
+            })
+        );
+
+        const dialog = await screen.findByRole('dialog');
+
+        return {dialog, heading};
+    }
+
+    function confirmDeletion(dialog) {
+        fireEvent.click(
+            within(dialog).getByRole('button', {
+                name: 'Eliminar',
+                exact: true,
+            })
+        );
+    }
 
 describe('BehaviourList Component', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
+        vi.resetAllMocks();
     });
 
     it('muestra el estado de carga y luego renderiza la lista con nombres, descripciones, marca default y enlaces de navegación', async () => {
@@ -20,7 +66,11 @@ describe('BehaviourList Component', () => {
         ];
         fetchBehaviours.mockResolvedValueOnce(mockBehaviours);
 
-        render(<BehaviourList/>);
+        render(
+            <MemoryRouter>
+                <BehaviourList/>
+            </MemoryRouter>
+        );
 
         // Verificar estado de carga inicial
         expect(screen.getByText(/cargando catálogo/i)).toBeInTheDocument();
@@ -39,16 +89,20 @@ describe('BehaviourList Component', () => {
         expect(links[0].getAttribute('href')).toBe('/behaviours/1');
         expect(links[1].getAttribute('href')).toBe('/behaviours/2');
 
-        // Verificar ausencia absoluta de controles fuera de alcance (crear o eliminar)
+        // Verificar los controles disponibles en el catálogo.
         expect(screen.queryByText(/crear/i)).not.toBeInTheDocument();
-        expect(screen.queryByText(/eliminar/i)).not.toBeInTheDocument();
+        expect(screen.getByRole('button', {name: 'Eliminar Ofensivo'})).toBeInTheDocument();
         expect(screen.queryByText(/nuevo/i)).not.toBeInTheDocument();
     });
 
     it('maneja el estado de error y permite reintentar la carga', async () => {
         fetchBehaviours.mockRejectedValueOnce(new Error('Error al cargar el catálogo de comportamientos.'));
 
-        render(<BehaviourList/>);
+        render(
+            <MemoryRouter>
+                <BehaviourList/>
+            </MemoryRouter>
+        );
 
         await waitFor(() => {
             expect(screen.getByText(/error al cargar el catálogo/i)).toBeInTheDocument();
@@ -72,10 +126,199 @@ describe('BehaviourList Component', () => {
     it('muestra el estado vacío cuando la lista no tiene elementos', async () => {
         fetchBehaviours.mockResolvedValueOnce([]);
 
-        render(<BehaviourList/>);
+        render(
+            <MemoryRouter>
+                <BehaviourList/>
+            </MemoryRouter>
+        );
 
         await waitFor(() => {
             expect(screen.getByText(/no hay comportamientos disponibles/i)).toBeInTheDocument();
         });
+    });
+    it('cancelar no envía DELETE y conserva el comportamiento', async () => {
+    const {dialog, heading} = await openDeletion();
+
+    expect(
+        within(dialog).getByText('“Ofensivo”')
+    ).toBeInTheDocument();
+
+    expect(deleteBehaviour).not.toHaveBeenCalled();
+
+    fireEvent.click(
+        within(dialog).getByRole('button', {
+            name: 'Cancelar',
+        })
+    );
+
+    await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    expect(deleteBehaviour).not.toHaveBeenCalled();
+    expect(heading).toBeInTheDocument();
+    });
+
+
+    it('espera al backend, retira la tarjeta y muestra éxito', async () => {
+        let resolveDelete;
+
+        deleteBehaviour.mockReturnValueOnce(
+            new Promise((resolve) => {
+                resolveDelete = resolve;
+            })
+        );
+
+        const {dialog, heading} = await openDeletion();
+
+        confirmDeletion(dialog);
+
+        expect(deleteBehaviour).toHaveBeenCalledTimes(1);
+        expect(deleteBehaviour).toHaveBeenCalledWith(1);
+
+        // La tarjeta continúa hasta que el backend confirme.
+        expect(heading).toBeInTheDocument();
+
+        expect(
+            within(dialog).getByRole('button', {
+                name: /eliminando/i,
+            })
+        ).toBeDisabled();
+
+        // deleteBehaviour devuelve null cuando recibe un 204.
+        await act(async () => {
+            resolveDelete(null);
+        });
+
+        await waitFor(() => {
+            expect(heading).not.toBeInTheDocument();
+        });
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+            'El comportamiento “Ofensivo” se eliminó correctamente.'
+        );
+
+        expect(
+            screen.getByText(/no hay comportamientos disponibles/i)
+        ).toBeInTheDocument();
+    });
+
+
+    it('un 409 conserva la tarjeta e indica dónde reasignarlo', async () => {
+        deleteBehaviour.mockRejectedValueOnce(
+            Object.assign(new Error('El comportamiento está en uso.'), {
+                status: 409,
+                code: 'BEHAVIOUR_IN_USE',
+                fields: {
+                    'players.101': 'Jugador Messi (#101)',
+                    defaultTeam: 'Equipo predeterminado',
+                },
+            })
+        );
+
+        const {dialog, heading} = await openDeletion();
+
+        confirmDeletion(dialog);
+
+        const alert = await screen.findByRole('alert');
+
+        expect(alert).toHaveTextContent(
+            'Este comportamiento está en uso.'
+        );
+        expect(alert).toHaveTextContent(
+            'Debés reasignarlo antes de poder eliminarlo.'
+        );
+        expect(alert).toHaveTextContent('Jugador Messi (#101)');
+        expect(alert).toHaveTextContent('Equipo predeterminado');
+
+        expect(heading).toBeInTheDocument();
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+
+    it('un error de red conserva la tarjeta y permite reintentar', async () => {
+        deleteBehaviour.mockRejectedValueOnce(
+            Object.assign(
+                new Error('No se pudo conectar con el servidor.'),
+                {
+                    status: 0,
+                    code: 'NETWORK_ERROR',
+                }
+            )
+        );
+
+        const {dialog, heading} = await openDeletion();
+
+        confirmDeletion(dialog);
+
+        const alert = await screen.findByRole('alert');
+
+        expect(alert).toHaveTextContent(
+            'No se pudo conectar con el servidor.'
+        );
+        expect(heading).toBeInTheDocument();
+
+        expect(
+            within(dialog).getByRole('button', {
+                name: 'Eliminar',
+                exact: true,
+            })
+        ).toBeEnabled();
+    });
+
+
+    it('eliminar desde el detalle vuelve al catálogo con el aviso', async () => {
+        getBehaviour.mockResolvedValueOnce({
+            id: 1,
+            name: 'Ofensivo',
+            code: 'programa de prueba',
+        });
+
+        fetchBehaviours.mockResolvedValueOnce([]);
+        deleteBehaviour.mockResolvedValueOnce(null);
+
+        render(
+            <MemoryRouter initialEntries={['/behaviours/1']}>
+                <Routes>
+                    <Route
+                        path="/behaviours/:behaviourId"
+                        element={<BehaviourDetailPage/>}
+                    />
+                    <Route
+                        path="/behaviours"
+                        element={<BehaviourList/>}
+                    />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        fireEvent.click(
+            await screen.findByRole('button', {
+                name: 'Eliminar Ofensivo',
+            })
+        );
+
+        const dialog = await screen.findByRole('dialog');
+
+        confirmDeletion(dialog);
+
+        expect(
+            await screen.findByRole('heading', {
+                name: 'Catálogo de Comportamientos',
+            })
+        ).toBeInTheDocument();
+
+        expect(
+            screen.queryByRole('heading', {
+                name: 'Detalle de comportamiento',
+            })
+        ).not.toBeInTheDocument();
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+            'El comportamiento “Ofensivo” se eliminó correctamente.'
+        );
+
+        expect(deleteBehaviour).toHaveBeenCalledTimes(1);
+        expect(deleteBehaviour).toHaveBeenCalledWith(1);
     });
 });
