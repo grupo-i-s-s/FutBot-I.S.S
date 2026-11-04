@@ -4,11 +4,10 @@ from app.errors import AppError
 from app.models.behaviour_model import Behavior
 from app.repository import behaviour_repository
 from app.schemas.behaviour_schemas import BehaviourCreate
+from app.services.behaviour_validation_service import validate_program
 from backend.primitives.behaviour_api.validation import validate_program
 from app.models.league_model import LeagueRegistration
 from app.models.matches_model import Matches
-from app.models.player_model import Player
-from app.models.team_model import DefaultTeam
 
 def list_behaviours(db: Session, club_id: int, kind: str|None=None) -> list[Behavior]:
     return behaviour_repository.get_all_behaviours(db, club_id, kind=kind)
@@ -57,20 +56,13 @@ BEHAVIOUR_KEYS = {
 
 PLAYER_KEYS = {"playerId", "player_id"}
 
-ACTIVE_MATCH_STATUSES = {
-    "WAITING",
-    "WAITING_OPPONENT",
-    "SCHEDULED",
-    "RUNNING",
-}
-
 #Busca un ID dentro de la estructura JSON.
 
-def _contains_id(value, keys: set[str], target: int) -> bool: 
-    if isinstance(value,dict):
+def _contains_id(value: object, keys: set[str], target: int) -> bool:
+    if isinstance(value, dict):
         return any(
             (key in keys and type(item) is int and item == target)
-            or _contains_id(item,keys, target) 
+            or _contains_id(item, keys, target)
             for key, item in value.items()
         )
     if isinstance(value, list):
@@ -78,41 +70,130 @@ def _contains_id(value, keys: set[str], target: int) -> bool:
 
     return False
 
+def _lineup_uses_behaviour( lineup: object, behaviour_id: int, assigned_player_ids: set[int],) -> bool:
 
-def _player_ids(value) -> set[int]:
-    if isinstance(value, dict):
-        result = {item 
-                  for key, item in value.items()
-                  if key in PLAYER_KEYS and type(item) is int
-                  }
-        for item  in value.values():
-            result.update(_player_ids(item))
+    if isinstance(lineup, dict):
+        if any( key in BEHAVIOUR_KEYS  
+               and type(value) is int 
+               and value == behaviour_id 
+               for key, value in lineup.items()):
+            return True
 
-        return result
+         # Si la selección tiene comportamiento explícito, ese prevalece.
+        if not BEHAVIOUR_KEYS.intersection(lineup):
+            if any(
+                key in PLAYER_KEYS
+                and type(value) is int
+                and value in assigned_player_ids
+                for key, value in lineup.items()
+            ):
+                return True
+            
+        return any(
+            _lineup_uses_behaviour(
+                value, behaviour_id, assigned_player_ids
+            )
+            for value in lineup.values()
+            if isinstance(value, (dict, list))
+        )
+    
+    if isinstance(lineup, list):
+        return any(
+            (type(item) is int and item in assigned_player_ids)
+            or _lineup_uses_behaviour(
+                item, behaviour_id, assigned_player_ids
+            )
+            for item in lineup
+        )
+    return False
 
-    if isinstance(value, list):
-        result = {item for item in value if type(item) is int}
+def _match_uses_behaviour( match: Matches, club_id: int, behaviour_id: int) -> bool:
+    # Checkpoint privado: cada equipo contiene sus perfiles de jugadores.
+    runtime = match.runtime_state or {}
 
-        for item in value:
-            result.update(_player_ids(item))
+    for key in ("local_team", "visitor_team"):
+        team = runtime.get(key, {})
+        if (
+            team.get("club_id") == club_id
+            and _contains_id(team, BEHAVIOUR_KEYS, behaviour_id)
+        ):
+            return True
 
-        return result
+    # Snapshot público: revisar únicamente los datos del propio club.
+    state = (match.snapshot or {}).get("state", {})
 
-    return set()
+    own_players = [
+        player
+        for player in state.get("players", [])
+        if player.get("teamId") == club_id
+    ]
+    own_teams = [
+        team
+        for team in state.get("teams", [])
+        if team.get("id") == club_id
+    ]
 
-def delete_behaiour(db: Session, club_id:int, behaviour_id: int) -> None: 
-    try: 
-        behaviour = behaviour_repository.get_behaviour_by_id(db, club_id, behaviour_id)
+    return _contains_id(
+        own_players + own_teams,
+        BEHAVIOUR_KEYS,
+        behaviour_id,
+    )
 
-        if behaviour is None: 
-            raise AppError("BEHAVIOUR_NOT_FOUND", "No se encontró el comportamiento.")
 
-        references = []
+def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
+    try:
+        behaviour_repository.lock_club(db, club_id)
 
-        players = behaviour_repository.get_players_usingbehaviour(db, club_id, behaviour_id)
-        references.extend(f"jugador {player.name} (#{player.id})" for player in players)
+        behaviour = behaviour_repository.get_behaviour_by_id(
+            db, club_id, behaviour_id
+        )
+        if behaviour is None:
+            raise AppError( 
+                "BEHAVIOUR_NOT_FOUND",
+                "No se encontró el comportamiento."
+            )
+
+        players = behaviour_repository.get_players_using_behaviour(db, club_id, behaviour_id)
+        
+        assigned_player_ids = {player.id for player in players}
+
+        references = {
+            f"players.{player.id}": (
+                f"Jugador {player.name} (#{player.id})"
+            )
+            for player in players
+            if not player.is_deleted
+        }
+
 
         default_team = behaviour_repository.get_default_team(db, club_id)
 
-        if default_team and _contains_id( default_team.line_up, BEHAVIOUR_KEYS, behaviour_id):
-            references.append("equipo predeterminado")
+        if default_team and _lineup_uses_behaviour( default_team.line_up, behaviour_id, assigned_player_ids):
+            references["defaultTeam"] = "Equipo predeterminado"
+
+        for registration in behaviour_repository.get_league_lineups(db, club_id):
+            if _lineup_uses_behaviour( registration.line_up, behaviour_id, assigned_player_ids):
+                references[f"leagues.{registration.league_id}"] = (
+                    f"Alineación de liga #{registration.league_id}"
+                )
+
+        for match in behaviour_repository.get_active_matches(db, club_id):
+            if _match_uses_behaviour(match, club_id, behaviour_id):
+                references[f"matches.{match.match_id}"] = (
+                    f"Partido activo #{match.match_id}"
+                )
+
+        if references:
+            raise AppError(
+                "BEHAVIOUR_IN_USE",
+                "Reemplazá el comportamiento en sus asignaciones "
+                "antes de eliminarlo.",
+                fields=references,
+            )
+
+        behaviour_repository.soft_delete(db, behaviour)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
