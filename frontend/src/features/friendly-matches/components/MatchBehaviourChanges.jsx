@@ -4,9 +4,11 @@ import '../MatchPage.css'
 
 export default function LiveChangeBehaviour({ match_id, players, behaviours, isMyTeam }) {
     const [change, setChange] = useState({});
+    const [persistedBehaviour, setPersistedBehaviour] = useState({});
 
     const changeBehaviourHandler = async (playerId, behaviourId) => {
 
+        setPersistedBehaviour(prev =>({...prev, [playerId]:behaviourId}));
         setChange(prev => ({...prev, [playerId]:true}));
 
         await changeBehaviour(match_id, playerId, Number(behaviourId));
@@ -39,7 +41,7 @@ export default function LiveChangeBehaviour({ match_id, players, behaviours, isM
                                         <div className="mt-2">
                                             <select
                                                 className="w-full text-sm p-1 border rounded"
-                                                value={player.behaviourId || ''}
+                                                value={persistedBehaviour[player.id] || player.behaviourId}
                                                 disabled={change[player.id]}
                                                 onChange={(e) => changeBehaviourHandler(player.id, e.target.value)}
                                             >
