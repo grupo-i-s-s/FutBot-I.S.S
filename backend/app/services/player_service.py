@@ -74,5 +74,46 @@ def assign_behaviour(db: Session, club_id: int, player_id: int, behaviour_id: in
         db.rollback()
         raise
 
-def get_players(db: Session, club_id: int) -> list[Player]:
-    return player_repository.get_players_by_club(db, club_id)
+def get_players(
+    db: Session,
+    club_id: int,
+    page: int,
+    limit: int,
+    search: str | None = None,
+) -> tuple[list[Player], int]:
+    query = db.query(Player).filter(
+        Player.club_id == club_id,
+        Player.is_deleted.is_(False),
+    )
+
+    if search and search.strip():
+        query = query.filter(
+            Player.name.ilike(f"%{search.strip()}%")
+        )
+
+    total_count = query.count()
+    players = (
+        query.order_by(Player.id)
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    return players, total_count
+
+
+def get_players_by_ids(
+    db: Session,
+    club_id: int,
+    player_ids: list[int],
+) -> list[Player]:
+    return (
+        db.query(Player)
+        .filter(
+            Player.club_id == club_id,
+            Player.is_deleted.is_(False),
+            Player.id.in_(player_ids),
+        )
+        .order_by(Player.id)
+        .all()
+    )

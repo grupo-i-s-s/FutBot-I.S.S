@@ -1,5 +1,5 @@
-import {useCallback, useEffect, useState} from 'react';
-import {getMyClub, listBehaviours, listMyLeagues, listPlayers} from '../api';
+import { useCallback, useEffect, useState } from 'react';
+import { getMyClub, listBehaviours, listMyLeagues, listPlayers } from '../api';
 
 function withBehaviourName(players, behaviours) {
     const behaviourNames = new Map(behaviours.map((behaviour) => [behaviour.id, behaviour.name]));
@@ -11,18 +11,20 @@ function withBehaviourName(players, behaviours) {
     }));
 }
 
-export function useMyClub() {
+export function useMyClub(page = 1, limit = 9) {
     const [status, setStatus] = useState('loading');
     const [error, setError] = useState(null);
     const [club, setClub] = useState(null);
     const [players, setPlayers] = useState([]);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalPlayers, setTotalPlayers] = useState(0);
     const [behaviours, setBehaviours] = useState([]);
     const [attempt, setAttempt] = useState(0);
     const [leagues, setLeagues] = useState([]);
 
     useEffect(() => {
         const controller = new AbortController();
-        const options = {signal: controller.signal};
+        const options = { signal: controller.signal };
 
         async function loadClub() {
             setStatus('loading');
@@ -30,7 +32,7 @@ export function useMyClub() {
             try {
                 const [clubData, playerData, behaviourData, leagueData] = await Promise.all([
                     getMyClub(options),
-                    listPlayers(options),
+                    listPlayers({ page, limit, ...options }),
                     listBehaviours(options),
                     listMyLeagues(options),
                 ]);
@@ -38,6 +40,8 @@ export function useMyClub() {
                 setClub(clubData);
                 setBehaviours(behaviourData.items);
                 setPlayers(withBehaviourName(playerData.items, behaviourData.items));
+                setTotalPages(playerData.totalPages);
+                setTotalPlayers(playerData.total);
                 setLeagues(leagueData.items);
                 setStatus('ready');
             } catch (loadError) {
@@ -50,7 +54,7 @@ export function useMyClub() {
 
         loadClub();
         return () => controller.abort();
-    }, [attempt]);
+    }, [attempt, page, limit]);
 
     const reload = useCallback(() => setAttempt((value) => value + 1), []);
 
@@ -61,5 +65,5 @@ export function useMyClub() {
         ));
     }
 
-    return {status, error, club, players, behaviours, leagues, reload, setClub, updatePlayer};
+    return { status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub, updatePlayer };
 }
