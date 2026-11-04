@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.errors import AppError
 from app.models.behaviour_model import Behavior
@@ -40,6 +41,25 @@ def create_behaviour(db: Session, club_id: int, data: BehaviourCreate)-> Behavio
     try:
         created = behaviour_repository.create_behaviour(db, behavior)
         db.commit()
+    except IntegrityError as error:
+        db.rollback()
+
+        constraint = getattr(
+            getattr(error.orig, "diag", None),
+            "constraint_name",
+            None,
+        )
+
+        if constraint == "uq_behaviors_club_name":
+            message = "Ya existe un comportamiento con ese nombre en tu club."
+
+            raise AppError(
+                "BEHAVIOUR_NAME_DUPLICATE",
+                message,
+                fields={"name": message},
+            ) from error
+
+        raise
     except Exception:
         db.rollback()
         raise
