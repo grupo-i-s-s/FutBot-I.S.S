@@ -1,6 +1,6 @@
 import pytest
 
-from backend.primitives.behaviour_api.validation import validate_program, is_valid_target, validate_action
+from primitives.behaviour_api.validation import validate_program, is_valid_target, validate_action
 from primitives.behaviours import Action
 
 def test_syntax_error_returns_localized_diagnostic():
@@ -211,7 +211,7 @@ def test_rejects_missing_move_target():
     assert len(diagnostics) == 1
     assert diagnostics[0]["code"] == "INVALID_POSITION"
 
-    @pytest.mark.parametrize("code, expected", [
+@pytest.mark.parametrize("code, expected", [
     (
         "def decide(observation):\n"
         "    return ir_a_pelota()",
@@ -239,7 +239,7 @@ def test_rejects_missing_move_target():
         "TIMEOUT",
     ),
 ])
-    def test_validates_program_in_sandbox(code, expected):
+def test_validates_program_in_sandbox(code, expected):
         diagnostics = validate_program(code)
 
         if expected is None:

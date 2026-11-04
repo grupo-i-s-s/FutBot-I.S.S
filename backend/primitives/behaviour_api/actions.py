@@ -8,7 +8,7 @@ from primitives.physics import PLAYER_RADIUS
 
 @dataclass(frozen=True)
 class Command:
-    move_taget: Point
+    move_target: Point
     kick_target: Point | None = None
     kick_speed: Point | None = None
 
@@ -76,14 +76,14 @@ class Actions:
             return Command(movement)
 
         return Command(
-            move_taget=movement,
+            move_target=movement,
             kick_target=target,
             kick_speed=min(self.queries.me.real_speed, 12.0)
         )
 
     def kick_to(self, direction):
         return Command(
-            move_taget=self.queries.me.my_position(),
+            move_target=self.queries.me.my_position(),
             kick_target=self._point(direction),
             kick_speed=self.queries.me.shot_speed
         )
