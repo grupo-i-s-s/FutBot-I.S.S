@@ -1,6 +1,30 @@
 import Editor from "@monaco-editor/react";
+import { useState } from 'react';
+import { createBehaviour } from './api';
 
 export default function CreateBehaviourPage() {
+    const [name, setName] = useState('');
+    const [code, setCode] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+
+    async function handleSubmit(event) {
+        event.preventDefault();
+        setError('');
+        setSuccess('');
+
+        try {
+            await createBehaviour(name, code);
+            setSuccess('Comportamiento creado exitosamente.');
+        } catch (err) {
+            const fields = Object.values(err.fields || {});
+            setError(
+                fields.join(' ') || err.message || 'No se pudo crear el comportamiento.'
+            );
+        }
+    }
+
     const handleEditorChange = (value, event) => {
         console.log("Código del usuario:", value);
     };
