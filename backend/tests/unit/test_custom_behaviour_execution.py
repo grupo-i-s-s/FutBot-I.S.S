@@ -14,6 +14,16 @@ from primitives.behaviour_api.validation import validate_program
 from primitives.behaviours import BehaviourMode, DEFAULT_CODES
 
 
+ROSTER_QUERY_CASES = (
+    ("compañeros()[0]", (10.0, 10.0)),
+    ("compañeros()[1]", (10.0, 50.0)),
+    ("compañero_mas_cercano()", (10.0, 10.0)),
+    ("rivales()[0]", (90.0, 10.0)),
+    ("rivales()[1]", (90.0, 50.0)),
+    ("rivales()[2]", (80.0, 50.0)),
+)
+
+
 @pytest.fixture
 def make_match(monkeypatch):
     # Las pruebas funcionales no dependen de la latencia del planificador de CI.
@@ -79,6 +89,39 @@ def test_validated_custom_drives_movement_and_reuses_worker(make_match):
     match.close_runtime()
     assert process.poll() is not None
     assert match._behaviour_runtime is None
+
+
+@pytest.mark.parametrize("expression", [case[0] for case in ROSTER_QUERY_CASES])
+def test_validation_accepts_public_roster_queries(expression):
+    source = f"def decide(observation):\n    return ir_a({expression})"
+
+    assert validate_program(source) == []
+
+
+@pytest.mark.parametrize("expression, target", ROSTER_QUERY_CASES)
+def test_public_roster_queries_drive_real_worker(
+    make_match, monkeypatch, expression, target,
+):
+    source = f"def decide(observation):\n    return ir_a({expression})"
+    match = make_match(source)
+    body = match.player_bodies[1]
+    before = tuple(body.position)
+    actual_run_to = simulation.run_to
+    recorded_targets = []
+
+    def record_target(player, position, speed, dt):
+        if player is body:
+            recorded_targets.append(tuple(position))
+        return actual_run_to(player, position, speed, dt)
+
+    monkeypatch.setattr(simulation, "run_to", record_target)
+
+    match.run_match(1 / 30)
+
+    assert match.behaviour_errors == {}
+    assert recorded_targets == [target]
+    assert tuple(body.position) != before
+    assert match._behaviour_runtime._process.poll() is None
 
 
 @pytest.mark.parametrize("swapped", [False, True])
