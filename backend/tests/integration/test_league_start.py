@@ -31,9 +31,10 @@ from app.models.league_model import League, LeagueRegistration, LeagueRound, Lea
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
+from primitives.behaviours import DEFAULT_CODES
 from app import migrate_league_passwords as password_migration
-from app.security import hash_password, verify_password
 from app.repository import league_repository, matches_repository
+from app.security import hash_password, verify_password
 from app.services import league_fixture_service, league_service, match_execution_service
 
 
@@ -87,7 +88,8 @@ def league_data(database):
             db.add(club)
             db.flush()
             behaviour = Behavior(
-                club_id=club.id, name="Equilibrado", description="Prueba", code="unused",
+                club_id=club.id, name="Equilibrado", description="Prueba",
+                code=DEFAULT_CODES["Equilibrado"], kind="PLAYER", validation_status="VALID",
             )
             db.add(behaviour)
             db.flush()
@@ -117,6 +119,29 @@ def league_data(database):
         db.add(league)
         db.commit()
         return SimpleNamespace(id=league.id, clubs=clubs, lineups=lineups)
+
+
+@pytest.mark.parametrize("bad_field", ["formationId", "behaviourId", "legacy_players"])
+def test_invalid_lineup_keeps_league_open(database, league_data, bad_field):
+    with Session(database) as db:
+        league = db.get(League, league_data.id)
+        club_id = league_data.clubs[1]
+        registration = league_repository.get_registration(db, league.id, club_id)
+        lineup = db.get(DefaultTeam, club_id).line_up.copy()
+        if bad_field == "legacy_players":
+            registration.line_up = [999]
+        else:
+            if bad_field == "formationId":
+                lineup["formationId"] = 999
+            else:
+                lineup["substitutes"][0]["behaviourId"] = 999
+            registration.line_up = lineup
+        db.commit()
+        with pytest.raises(HTTPException) as error:
+            league_service.start_league(db, league.id, league.creator_club_id)
+        assert error.value.status_code == 409
+        assert league.status == "open"
+        assert db.scalar(select(LeagueRound)) is None
 
 
 def test_password_migration_preserves_hashes_and_is_repeatable(database, league_data):
@@ -258,7 +283,7 @@ def test_http_start_persists_seed_fixture_and_zero_standings(database, league_da
         creator = db.scalar(select(LeagueRegistration).where(
             LeagueRegistration.club_id == data.clubs[0],
         ))
-        assert creator.line_up == data.lineups[0]
+        assert creator.line_up == db.get(DefaultTeam, data.clubs[0]).line_up
 
 
 def test_failure_rolls_back_seed_lineups_rounds_matches_and_standings(database, league_data, monkeypatch):

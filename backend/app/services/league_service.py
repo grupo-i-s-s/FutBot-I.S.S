@@ -1,18 +1,17 @@
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
-from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
-from app.repository import league_repository, player_repository, team_repository
+from app.repository import league_repository, player_repository
 from app.schemas.league_schemas import (
     CreateLeagueRequest,
     CreatePrivateLeagueRequest,
     LeagueRead,
 )
 from app.security import hash_password, verify_password
-from app.schemas.team_schemas import Lineup
+from app.services.league_lineup_service import prepare_registration_lineup
 from app.services.league_round_service import generate_league_rounds
 from app.services.league_fixture_service import ROUND_INTERVALS
 
@@ -154,41 +153,6 @@ def create_private_league(
     )
 
 
-def _validate_start_lineups(db: Session, league) -> None:
-    for registration in league.registrations:
-        line_up = registration.line_up
-        # El creador se inscribe al crear la liga, sin elegir jugadores.
-        if registration.club_id == league.creator_club_id and not line_up:
-            team = team_repository.get_by_club(db, registration.club_id)
-            line_up = team.line_up if team is not None else None
-
-        if isinstance(line_up, dict):
-            try:
-                team_lineup = Lineup.model_validate(line_up)
-            except ValidationError:
-                raise HTTPException(409, "Hay una alineación incompleta o inválida.")
-            line_up = [
-                player.player_id
-                for player in team_lineup.starters + team_lineup.substitutes
-            ]
-
-        if (
-            not isinstance(line_up, list)
-            or len(line_up) != 6
-            or any(type(id_) is not int or id_ <= 0 for id_ in line_up)
-            or len(set(line_up)) != 6
-        ):
-            raise HTTPException(409, "Cada club debe tener seis jugadores distintos.")
-
-        active_ids = {
-            player.id
-            for player in player_repository.get_players_by_club(db, registration.club_id)
-        }
-        if not set(line_up).issubset(active_ids):
-            raise HTTPException(409, "Una alineación contiene jugadores no disponibles en su club.")
-        registration.line_up = line_up
-
-
 def start_league(db: Session, league_id: int, club_id: int) -> dict:
     try:
         # Join y leave toman el mismo bloqueo hasta confirmar su transacción.
@@ -207,7 +171,8 @@ def start_league(db: Session, league_id: int, club_id: int) -> dict:
         if len(league.registrations) < league.min_teams:
             raise HTTPException(409, "No hay suficientes clubes para iniciar la liga.")
 
-        _validate_start_lineups(db, league)
+        for registration in league.registrations:
+            prepare_registration_lineup(db, registration, league.creator_club_id)
         rounds = generate_league_rounds(db, league)
         start = league.start_datetime
         if start.tzinfo is None:

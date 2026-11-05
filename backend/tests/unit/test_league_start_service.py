@@ -5,7 +5,8 @@ from unittest.mock import Mock
 import pytest
 from fastapi import HTTPException
 
-from app.services import league_service as service
+from app.services import league_lineup_service as lineups, league_service as service
+from primitives.behaviours import DEFAULT_CODES
 
 
 @pytest.fixture
@@ -25,7 +26,14 @@ def league(monkeypatch, now, freeze_time):
     monkeypatch.setattr(service.player_repository, "get_players_by_club", Mock(
         side_effect=lambda db, id_: [SimpleNamespace(id=i) for i in range(id_ * 10, id_ * 10 + 6)],
     ))
-    monkeypatch.setattr(service.team_repository, "get_by_club", Mock(return_value=None))
+    def saved_team(db, club_id):
+        slots = [{"playerId": i, "behaviourId": 1} for i in range(club_id * 10, club_id * 10 + 6)]
+        return SimpleNamespace(line_up={"formationId": 2, "starters": slots[:3], "substitutes": slots[3:]})
+
+    monkeypatch.setattr(lineups.team_repository, "get_by_club", Mock(side_effect=saved_team))
+    behaviour = SimpleNamespace(id=1, name="Equilibrado", code=DEFAULT_CODES["Equilibrado"],
+                                kind="PLAYER", validation_status="VALID")
+    monkeypatch.setattr(lineups.behaviour_repository, "get_all_behaviours", Mock(return_value=[behaviour]))
     monkeypatch.setattr(service, "generate_league_rounds", Mock(wraps=service.generate_league_rounds))
     return SimpleNamespace(row=row, repo=repository)
 
@@ -97,22 +105,18 @@ def test_rejected_start_never_creates_resources(db, league, case, expected_statu
 
 def test_creator_without_selected_lineup_uses_default_team(db, league):
     league.row.registrations[0].line_up = []
-    service.team_repository.get_by_club.return_value = SimpleNamespace(line_up={
-        "formationId": 1,
-        "starters": [{"playerId": id_, "behaviourId": 1} for id_ in [10, 11, 12]],
-        "substitutes": [{"playerId": id_, "behaviourId": 1} for id_ in [13, 14, 15]],
-    })
-
+    saved = lineups.team_repository.get_by_club(db, 1).line_up
     service.start_league(db, 42, 1)
-
-    assert league.row.registrations[0].line_up == [10, 11, 12, 13, 14, 15]
+    assert league.row.registrations[0].line_up == saved
 
 
 @pytest.mark.parametrize("line_up", [None, {}, {"formationId": 1}])
 def test_missing_or_invalid_default_team_rejects_start(db, league, line_up):
     league.row.registrations[0].line_up = []
-    if line_up is not None:
-        service.team_repository.get_by_club.return_value = SimpleNamespace(line_up=line_up)
+    original = lineups.team_repository.get_by_club.side_effect
+    lineups.team_repository.get_by_club.side_effect = lambda db, cid: (
+        SimpleNamespace(line_up=line_up) if cid == 1 else original(db, cid)
+    )
 
     with pytest.raises(HTTPException) as error:
         service.start_league(db, 42, 1)
