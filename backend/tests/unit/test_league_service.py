@@ -141,12 +141,10 @@ def test_join_rejects_nonunique_or_noninteger_six_player_lineup(db, leagues, lin
     leagues.repo.create_registration.assert_not_called()
 
 
-@pytest.mark.parametrize("legacy", [False, True])
 @pytest.mark.parametrize("supplied, valid", [(None, False), ("wrong", False), ("secret", True)])
-def test_join_private_access_password_or_legacy_code(db, leagues, legacy, supplied, valid):
+def test_join_private_league_verifies_only_password_hash(db, leagues, supplied, valid):
     leagues.row.is_private = True
-    leagues.row.access_code = "secret" if legacy else None
-    leagues.row.password_hash = None if legacy else "encoded"
+    leagues.row.password_hash = "encoded"
     service.verify_password.return_value = valid
     if valid:
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], supplied)
@@ -156,7 +154,7 @@ def test_join_private_access_password_or_legacy_code(db, leagues, legacy, suppli
             service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], supplied)
         assert error.value.status_code == 409
         leagues.repo.create_registration.assert_not_called()
-    if supplied and not legacy:
+    if supplied:
         service.verify_password.assert_called_once_with(supplied, "encoded")
     else:
         service.verify_password.assert_not_called()
@@ -168,6 +166,26 @@ def test_password_hash_takes_precedence_over_legacy_code(db, leagues):
     service.verify_password.return_value = False
     with pytest.raises(HTTPException):
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], "secret")
+    leagues.repo.create_registration.assert_not_called()
+
+
+@pytest.mark.parametrize("private", [False, True])
+def test_unmigrated_plaintext_password_never_allows_join(db, leagues, private):
+    leagues.row.is_private = private
+    leagues.row.access_code = "secret"
+    with pytest.raises(HTTPException) as error:
+        service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], "secret")
+    assert error.value.status_code == 409
+    service.verify_password.assert_not_called()
+    leagues.repo.create_registration.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_password_hash_protects_league_even_if_private_flag_is_missing(db, leagues):
+    leagues.row.password_hash = "encoded"
+    with pytest.raises(HTTPException) as error:
+        service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6])
+    assert error.value.status_code == 409
     leagues.repo.create_registration.assert_not_called()
 
 

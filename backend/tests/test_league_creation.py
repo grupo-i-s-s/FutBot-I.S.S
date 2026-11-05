@@ -71,6 +71,7 @@ def test_creation_registers_creator_and_returns_lobby(league_client, monkeypatch
     response = client.post(f"/leagues/{'private' if is_private else 'public'}", json=payload)
 
     assert response.status_code == 201
+    assert set(response.json()) == {"leagueId", "message"}
     league = db.add.call_args.args[0]
     assert league.name == "Liga de prueba"
     assert league.is_private is is_private
@@ -78,6 +79,7 @@ def test_creation_registers_creator_and_returns_lobby(league_client, monkeypatch
     assert league.start_datetime.tzinfo is not None
     assert league.round_interval == "DAILY"
     assert [registration.club_id for registration in league.registrations] == [club.id]
+    assert league.access_code is None
     if is_private:
         assert league.password_hash != payload["password"]
         assert verify_password(payload["password"], league.password_hash)
@@ -103,7 +105,11 @@ def test_creation_registers_creator_and_returns_lobby(league_client, monkeypatch
     assert body["registeredTeams"] == 1
     assert body["remainingSlots"] == 7
     assert body["isRegistered"] is True
-    assert "password_hash" not in body
+    assert not {"password", "passwordHash", "password_hash", "accessCode", "access_code"} & body.keys()
+
+    monkeypatch.setattr(league_repository, "get_all_available_leagues", lambda db, name=None: [league])
+    item = client.get("/leagues").json()["items"][0]
+    assert not {"password", "passwordHash", "password_hash", "accessCode", "access_code"} & item.keys()
 
 
 @pytest.mark.parametrize("visibility", ["public", "private"])

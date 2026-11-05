@@ -11,6 +11,7 @@ from app.database import engine, get_db
 from app.main import app
 from app.models.auth_model import Club, User
 from app.models.league_model import League, LeagueRegistration
+from app.migrate_league_passwords import migrate_league_passwords
 
 
 @pytest.fixture
@@ -157,6 +158,8 @@ def test_join_updates_listing_and_lobby_for_newly_created_league(league_database
     if kind == "legacy":
         league.access_code = "clave-de-liga"
         db.commit()
+        migrate_league_passwords(db)
+        assert league.access_code is None
 
     club_id = register_and_login("member")
     players = client.get("/players").json()["items"]

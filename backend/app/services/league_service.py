@@ -284,13 +284,11 @@ def join_league(
             detail="La liga no existe.",
         )
 
-    if league.is_private or league.access_code is not None:
-        valid_access = False
-        if access_code and league.password_hash:
-            valid_access = verify_password(access_code, league.password_hash)
-        elif access_code and league.access_code is not None:
-            valid_access = access_code == league.access_code
-        if not valid_access:
+    if league.is_private or league.password_hash is not None or league.access_code is not None:
+        if not (
+            access_code and league.password_hash
+            and verify_password(access_code, league.password_hash)
+        ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="El código de acceso es incorrecto.",

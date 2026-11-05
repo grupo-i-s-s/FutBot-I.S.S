@@ -1,5 +1,7 @@
 """Inicio real y rollback; la concurrencia requiere LEAGUE_TEST_DATABASE_URL (PostgreSQL)."""
 import os
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -29,6 +31,8 @@ from app.models.league_model import League, LeagueRegistration, LeagueRound, Lea
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
+from app import migrate_league_passwords as password_migration
+from app.security import hash_password, verify_password
 from app.repository import league_repository, matches_repository
 from app.services import league_fixture_service, league_service, match_execution_service
 
@@ -113,6 +117,104 @@ def league_data(database):
         db.add(league)
         db.commit()
         return SimpleNamespace(id=league.id, clubs=clubs, lineups=lineups)
+
+
+def test_password_migration_preserves_hashes_and_is_repeatable(database, league_data):
+    existing_hash = hash_password("current-password")
+    with Session(database) as db:
+        legacy = db.get(League, league_data.id)
+        legacy.access_code = "old-password"
+        existing = League(
+            name="Con hash y código antiguo", is_private=True,
+            password_hash=existing_hash, access_code="obsolete-password",
+            min_teams=3, max_teams=4, start_datetime=legacy.start_datetime,
+            round_interval="DAILY",
+        )
+        public = League(
+            name="Pública", min_teams=3, max_teams=4,
+            start_datetime=legacy.start_datetime, round_interval="DAILY",
+        )
+        db.add_all([existing, public])
+        db.commit()
+        existing_id, public_id = existing.id, public.id
+        assert password_migration.migrate_league_passwords(db) == 2
+        migrated_hash = legacy.password_hash
+        assert verify_password("old-password", migrated_hash)
+        assert password_migration.migrate_league_passwords(db) == 0
+
+    with Session(database) as db:
+        legacy = db.get(League, league_data.id)
+        existing = db.get(League, existing_id)
+        public = db.get(League, public_id)
+        assert legacy.password_hash == migrated_hash
+        assert existing.password_hash == existing_hash
+        assert legacy.access_code is existing.access_code is None
+        assert legacy.is_private and existing.is_private
+        assert not public.is_private
+        assert public.password_hash is public.access_code is None
+        for wrong_password in [None, "wrong-password"]:
+            with pytest.raises(HTTPException) as error:
+                league_service.join_league(
+                    db, legacy.id, league_data.clubs[3], league_data.lineups[3], wrong_password,
+                )
+            assert error.value.status_code == 409
+        league_service.join_league(
+            db, legacy.id, league_data.clubs[3], league_data.lineups[3], "old-password",
+        )
+        assert len(legacy.registrations) == 4
+
+
+def test_password_migration_rolls_back_all_rows_on_failure(database, league_data, monkeypatch):
+    with Session(database) as db:
+        legacy = db.get(League, league_data.id)
+        legacy.access_code = "first-password"
+        db.add(League(
+            name="Segunda liga antigua", access_code="second-password",
+            min_teams=3, max_teams=4, start_datetime=legacy.start_datetime,
+            round_interval="DAILY",
+        ))
+        db.commit()
+
+        def fail_on_second_password(password):
+            if password == "second-password":
+                raise RuntimeError("Error simulado")
+            return hash_password(password)
+
+        monkeypatch.setattr(password_migration, "hash_password", fail_on_second_password)
+        with pytest.raises(RuntimeError, match="Error simulado"):
+            password_migration.migrate_league_passwords(db)
+
+    with Session(database) as db:
+        leagues = db.scalars(select(League).order_by(League.id)).all()
+        assert [league.access_code for league in leagues] == ["first-password", "second-password"]
+        assert all(league.password_hash is None for league in leagues)
+
+
+@pytest.mark.skipif(not os.getenv("LEAGUE_TEST_DATABASE_URL"), reason="Requiere PostgreSQL")
+def test_password_migration_command_runs_without_exposing_secrets(database, league_data):
+    with Session(database) as db:
+        league = db.get(League, league_data.id)
+        league.access_code = "cli-private-password"
+        db.commit()
+        schema = db.connection().exec_driver_sql("SELECT current_schema()").scalar_one()
+    url = database.url
+    env = {
+        **os.environ, "POSTGRES_USER": url.username, "POSTGRES_PASSWORD": url.password,
+        "POSTGRES_DB": url.database, "POSTGRES_HOST": url.host,
+        "POSTGRES_PORT": str(url.port), "PGOPTIONS": f"-csearch_path={schema}",
+    }
+    for count in [1, 0]:
+        result = subprocess.run(
+            [sys.executable, "-m", "app.migrate_league_passwords"],
+            cwd=Path(__file__).parents[2], env=env, capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == f"Ligas migradas: {count}"
+        assert result.stderr == ""
+    with Session(database) as db:
+        league = db.get(League, league_data.id)
+        assert league.access_code is None
+        assert verify_password("cli-private-password", league.password_hash)
 
 
 def test_http_start_persists_seed_fixture_and_zero_standings(database, league_data):
