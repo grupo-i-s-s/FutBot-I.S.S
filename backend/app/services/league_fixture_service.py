@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.repository import league_repository
 
 ROUND_INTERVALS = {
-    "CONTINUOUS": timedelta(seconds=120),
+    "CONTINUOUS": timedelta(seconds=360),
     "DAILY": timedelta(days=1),
     "WEEKLY": timedelta(days=7),
 }
