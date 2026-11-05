@@ -151,6 +151,7 @@ def _match_uses_behaviour( match: Matches, club_id: int, behaviour_id: int) -> b
         for team in state.get("teams", [])
         if team.get("id") == club_id
     ]
+
     return _contains_id(
         own_players + own_teams,
         BEHAVIOUR_KEYS,
@@ -183,6 +184,9 @@ def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
             if not player.is_deleted
         }
 
+
+        default_team = behaviour_repository.get_default_team(db, club_id)
+
         if default_team and _lineup_uses_behaviour( default_team.line_up, behaviour_id, assigned_player_ids):
             references["defaultTeam"] = "Equipo predeterminado"
 
@@ -212,4 +216,3 @@ def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
     except Exception:
         db.rollback()
         raise
-
