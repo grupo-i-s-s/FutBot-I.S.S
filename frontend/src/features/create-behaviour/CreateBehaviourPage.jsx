@@ -1,5 +1,6 @@
 import Editor from "@monaco-editor/react";
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { createBehaviour } from './api';
 
 export default function CreateBehaviourPage() {
@@ -7,6 +8,7 @@ export default function CreateBehaviourPage() {
     const [code, setCode] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const navigate = useNavigate();
 
 
     async function handleSubmit(event) {
@@ -22,6 +24,7 @@ export default function CreateBehaviourPage() {
         try {
             await createBehaviour(name, code);
             setSuccess('Comportamiento creado exitosamente.');
+            navigate('/behaviours', { replace: true });
         } catch (err) {
             const fields = Object.values(err.fields || {});
             setError(
