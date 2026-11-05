@@ -223,6 +223,10 @@ def validate_access(tree: ast.Module) -> list[dict]:
     return []
 
 def _restrict_worker(cpu_seconds: int | None = 1) -> None:
+    # CPython necesita este módulo para compilar identificadores como compañeros.
+    # Se precarga antes de que seccomp bloquee el acceso a archivos.
+    import unicodedata  # noqa: F401
+
     if cpu_seconds is not None:
         resource.setrlimit(
             resource.RLIMIT_CPU,
@@ -283,11 +287,14 @@ def _samples():
     players = (
         PlayerView(1, 10, (25, 30), (0, 0), (20, 30), 3, 0, 10, 25),
         PlayerView(2, 10, (40, 20), (0, 0), (30, 20), 3, 0, 10, 25),
-        PlayerView(3, 20, (75, 30), (0, 0), (80, 30), 3, 0, 10, 25),
+        PlayerView(3, 10, (35, 45), (0, 0), (20, 45), 3, 0, 10, 25),
+        PlayerView(4, 20, (75, 30), (0, 0), (80, 30), 3, 0, 10, 25),
+        PlayerView(5, 20, (60, 20), (0, 0), (70, 20), 3, 0, 10, 25),
+        PlayerView(6, 20, (65, 45), (0, 0), (80, 45), 3, 0, 10, 25),
     )
 
     for left in (10, 20):
-        for possession in (None, 1, 2, 3):
+        for possession in (None, *(player.id for player in players)):
             for score in (0, 1, 2):
                 snapshot = TickSnapshot(
                     time=30,
