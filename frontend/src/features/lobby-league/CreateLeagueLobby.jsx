@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {Link, useNavigate, useParams} from 'react-router';
 import {abandonarLobby, iniciarLiga, obtenerIdentidad, obtenerLobby} from './api.js';
+import LeagueRanking from './LeagueRanking.jsx';
 import LeagueFixture from './LeagueFixture.jsx';
 import './CreateLeagueLobby.css';
 
@@ -14,6 +15,7 @@ function LeagueLobbyContent({id}) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [refresh, setRefresh] = useState(0);
+    const [tab, setTab] = useState('lobby');
     const [clubId, setClubId] = useState(null);
     const [starting, setStarting] = useState(false);
     const [startError, setStartError] = useState('');
@@ -139,108 +141,99 @@ function LeagueLobbyContent({id}) {
 
             {error && <p role="alert">{error.message}</p>}
 
-            <div className="lobby-card">
-                <h2>Detalles del Lobby</h2>
-                <div className="info-grid">
-                    <div className="info-item">
-                        <span>Tipo:</span>
-                        <strong>{lobby.isPrivate ? 'Privada' : 'Pública'}</strong>
-                    </div>
-
-                    <div className="info-item">
-                        <span>Mínimo de clubes:</span>
-                        <strong>{lobby.minTeams}</strong>
-                    </div>
-
-                    <div className="info-item">
-                        <span>Cupos restantes:</span>
-                        <strong>{lobby.remainingSlots}</strong>
-                    </div>
-                </div>
+            <div className="lobby-tabs">
+                <button className={tab === 'lobby' ? 'active' : ''} onClick={() => setTab('lobby')}>Lobby</button>
+                <button className={tab === 'ranking' ? 'active' : ''} onClick={() => setTab('ranking')}>Ranking</button>
             </div>
 
-            {lobby.status === 'open' && clubId === lobby.creatorClubId && (
+            <div hidden={tab !== 'lobby'}>
                 <div className="lobby-card">
-                    <p>Clubes inscriptos: {lobby.registeredTeams}. Mínimo para iniciar: {lobby.minTeams}.</p>
-                    <button type="button" onClick={handleStartLeague}
-                            disabled={starting || loading || lobby.registeredTeams < lobby.minTeams}>
-                        {starting ? 'Iniciando…' : 'Iniciar liga'}
-                    </button>
-                    {startError && <p role="alert">{startError}</p>}
-                </div>
-            )}
-
-            {started && (
-                <>
-                    <LeagueFixture key={id} id={id} clubId={clubId} clubs={lobby.clubs}
-                                   leagueStatus={lobby.status} isRegistered={lobby.isRegistered}
-                                   refresh={refresh} onRefresh={() => setRefresh(value => value + 1)}/>
-                    <section className="lobby-card" aria-label="Tabla de posiciones">
-                        <h2>Tabla de posiciones</h2>
-                        <div className="league-table-scroll">
-                            <table className="league-table">
-                                <thead><tr><th>Club</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>Puntos</th></tr></thead>
-                                <tbody>{(lobby.standings ?? []).map(row => (
-                                    <tr key={row.clubId}>
-                                        <td>{lobby.clubs.find(club => club.id === row.clubId)?.name}</td>
-                                        <td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td>
-                                        <td>{row.goalsFor}</td><td>{row.goalsAgainst}</td><td>{row.points}</td>
-                                    </tr>
-                                ))}</tbody>
-                            </table>
+                    <h2>Detalles del Lobby</h2>
+                    <div className="info-grid">
+                        <div className="info-item">
+                            <span>Tipo:</span>
+                            <strong>{lobby.isPrivate ? 'Privada' : 'Pública'}</strong>
                         </div>
-                    </section>
-                </>
-            )}
 
-            <div className="lobby-card">
-                <h2>
-                    Clubes inscriptos ({lobby.registeredTeams}/{lobby.maxTeams})
-                </h2>
+                        <div className="info-item">
+                            <span>Mínimo de clubes:</span>
+                            <strong>{lobby.minTeams}</strong>
+                        </div>
 
-                <p>
-                    {lobby.isRegistered
-                        ? 'Tu club está inscripto.'
-                        : 'Tu club no está inscripto.'}
-                </p>
-
-                <div className="player-list">
-                    {lobby.clubs.length === 0 ? (
-                        <p className="empty-players">
-                            Todavía no hay clubes inscriptos.
-                        </p>
-                    ) : (
-                        lobby.clubs.map((club) => (
-                            <div className="player-item" key={club.id}>
-                                <span className="player-name">{club.name}</span>
-
-                                {club.id === lobby.creatorClub?.id && (
-                                    <span className="host-badge">Creador</span>
-                                )}
-                            </div>
-                        ))
-                    )}
+                        <div className="info-item">
+                            <span>Cupos restantes:</span>
+                            <strong>{lobby.remainingSlots}</strong>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div className="lobby-actions">
-                <button
-                    type="button"
-                    disabled={loading || starting}
-                    onClick={() => setRefresh((value) => value + 1)}
-                >
-                    Actualizar
-                </button>
-            </div>
+                {lobby.status === 'open' && clubId === lobby.creatorClubId && (
+                    <div className="lobby-card">
+                        <p>Clubes inscriptos: {lobby.registeredTeams}. Mínimo para iniciar: {lobby.minTeams}.</p>
+                        <button type="button" onClick={handleStartLeague}
+                                disabled={starting || loading || lobby.registeredTeams < lobby.minTeams}>
+                            {starting ? 'Iniciando…' : 'Iniciar liga'}
+                        </button>
+                        {startError && <p role="alert">{startError}</p>}
+                    </div>
+                )}
 
-            {lobby.status === 'open' && lobby.isRegistered && clubId !== lobby.creatorClubId && <div className="leave-league">
-                <button
-                    type="button"
-                    onClick={handleLeaveLeague}
-                >
-                    Abandonar Liga
-                </button>
-            </div>}
+                {started && (
+                    <LeagueFixture key={id} id={id} clubId={clubId} clubs={lobby.clubs}
+                                       leagueStatus={lobby.status} isRegistered={lobby.isRegistered}
+                                       refresh={refresh} onRefresh={() => setRefresh(value => value + 1)}/>
+                )}
+
+                <div className="lobby-card">
+                    <h2>
+                        Clubes inscriptos ({lobby.registeredTeams}/{lobby.maxTeams})
+                    </h2>
+
+                    <p>
+                        {lobby.isRegistered
+                            ? 'Tu club está inscripto.'
+                            : 'Tu club no está inscripto.'}
+                    </p>
+
+                    <div className="player-list">
+                        {lobby.clubs.length === 0 ? (
+                            <p className="empty-players">
+                                Todavía no hay clubes inscriptos.
+                            </p>
+                        ) : (
+                            lobby.clubs.map((club) => (
+                                <div className="player-item" key={club.id}>
+                                    <span className="player-name">{club.name}</span>
+
+                                    {club.id === lobby.creatorClub?.id && (
+                                        <span className="host-badge">Creador</span>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                <div className="lobby-actions">
+                    <button
+                        type="button"
+                        disabled={loading || starting}
+                        onClick={() => setRefresh((value) => value + 1)}
+                    >
+                        Actualizar
+                    </button>
+                </div>
+
+                {lobby.status === 'open' && lobby.isRegistered && clubId !== lobby.creatorClubId && <div className="leave-league">
+                    <button
+                        type="button"
+                        onClick={handleLeaveLeague}
+                    >
+                        Abandonar Liga
+                    </button>
+                </div>}
+            </div>
+            {tab === 'ranking' && <LeagueRanking leagueId={id}/>}
         </div>
     );
 }

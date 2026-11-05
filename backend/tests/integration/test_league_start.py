@@ -44,7 +44,7 @@ def database():
             connection.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
         engine = create_engine(url, connect_args={"options": f"-csearch_path={schema}"})
         try:
-            with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+            with engine.connect().execution_options(isolation_level="AUTOCOMMIT", no_parameters=True) as connection:
                 for migration in sorted((Path(__file__).parents[2] / "migrations").glob("*.sql")):
                     connection.exec_driver_sql(migration.read_text(encoding="utf-8"))
             yield engine

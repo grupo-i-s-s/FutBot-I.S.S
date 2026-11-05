@@ -106,3 +106,7 @@ def create_private_league(
 def get_leagues(club: CurrentClub, db: Database, name: str | None = None):
     leagues = league_service.list_leagues(db=db, club_id=club.id, name=name)
     return {"items": leagues}
+
+@league_router.get("/{id}/ranking", status_code = status.HTTP_200_OK)
+def get_league_ranking(id:int, club: CurrentClub, db:Database):
+    return league_service.league_rank(id, db)

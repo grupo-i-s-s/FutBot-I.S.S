@@ -215,3 +215,9 @@ def get_all_available_leagues(
         )
 
     return list(db.scalars(query).all())
+
+def get_completed_matches(league_id: int, db: Session):
+    return db.scalars(
+        select(Matches).join(LeagueRound, Matches.league_round_id == LeagueRound.id)
+        .where(LeagueRound.league_id == league_id, Matches.status == "FINISHED")
+    ).all()

@@ -57,6 +57,9 @@ class PlayerBehaviourUpdate(BaseModel):
 
     behaviour_id: StrictInt = Field(alias="behaviourId", gt=0)
 
-
 class PlayerListResponse(BaseModel):
     items: list[PlayerRead]
+    total: int
+    page: int
+    limit: int
+    total_pages: int = Field(serialization_alias="totalPages")

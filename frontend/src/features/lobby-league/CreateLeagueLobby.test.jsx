@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
-import {act, cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {act, cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router';
 import {LeagueLobby} from './CreateLeagueLobby.jsx';
 
@@ -40,6 +40,7 @@ beforeEach(() => {
         let data;
         if (url === '/api/auth/me') data = {clubId};
         else if (url.endsWith('/lobby')) data = lobby;
+        else if (url === '/api/leagues/42/ranking') data = [{id: 1, nombre: 'Club del ranking', puntos: 0}];
         else if (url.endsWith('/fixture')) data = fixture;
         else if (url.endsWith('/start')) data = await start();
         else throw new Error(`Petición inesperada: ${url}`);
@@ -67,7 +68,8 @@ it('permite iniciar sólo al creador y muestra fixture, posiciones y estado actu
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('cierran las inscripciones'));
     expect(await screen.findByText('En curso')).toBeInTheDocument();
     expect(await screen.findByRole('heading', {name: 'Tu próximo partido'})).toBeInTheDocument();
-    expect(within(screen.getByRole('region', {name: 'Tabla de posiciones'})).getAllByRole('row')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', {name: 'Ranking'}));
+    expect(await screen.findByText('Club del ranking')).toBeInTheDocument();
     expect(screen.queryByRole('button', {name: 'Iniciar liga'})).not.toBeInTheDocument();
     const [, options] = fetchMock.mock.calls.find(([url]) => url.endsWith('/start'));
     expect(options.method).toBe('POST');

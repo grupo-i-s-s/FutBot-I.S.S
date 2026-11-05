@@ -27,6 +27,7 @@ from app.security import (
     new_session_token,
     verify_password
 )
+from app.schemas.avatar_schemas import DEFAULT_AVATAR
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,7 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
             db,
             user_id=user.id,
             name=data.club_name,
-            avatar=data.avatar
+            avatar=DEFAULT_AVATAR,
         )
 
         behaviours = behaviour_repository.create_default_behaviours(db, club.id)

@@ -47,6 +47,7 @@ error_status = {
     "BEHAVIOUR_NOT_FOUND": 404,
     "PLAYER_NOT_FOUND": 404,
     "ACCOUNT_INCOMPLETE": 409,
+    "CLUB_NOT_AVAILABLE": 409,
     "MATCH_NOT_FOUND": 404,
     "MATCH_FORBIDDEN": 403,
     "MATCH_SELF_JOIN": 409,
@@ -59,21 +60,28 @@ error_status = {
     "MATCH_ALREADY_RUNNING": 409,
     "MATCH_STATE_INVALID": 409,
     "MATCH_INVALID_DURATION": 400,
+    "BEHAVIOUR_INVALID": 400,
+    "BEHAVIOUR_IN_USE": 409,
+    "BEHAVIOUR_NAME_DUPLICATE": 409,
 }
 
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    error = {
+        "code": exc.code,
+        "message": exc.message,
+        "fields": exc.fields,
+    }
+
+    if exc.diagnostics is not None:
+        error["diagnostics"]=exc.diagnostics
+
     return JSONResponse(
-        status_code=error_status.get(exc.code, 400),
-        content={
-            "error": {
-                "code": exc.code,
-                "message": exc.message,
-                "fields": exc.fields,
-            }
-        },
-    )
+        status_code=error_status.get(exc.code, 400), 
+        content={"error": error}
+        )
+
 
 
 @app.exception_handler(RequestValidationError)

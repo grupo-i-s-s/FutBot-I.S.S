@@ -388,3 +388,71 @@ def list_leagues(
         )
 
     return items
+
+
+def league_rank(league_id: int, db:Session):
+    league = league_repository.get_league_by_id(db, league_id)
+    if league is None:
+        raise HTTPException(404, "La liga no existe.")
+
+    clubs_id = {registration.club_id for registration in league.registrations}
+
+    clubs = league_repository.get_clubs_by_ids(db,list(clubs_id))
+
+    ranking = {}
+
+    for club in clubs:
+        ranking[club.id] = {
+            "id": club.id,
+            "nombre": club.name,
+            "puntos": 0,
+            "pj": 0,
+            "pg":0,
+            "pe":0,
+            "pp":0,
+            "gf":0,
+            "gc":0,
+            "dg":0
+        }
+
+    partidos = league_repository.get_completed_matches(league_id, db)
+
+    for partido in partidos:
+        local_id = partido.creator_id
+        visitante_id = partido.visitor_id
+        goles_local = partido.local_score
+        goles_visitante = partido.visitor_score
+
+        ranking[local_id]["pj"] += 1
+        ranking[visitante_id]["pj"] += 1
+
+        ranking[local_id]["gf"] += goles_local
+        ranking[local_id]["gc"] += goles_visitante
+
+        ranking[visitante_id]["gf"] += goles_visitante
+        ranking[visitante_id]["gc"] += goles_local
+
+        if goles_local > goles_visitante:
+            ranking[local_id]["pg"] += 1
+            ranking[local_id]["puntos"] += 3
+            ranking[visitante_id]["pp"] += 1
+
+        elif goles_local < goles_visitante:
+            ranking[visitante_id]["pg"] += 1
+            ranking[visitante_id]["puntos"] += 3
+
+            ranking[local_id]["pp"] += 1
+
+        else:
+            ranking[local_id]["pe"] += 1
+            ranking[local_id]["puntos"] += 1
+            ranking[visitante_id]["pe"] += 1
+            ranking[visitante_id]["puntos"] += 1
+
+    rank = []
+    for stats in ranking.values():
+        stats["dg"] = stats["gf"] - stats["gc"]
+        rank.append(stats)
+
+    rank.sort(key=lambda x : (x["puntos"], x["dg"]), reverse=True)
+    return rank

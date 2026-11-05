@@ -36,6 +36,14 @@ def get_club_names(db: Session, club_ids: tuple[int, ...]) -> dict[int, str]:
     )
 
 
+def get_club_avatars(db: Session, club_ids: tuple[int, ...]) -> dict[int, str]:
+    return dict(
+        db.execute(
+            select(Club.id, Club.avatar).where(Club.id.in_(club_ids))
+        ).all()
+    )
+
+
 def get_by_id(db: Session, match_id: int) -> Matches | None:
     return db.get(Matches, match_id)
 
@@ -97,6 +105,7 @@ def list_available(db: Session, club_id: int, now: datetime):
         select(Matches, Club.name)
         .join(Club, Club.id == Matches.creator_id)
         .where(
+            Club.friendly_available.is_(True),
             Matches.visitor_id.is_(None),
             Matches.creator_id != club_id,
             Matches.init_date > now,

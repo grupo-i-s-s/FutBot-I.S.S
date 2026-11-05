@@ -10,7 +10,16 @@ from app.repository import matches_repository
 from app.services import matches_service
 
 
-def test_create_persists_authenticated_club_id():
+@pytest.fixture
+def available_clubs(monkeypatch):
+    lookup = Mock(side_effect=lambda db, ids: [
+        SimpleNamespace(id=club_id, friendly_available=True) for club_id in ids
+    ])
+    monkeypatch.setattr(matches_repository, "get_clubs_for_update", lookup)
+    return lookup
+
+
+def test_create_persists_authenticated_club_id(available_clubs):
     db = Mock()
     db.refresh.side_effect = lambda match: setattr(match, "match_id", 42)
     data = SimpleNamespace(start_datetime=datetime.now(timezone.utc) + timedelta(hours=1))
@@ -20,10 +29,11 @@ def test_create_persists_authenticated_club_id():
     match = db.add.call_args.args[0]
     assert match.creator_id == 7
     assert result["match_id"] == 42
+    available_clubs.assert_called_once_with(db, (7,))
     db.commit.assert_called_once()
 
 
-def test_create_rejects_past_date_without_writing():
+def test_create_rejects_past_date_without_writing(available_clubs):
     db = Mock()
     data = SimpleNamespace(start_datetime=datetime.now(timezone.utc) - timedelta(hours=1))
 
@@ -31,7 +41,25 @@ def test_create_rejects_past_date_without_writing():
         matches_service.create_friendly_match(db, 7, data)
 
     assert error.value.code == "MATCH_INVALID_DATE"
+    available_clubs.assert_not_called()
     db.add.assert_not_called()
+
+
+@pytest.mark.parametrize("club_exists", [True, False])
+def test_create_requires_club_availability_before_writing(db, available_clubs, club_exists):
+    available_clubs.side_effect = None
+    available_clubs.return_value = (
+        [SimpleNamespace(id=7, friendly_available=False)] if club_exists else []
+    )
+    data = SimpleNamespace(start_datetime=datetime.now(timezone.utc) + timedelta(hours=1))
+
+    with pytest.raises(AppError) as error:
+        matches_service.create_friendly_match(db, 7, data)
+
+    assert error.value.code == "CLUB_NOT_AVAILABLE"
+    available_clubs.assert_called_once_with(db, (7,))
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
 
 
 @pytest.mark.parametrize("match, code", [
@@ -45,7 +73,7 @@ def test_create_rejects_past_date_without_writing():
     (SimpleNamespace(match_id=3, creator_id=1, visitor_id=None,
                      status="FINISHED", init_date=datetime.now(timezone.utc) + timedelta(hours=1)), "MATCH_STARTED"),
 ])
-def test_join_rejects_invalid_matches(monkeypatch, match, code):
+def test_join_rejects_invalid_matches(monkeypatch, available_clubs, match, code):
     db = Mock()
     monkeypatch.setattr(matches_repository, "get_by_id_for_update", lambda *_: match)
 
@@ -53,10 +81,11 @@ def test_join_rejects_invalid_matches(monkeypatch, match, code):
         matches_service.join_match(db, 3, 7)
 
     assert error.value.code == code
+    available_clubs.assert_not_called()
     db.commit.assert_not_called()
 
 
-def test_join_sets_visitor_once(monkeypatch):
+def test_join_sets_visitor_once(monkeypatch, available_clubs):
     db = Mock()
     match = SimpleNamespace(
         match_id=3, creator_id=1, visitor_id=None,
@@ -71,11 +100,42 @@ def test_join_sets_visitor_once(monkeypatch):
     assert match.visitor_id == 7
     assert match.sequence == 1
     assert result["match_id"] == 3
+    available_clubs.assert_called_once_with(db, (1, 7))
     db.commit.assert_called_once()
 
 
+@pytest.mark.parametrize("creator_available, visitor_available", [
+    (False, True), (True, False), (False, False), (None, True), (True, None),
+], ids=["creator-unavailable", "visitor-unavailable", "both-unavailable", "creator-missing", "visitor-missing"])
+def test_join_requires_both_clubs_available_without_mutating_match(
+    db, monkeypatch, available_clubs, creator_available, visitor_available,
+):
+    match = SimpleNamespace(
+        match_id=42, creator_id=1, visitor_id=None, sequence=8,
+        status="WAITING_OPPONENT", init_date=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    monkeypatch.setattr(matches_repository, "get_by_id_for_update", Mock(return_value=match))
+    available_clubs.side_effect = None
+    available_clubs.return_value = [
+        SimpleNamespace(id=club_id, friendly_available=available)
+        for club_id, available in ((1, creator_available), (7, visitor_available))
+        if available is not None
+    ]
+
+    with pytest.raises(AppError) as error:
+        matches_service.join_match(db, 42, 7)
+
+    assert error.value.code == "CLUB_NOT_AVAILABLE"
+    available_clubs.assert_called_once_with(db, (1, 7))
+    assert (match.visitor_id, match.status, match.sequence) == (None, "WAITING_OPPONENT", 8)
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+
+
 @pytest.mark.parametrize("start_kind", ["naive", "offset"])
-def test_create_accepts_future_start_without_changing_requested_instant(db, now, freeze_time, start_kind):
+def test_create_accepts_future_start_without_changing_requested_instant(
+    db, now, freeze_time, available_clubs, start_kind,
+):
     freeze_time(matches_service)
     start = now + timedelta(hours=1)
     supplied = start.replace(tzinfo=None) if start_kind == "naive" else start.astimezone(timezone(timedelta(hours=-3)))
@@ -86,6 +146,7 @@ def test_create_accepts_future_start_without_changing_requested_instant(db, now,
     assert row.status == "WAITING_OPPONENT"
     assert row.visitor_id is None
     assert result["match_id"] == 42
+    available_clubs.assert_called_once_with(db, (7,))
 
 
 def test_create_rejects_exact_start_boundary(db, now, freeze_time):
@@ -96,8 +157,30 @@ def test_create_rejects_exact_start_boundary(db, now, freeze_time):
     db.add.assert_not_called()
 
 
+def test_create_rechecks_start_after_waiting_for_club_lock(
+    db, now, freeze_time, available_clubs,
+):
+    clock = freeze_time(matches_service)
+    start = now + timedelta(seconds=1)
+
+    def acquire_club_lock(session, ids):
+        clock.now.return_value = start
+        return [SimpleNamespace(id=7, friendly_available=True)]
+
+    available_clubs.side_effect = acquire_club_lock
+    with pytest.raises(AppError) as error:
+        matches_service.create_friendly_match(db, 7, SimpleNamespace(start_datetime=start))
+
+    assert error.value.code == "MATCH_INVALID_DATE"
+    available_clubs.assert_called_once_with(db, (7,))
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+
+
 @pytest.mark.parametrize("status", ["WAITING", "WAITING_OPPONENT"])
-def test_successful_join_schedules_match_and_cannot_be_repeated(db, now, freeze_time, monkeypatch, status):
+def test_successful_join_schedules_match_and_cannot_be_repeated(
+    db, now, freeze_time, monkeypatch, available_clubs, status,
+):
     freeze_time(matches_service)
     row = SimpleNamespace(match_id=42, creator_id=1, visitor_id=None, sequence=8,
                           status=status, init_date=now + timedelta(seconds=1))
@@ -108,6 +191,7 @@ def test_successful_join_schedules_match_and_cannot_be_repeated(db, now, freeze_
         matches_service.join_match(db, 42, 99)
     assert error.value.code == "MATCH_FULL"
     assert (row.visitor_id, row.sequence) == (7, 9)
+    available_clubs.assert_called_once_with(db, (1, 7))
     db.commit.assert_called_once()
 
 
@@ -120,6 +204,32 @@ def test_join_at_start_time_is_rejected_without_mutating_row(db, now, freeze_tim
         matches_service.join_match(db, 42, 7)
     assert error.value.code == "MATCH_STARTED"
     assert (row.visitor_id, row.status, row.sequence) == (None, "WAITING_OPPONENT", 8)
+    db.commit.assert_not_called()
+
+
+def test_join_rechecks_start_after_waiting_for_club_locks(
+    db, now, freeze_time, monkeypatch, available_clubs,
+):
+    clock = freeze_time(matches_service)
+    start = now + timedelta(seconds=1)
+    row = SimpleNamespace(
+        match_id=42, creator_id=1, visitor_id=None, sequence=8,
+        status="WAITING_OPPONENT", init_date=start,
+    )
+    monkeypatch.setattr(matches_repository, "get_by_id_for_update", Mock(return_value=row))
+
+    def acquire_club_locks(session, ids):
+        clock.now.return_value = start
+        return [SimpleNamespace(id=club_id, friendly_available=True) for club_id in ids]
+
+    available_clubs.side_effect = acquire_club_locks
+    with pytest.raises(AppError) as error:
+        matches_service.join_match(db, 42, 7)
+
+    assert error.value.code == "MATCH_STARTED"
+    available_clubs.assert_called_once_with(db, (1, 7))
+    assert (row.visitor_id, row.status, row.sequence) == (None, "WAITING_OPPONENT", 8)
+    db.add.assert_not_called()
     db.commit.assert_not_called()
 
 
