@@ -141,3 +141,34 @@ def snapshot_from_match(match,
         ),
     )
 
+def snapshot_from_dict(data: dict) -> TickSnapshot:
+    return TickSnapshot(
+        time=data["time"],
+        duration=data["duration"],
+        width=data["width"],
+        height=data["height"],
+        goal_width=data["goal_width"],
+        left_club_id=data["left_club_id"],
+        scores=tuple(
+            (int(club_id), int(score))
+            for club_id, score in data["scores"]
+        ),
+        players=tuple(
+            PlayerView(
+                id=player["id"],
+                club_id=player["club_id"],
+                position=to_point(player["position"]),
+                velocity=to_point(player["velocity"]),
+                base_position=to_point(player["base_position"]),
+                kick_range=player["kick_range"],
+                next_kick_at=player["next_kick_at"],
+                real_speed=player["real_speed"],
+                shot_speed=player["shot_speed"],
+            )
+            for player in data["players"]
+        ),
+        ball_position=to_point(data["ball_position"]),
+        ball_velocity=to_point(data["ball_velocity"]),
+        possessor_id=data["possessor_id"]
+    )
+

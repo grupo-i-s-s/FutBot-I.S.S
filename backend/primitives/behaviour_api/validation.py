@@ -222,8 +222,16 @@ def validate_access(tree: ast.Module) -> list[dict]:
 
     return []
 
-def _restrict_worker() -> None:
-    resource.setrlimit(resource.RLIMIT_CPU, (1, 1))
+def _restrict_worker(cpu_seconds: int | None = 1) -> None:
+    # CPython necesita este módulo para compilar identificadores como compañeros.
+    # Se precarga antes de que seccomp bloquee el acceso a archivos.
+    import unicodedata  # noqa: F401
+
+    if cpu_seconds is not None:
+        resource.setrlimit(
+            resource.RLIMIT_CPU,
+            (cpu_seconds, cpu_seconds),
+        )
     resource.setrlimit(resource.RLIMIT_AS, (256 * 1024 * 1024,) * 2)
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
@@ -279,11 +287,14 @@ def _samples():
     players = (
         PlayerView(1, 10, (25, 30), (0, 0), (20, 30), 3, 0, 10, 25),
         PlayerView(2, 10, (40, 20), (0, 0), (30, 20), 3, 0, 10, 25),
-        PlayerView(3, 20, (75, 30), (0, 0), (80, 30), 3, 0, 10, 25),
+        PlayerView(3, 10, (35, 45), (0, 0), (20, 45), 3, 0, 10, 25),
+        PlayerView(4, 20, (75, 30), (0, 0), (80, 30), 3, 0, 10, 25),
+        PlayerView(5, 20, (60, 20), (0, 0), (70, 20), 3, 0, 10, 25),
+        PlayerView(6, 20, (65, 45), (0, 0), (80, 45), 3, 0, 10, 25),
     )
 
     for left in (10, 20):
-        for possession in (None, 1, 2, 3):
+        for possession in (None, *(player.id for player in players)):
             for score in (0, 1, 2):
                 snapshot = TickSnapshot(
                     time=30,
@@ -435,11 +446,17 @@ def validate_runtime(code: str) -> list[dict]:
             "El entorno aislado devolvió una respuesta inválida.",
         )]
 
-def validate_program(code: str, kind: str = "PLAYER") -> list[dict]:
+def validate_static(code: str, kind: str = "PLAYER") -> list[dict]:
     if kind != "PLAYER":
         return [_diagnostic(
             "UNSUPPORTED_KIND",
             "La validación de DT todavía no está implementada.",
+        )]
+
+    if not isinstance(code, str):
+        return [_diagnostic(
+            "INVALID_SOURCE",
+            "El código debe ser texto.",
         )]
 
     if len(code.encode("utf-8")) > 65_536:
@@ -453,7 +470,11 @@ def validate_program(code: str, kind: str = "PLAYER") -> list[dict]:
         return diagnostics
 
     tree = ast.parse(code)
-    diagnostics = validate_entrypoint(tree) + validate_imports(tree)
+
+    diagnostics = (
+        validate_entrypoint(tree)
+        + validate_imports(tree)
+    )
     if diagnostics:
         return diagnostics
 
@@ -470,4 +491,163 @@ def validate_program(code: str, kind: str = "PLAYER") -> list[dict]:
             getattr(error, "lineno", 1) or 1,
         )]
 
+    return []
+
+
+def validate_program(code: str, kind: str = "PLAYER") -> list[dict]:
+    diagnostics = validate_static(code, kind)
+
+    if diagnostics:
+        return diagnostics
+
     return validate_runtime(code)
+
+
+class ExecutionError(ValueError):
+    def __init__(self, diagnostics: list[dict]):
+        self.diagnostics = diagnostics
+
+        super().__init__(
+            diagnostics[0]["message"]
+            if diagnostics
+            else "Error de ejecución."
+        )
+
+
+def execution_diagnostic(error: Exception) -> dict:
+    line = 1
+    traceback = error.__traceback__
+
+    while traceback is not None:
+        if traceback.tb_frame.f_code.co_filename == "<behaviour>":
+            line = traceback.tb_lineno
+
+        traceback = traceback.tb_next
+
+    return _diagnostic(
+        "RUNTIME_ERROR",
+        type(error).__name__,
+        line,
+    )
+
+
+def observation_from_snapshot(
+    snapshot: TickSnapshot,
+    player_id: int,
+) -> Observation:
+    queries = Queries(snapshot, player_id)
+    me = queries.me
+
+    teammates = [
+        player
+        for player in snapshot.players
+        if player.club_id == me.club_id
+    ]
+
+    closest = min(
+        teammates,
+        key=lambda player: (
+            distance(
+                player.position,
+                snapshot.ball_position,
+            ),
+            player.id,
+        ),
+    )
+
+    return Observation(
+        player_position=queries.my_position(),
+        ball_position=queries.ball_position(),
+        home_position=queries.base_position(),
+        opponent_goal=queries.their_goal(),
+        is_closest_teammate=closest.id == player_id,
+        ball_in_own_half=queries.ball_on_our_side(),
+        can_kick=queries.can_kick(),
+        field_size=(snapshot.width, snapshot.height),
+        goal_width=snapshot.goal_width,
+    )
+
+
+def normalize_action(
+    action: object,
+    snapshot: TickSnapshot,
+    player_id: int,
+) -> Command:
+    diagnostics = validate_action(
+        action,
+        snapshot.width,
+        snapshot.height,
+    )
+
+    if diagnostics:
+        raise ExecutionError(diagnostics)
+
+    player = snapshot.player(player_id)
+
+    if type(action) is Action:
+        command = Command(
+            move_target=action.move_target,
+            kick_target=action.kick_target,
+            kick_speed=(
+                player.shot_speed
+                if action.kick_target is not None
+                else None
+            ),
+        )
+    else:
+        command = action
+
+    if (
+        command.kick_speed is not None
+        and command.kick_speed > player.shot_speed
+    ):
+        raise ExecutionError([_diagnostic(
+            "INVALID_KICK_SPEED",
+            "La patada supera la capacidad del jugador.",
+        )])
+
+    return command
+
+
+def execute_once(
+    compiled,
+    snapshot: TickSnapshot,
+    player_id: int,
+) -> Command:
+    queries = Queries(snapshot, player_id)
+
+    query_registry, action_registry = build_registry(
+        queries
+    )
+
+    namespace = {
+        "__builtins__": {
+            "__import__": _safe_import,
+            "abs": abs,
+            "min": min,
+            "max": max,
+            "len": len,
+            "range": range,
+            "round": round,
+            "int": int,
+            "float": float,
+            "bool": bool,
+        },
+        **query_registry,
+        **action_registry,
+    }
+
+    exec(compiled, namespace)
+
+    observation = observation_from_snapshot(
+        snapshot,
+        player_id,
+    )
+
+    action = namespace["decide"](observation)
+
+    return normalize_action(
+        action,
+        snapshot,
+        player_id,
+    )

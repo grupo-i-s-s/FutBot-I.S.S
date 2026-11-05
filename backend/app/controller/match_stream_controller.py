@@ -10,7 +10,9 @@ from app.errors import AppError
 from app.services import match_stream_services, behaviour_service
 from app.services.match_snapshot_service import read_snapshot
 from app.schemas.matches_schemas import LiveRequests
-from app.services.match_request_handler import live_request
+from app.repository import matches_repository
+from app.services.match_request_handler import enqueue_request
+from primitives.behaviour_api.runtime import resolve_program
 
 match_stream_router = APIRouter(prefix="/matches", tags=["matches"])
 SESSION_CHECK_SECONDS = 15
@@ -87,14 +89,97 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
             await incoming
 
 @match_stream_router.post("/{match_id}/live_request")
-def update_behaviour(match_id:int, data: LiveRequests, db:Database, club:CurrentClub):
-    
-    behaviour = behaviour_service.behaviour_id(db, club.id, data.behaviour_id)
+def update_behaviour(
+    match_id: int,
+    data: LiveRequests,
+    db: Database,
+    club: CurrentClub,
+):
+    match = matches_repository.get_by_id(
+        db,
+        match_id,
+    )
 
-    live_request[match_id].append({
-        "action": "CHANGE_BEHAVIOUR",                   
-        "player_id": data.player_id,
-        "new_behaviour": behaviour.code,
-        "new_behaviour_name": behaviour.name
-    })
-    return 
+    if match is None:
+        raise AppError(
+            "MATCH_NOT_FOUND",
+            "El partido no existe.",
+        )
+
+    if club.id not in (
+        match.creator_id,
+        match.visitor_id,
+    ):
+        raise AppError(
+            "MATCH_FORBIDDEN",
+            "El club no participa del partido.",
+        )
+
+    if match.status != "RUNNING" or not match.runtime_state:
+        raise AppError(
+            "MATCH_STATE_INVALID",
+            "El partido no admite cambios en este momento.",
+        )
+
+    own_team = next(
+        (
+            match.runtime_state[key]
+            for key in ("local_team", "visitor_team")
+            if match.runtime_state.get(key, {}).get("club_id")
+            == club.id
+        ),
+        None,
+    )
+
+    if own_team is None or not any(
+        player["id"] == data.player_id
+        for player in own_team.get("players", [])
+    ):
+        raise AppError(
+            "MATCH_FORBIDDEN",
+            "El jugador no es titular de tu equipo.",
+        )
+
+    behaviour = behaviour_service.behaviour_id(
+        db,
+        club.id,
+        data.behaviour_id,
+    )
+
+    if (
+        behaviour.kind != "PLAYER"
+        or behaviour.validation_status != "VALID"
+    ):
+        raise AppError(
+            "BEHAVIOUR_INVALID",
+            "El comportamiento no está habilitado.",
+        )
+
+    try:
+        program = resolve_program(
+            behaviour.code,
+            behaviour.name,
+            version=behaviour.version,
+        )
+
+    except ValueError as error:
+        raise AppError(
+            "BEHAVIOUR_INVALID",
+            str(error),
+        ) from error
+
+    request_id = enqueue_request(
+        match_id,
+        {
+            "action": "CHANGE_BEHAVIOUR",
+            "player_id": data.player_id,
+            "club_id": club.id,
+            "behaviour_id": behaviour.id,
+            "program": program,
+        },
+    )
+
+    return {
+        "queued": True,
+        "requestId": request_id,
+    }
