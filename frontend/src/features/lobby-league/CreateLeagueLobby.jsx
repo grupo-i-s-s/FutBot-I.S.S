@@ -70,6 +70,16 @@ function LeagueLobbyContent({id}) {
         };
     }, [id]);
 
+    useEffect(() => {
+        if (!['open', 'running'].includes(lobby?.status)) return;
+        const timer = window.setInterval(() => {
+            if (document.visibilityState === 'visible' && !startingRef.current) {
+                setRefresh(value => value + 1);
+            }
+        }, 10000);
+        return () => window.clearInterval(timer);
+    }, [lobby?.status]);
+
     async function handleStartLeague() {
         if (startingRef.current) return;
         if (!window.confirm('Al iniciar se cierran las inscripciones y quedan programados los partidos. ¿Querés continuar?')) return;
@@ -233,7 +243,7 @@ function LeagueLobbyContent({id}) {
                     </button>
                 </div>}
             </div>
-            {tab === 'ranking' && <LeagueRanking leagueId={id}/>}
+            {tab === 'ranking' && <LeagueRanking key={refresh} leagueId={id}/>}
         </div>
     );
 }

@@ -193,3 +193,37 @@ it('refresca por foco y eventos de liga conservando la ronda seleccionada', asyn
     await waitFor(() => expect(count()).toBe(before + 2));
     expect(screen.getByRole('combobox', {name: 'Ronda'})).toHaveValue('2');
 });
+
+it('consulta cambios cada diez segundos sin perder la ronda y se detiene al finalizar', async () => {
+    const interval = vi.spyOn(window, 'setInterval');
+    const clear = vi.spyOn(window, 'clearInterval');
+    lobby.status = 'running';
+    openLobby();
+    fireEvent.change(await screen.findByRole('combobox', {name: 'Ronda'}), {target: {value: '2'}});
+    const poll = interval.mock.calls.find(([, delay]) => delay === 10000)[0];
+    fixture.rounds[1].matches[0].status = 'FINISHED';
+    fixture.rounds[1].matches[0].localScore = 3;
+    await act(async () => poll());
+    expect(screen.getByRole('combobox', {name: 'Ronda'})).toHaveValue('2');
+    expect(screen.getByText('3 - 0')).toBeInTheDocument();
+
+    lobby.status = 'finished';
+    fixture.nextMatch = null;
+    await act(async () => poll());
+    expect(screen.getByText('La liga finalizó.')).toBeInTheDocument();
+    expect(clear).toHaveBeenCalledWith(interval.mock.results.find(result => result.type === 'return').value);
+});
+
+it('detecta el inicio de otro participante y limpia la consulta al salir', async () => {
+    const interval = vi.spyOn(window, 'setInterval');
+    const clear = vi.spyOn(window, 'clearInterval');
+    clubId = 2;
+    openLobby();
+    await screen.findByText('Abierta');
+    const poll = interval.mock.calls.find(([, delay]) => delay === 10000)[0];
+    lobby.status = 'running';
+    await act(async () => poll());
+    expect(screen.getByRole('combobox', {name: 'Ronda'})).toBeInTheDocument();
+    cleanup();
+    expect(clear).toHaveBeenCalled();
+});
