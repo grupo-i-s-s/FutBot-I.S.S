@@ -8,7 +8,8 @@ from app.errors import AppError
 from app.repository import matches_repository
 from app.services.match_start_service import prepare_match_start
 from primitives.match_simulation import Match
-
+from app.services.match_request_handler import live_request
+from primitives.behaviours import resolve_behaviour
 PHYSICS_DT = 1 / 30
 STEPS_PER_SNAPSHOT = 3
 
@@ -75,6 +76,14 @@ def _execute(db: Session, match_id: int, duration_ms: int | None, stop_event: Ev
         elif stop_event.wait(delay):
             return snapshot
 
+        # FUNCION PARA VER SI TENGO QUE CAMBIAR COMPORTAMIENTO, SE PUEDE USAR PARA CAMBIAR JUGADOR (CREO)
+        if match_id in live_request:
+            while live_request[match_id]:
+                request = live_request[match_id].pop(0)
+                if request["action"] == "CHANGE_BEHAVIOUR":
+                        mode = resolve_behaviour(request["new_behaviour"], request["new_behaviour_name"])
+                        simulation.change_behaviour(request["player_id"], mode)
+
         for _ in range(STEPS_PER_SNAPSHOT):
             simulation.run_match(PHYSICS_DT)
             if simulation.finished:
@@ -88,6 +97,7 @@ def _execute(db: Session, match_id: int, duration_ms: int | None, stop_event: Ev
         snapshot = _persist(db, row, simulation)
         deadline = max(deadline, monotonic())
 
+    live_request.pop(match_id, None)
     return snapshot
 
 

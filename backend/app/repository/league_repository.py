@@ -5,6 +5,7 @@ from typing import Optional
 
 from app.models.auth_model import Club
 from app.models.league_model import League, LeagueRegistration
+from app.models.matches_model import Matches
 
 
 def get_league_by_id(db: Session, league_id: int) -> Optional[League]:
@@ -125,3 +126,10 @@ def get_all_available_leagues(
         )
 
     return list(db.scalars(query).all())
+
+def get_completed_matches(leagues_id: int, db:Session):
+    query = db.query(Matches).filter(
+                                    Matches.league_id == leagues_id,
+                                    Matches.status == "FINISHED").all()
+
+    return query

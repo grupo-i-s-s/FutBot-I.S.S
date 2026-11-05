@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.behaviour_validation_service import validate_program, is_valid_target, validate_action
+from primitives.behaviour_api.validation import validate_program, is_valid_target, validate_action
 from primitives.behaviours import Action
 
 def test_syntax_error_returns_localized_diagnostic():
@@ -107,9 +107,7 @@ def test_allowed_imports_pass_static_checks_but_require_runtime():
 
     diagnostics = validate_program(code)
 
-    assert [item["code"] for item in diagnostics] == [
-        "RUNTIME_VALIDATION_PENDING"
-    ]
+    assert diagnostics == []
 
 
 def test_collects_entrypoint_and_import_errors():
@@ -212,3 +210,39 @@ def test_rejects_missing_move_target():
 
     assert len(diagnostics) == 1
     assert diagnostics[0]["code"] == "INVALID_POSITION"
+
+@pytest.mark.parametrize("code, expected", [
+    (
+        "def decide(observation):\n"
+        "    return ir_a_pelota()",
+        None,
+    ),
+    (
+        "def decide(observation):\n"
+        "    return patear_a(direccion=arco_rival())",
+        None,
+    ),
+    (
+        "def decide(observation):\n"
+        "    return None",
+        "INVALID_ACTION",
+    ),
+    (
+        "def decide(observation):\n"
+        "    return ir_a_pelota.__globals__",
+        "FORBIDDEN_ACCESS",
+    ),
+    (
+        "def decide(observation):\n"
+        "    while True:\n"
+        "        pass",
+        "TIMEOUT",
+    ),
+])
+def test_validates_program_in_sandbox(code, expected):
+        diagnostics = validate_program(code)
+
+        if expected is None:
+            assert diagnostics == []
+        else:
+            assert diagnostics[0]["code"] == expected

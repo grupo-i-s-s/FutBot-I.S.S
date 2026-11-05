@@ -54,3 +54,22 @@ class BehaviourCreate(BaseModel):
     def validate_code_size(cls, value: str)->str:
         if len(value.encode("utf-8")) > 65_536: raise ValueError("El codigo no puede superar los 64KiB")
         return value
+
+class BehaviourValidateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    kind: Literal["PLAYER", "COACH"]
+    code: str
+
+
+class BehaviourDiagnostic(BaseModel):
+    line: int = Field(ge=1)
+    column: int = Field(ge=1)
+    code: str
+    message: str
+
+
+class BehaviourValidateResponse(BaseModel):
+    valid: bool
+    diagnostics: list[BehaviourDiagnostic]
+    

@@ -9,3 +9,7 @@ export function abandonarLobby(id) {
         method: 'POST',
     });
 }
+
+export function getLeagueRanking(leagueId, signal) {
+    return request('/leagues/' + leagueId + '/ranking', { signal });
+}

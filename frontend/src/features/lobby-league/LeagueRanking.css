@@ -1,0 +1,46 @@
+.ranking-table {
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+    font-family: inherit;
+}
+
+.ranking-header, .ranking-row {
+    display: grid;
+    grid-template-columns: 30px 1fr 45px 45px 45px 45px 45px 45px;
+    align-items: center;
+    padding: 12px 10px;
+    border-bottom: 1px solid #e0e0e0; 
+}
+
+.ranking-header {
+    font-weight: bold;
+    color: #555;
+    background-color: #f9f9f9; 
+    border-radius: 6px 6px 0 0;
+}
+
+.ranking-row:hover {
+    background-color: #f1f5f9; 
+}
+
+.col-pos {
+    text-align: center;
+    font-weight: bold;
+    color: #666;
+}
+
+.col-club {
+    text-align: left;
+    padding-left: 10px; 
+}
+
+.col-stat {
+    text-align: center;
+    color: #333;
+}
+
+.font-bold {
+    font-weight: 700;
+    color: #000;
+}

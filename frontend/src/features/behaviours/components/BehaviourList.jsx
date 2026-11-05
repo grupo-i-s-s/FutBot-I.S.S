@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { fetchBehaviours } from '../services/behavioursApi';
-import { Link } from 'react-router'
 import { buttonVariants } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { CardAction } from '@/components/ui/card';
+import DeleteBehaviourButton from './DeleteBehaviourButton';
+import { Link, useLocation } from 'react-router';
+
 
 export default function BehaviourList() {
     const [behaviours, setBehaviours] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const location = useLocation();
+    const [notice, setNotice] = useState(location.state?.notice ?? '');
 
     const loadBehaviours = async () => {
         setLoading(true);
@@ -45,21 +48,40 @@ export default function BehaviourList() {
         );
     }
 
-    if (behaviours.length === 0) {
-        return <div className="p-6 text-center text-gray-500">No hay comportamientos disponibles en este momento.</div>;
+    function handleDeleted(deletedBehaviour) {
+        setBehaviours((current) =>
+            current.filter((item) => item.id !== deletedBehaviour.id)
+        );
+        setNotice(`El comportamiento “${deletedBehaviour.name}” se eliminó correctamente.`);
     }
 
     return (
         <div className="max-w-4xl mx-auto p-6">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Catálogo de Comportamientos</h2>
-            <div className="mb-6 flex justify-start">
+
+            {notice && (
+                <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                    {notice}
+                </p>
+            )}
+
+            <div className="mb-6 flex justify-between items-center gap-4">
+                <Link to="/mi-club" className={buttonVariants({ size: 'sm' })}>
+                    Volver a Mi Club
+                </Link>
                 <Link to="/crear-comportamiento" className={buttonVariants({ size: 'sm' })}>
                     <Plus className="size-4" aria-hidden="true" />
                     Crear nuevo comportamiento
                 </Link>
             </div>
 
-            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {behaviours.length === 0 && (
+                <p className="py-6 text-center text-gray-500">
+                    No hay comportamientos disponibles en este momento.
+                </p>
+            )}
+
+            <ul className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {behaviours.map((behaviour) => (
                     <li key={behaviour.id}
                         className="border p-4 rounded-lg shadow-sm bg-white flex flex-col justify-between">
@@ -74,12 +96,19 @@ export default function BehaviourList() {
                             </div>
                             <p className="text-gray-600 text-sm mb-4">{behaviour.description || 'Sin descripción.'}</p>
                         </div>
-                        <a
-                            href={`/behaviours/${behaviour.id}`}
-                            className="text-blue-600 hover:underline text-sm font-medium self-start"
-                        >
-                            Ver detalle &rarr;
-                        </a>
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                            <a
+                                href={`/behaviours/${behaviour.id}`}
+                                className="text-blue-600 hover:underline text-sm font-medium"
+                            >
+                                Ver detalle &rarr;
+                            </a>
+
+                            <DeleteBehaviourButton
+                                behaviour={behaviour}
+                                onDeleted={handleDeleted}
+                            />
+                        </div>
                     </li>
                 ))}
             </ul>

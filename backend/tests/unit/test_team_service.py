@@ -17,7 +17,7 @@ def team(monkeypatch):
     }
     repos = SimpleNamespace(players=Mock(), behaviours=Mock(), teams=Mock())
     repos.players.get_players_by_club.return_value = [SimpleNamespace(id=i) for i in range(1, 7)]
-    repos.behaviours.get_all_behaviours.return_value = [SimpleNamespace(id=i) for i in (10, 11)]
+    repos.behaviours.get_all_behaviours.return_value = [SimpleNamespace(id=i, kind="PLAYER", validation_status="VALID") for i in (10, 11)]
     repos.teams.get_by_club.return_value = SimpleNamespace(club_id=7, line_up=data)
     repos.teams.save.side_effect = lambda db, club_id, line_up: SimpleNamespace(club_id=club_id, line_up=line_up)
     monkeypatch.setattr(service, "player_repository", repos.players)
