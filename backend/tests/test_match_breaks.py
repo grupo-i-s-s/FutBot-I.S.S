@@ -114,7 +114,7 @@ def test_checkpoint_preserves_active_break_and_remaining_time(match):
     checkpoint = json.loads(json.dumps(match.checkpoint()))
     restored = Match.from_checkpoint(checkpoint)
 
-    assert checkpoint["version"] == 3
+    assert checkpoint["version"] == 4
     assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
     assert restored.snapshot(5, "now") == match.snapshot(5, "now")
     assert public_state(restored)["breakRemainingMs"] == 60
@@ -143,6 +143,11 @@ def test_legacy_checkpoint_keeps_match_without_breaks(match):
     legacy = match.checkpoint()
     legacy["version"] = 1
     legacy.pop("breaks")
+    legacy.pop("behaviour_errors")
+    for team_key in ("local_team", "visitor_team"):
+        for player in legacy[team_key]["players"]:
+            for key in ("behaviour_code", "behaviour_version", "behaviour_api_version"):
+                player.pop(key)
 
     restored = Match.from_checkpoint(legacy)
     restored.run_match(1)

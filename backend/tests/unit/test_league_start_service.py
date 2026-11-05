@@ -32,14 +32,14 @@ def league(monkeypatch, now, freeze_time):
 
     monkeypatch.setattr(lineups.team_repository, "get_by_club", Mock(side_effect=saved_team))
     behaviour = SimpleNamespace(id=1, name="Equilibrado", code=DEFAULT_CODES["Equilibrado"],
-                                kind="PLAYER", validation_status="VALID")
+                                kind="PLAYER", version=1, validation_status="VALID")
     monkeypatch.setattr(lineups.behaviour_repository, "get_all_behaviours", Mock(return_value=[behaviour]))
     monkeypatch.setattr(service, "generate_league_rounds", Mock(wraps=service.generate_league_rounds))
     return SimpleNamespace(row=row, repo=repository)
 
 
 @pytest.mark.parametrize("frequency, interval", [
-    ("CONTINUOUS", timedelta(seconds=120)),
+    ("CONTINUOUS", timedelta(seconds=360)),
     ("DAILY", timedelta(days=1)),
     ("WEEKLY", timedelta(days=7)),
 ])
@@ -148,3 +148,20 @@ def test_start_after_planned_date_uses_current_time(db, league, now):
     league.row.start_datetime = now - timedelta(days=1)
     service.start_league(db, 42, 1)
     assert league.repo.create_round.call_args_list[0].args[3] == now
+
+
+def test_start_accepts_valid_custom_behaviour_from_current_runtime(db, league):
+    behaviour = lineups.behaviour_repository.get_all_behaviours.return_value[0]
+    behaviour.code = "def decide(observation):\n    return ir_a_pelota()\n"
+    behaviour.version = 4
+    assert service.start_league(db, 42, 1)["status"] == "running"
+
+
+def test_start_rejects_invalid_custom_behaviour_without_closing_league(db, league):
+    behaviour = lineups.behaviour_repository.get_all_behaviours.return_value[0]
+    behaviour.code = "import os\ndef decide(observation):\n    return ir_a_pelota()\n"
+    with pytest.raises(HTTPException) as error:
+        service.start_league(db, 42, 1)
+    assert error.value.status_code == 409
+    assert league.row.status == "open"
+    league.repo.create_round.assert_not_called()

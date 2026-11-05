@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.repository import behaviour_repository, player_repository, team_repository
 from app.schemas.team_schemas import Lineup
-from primitives.behaviours import resolve_behaviour
+from primitives.behaviour_api.runtime import resolve_program
 from primitives.formations import FORMATIONS
 
 
@@ -42,7 +42,7 @@ def prepare_registration_lineup(db: Session, registration, creator_id: int) -> N
         if behaviour is None:
             raise HTTPException(409, "Un comportamiento de la alineación ya no está disponible.")
         try:
-            resolve_behaviour(behaviour.code, behaviour.name)
+            resolve_program(behaviour.code, behaviour.name, version=behaviour.version)
         except ValueError as exc:
             raise HTTPException(409, "Un comportamiento es incompatible con el motor del partido.") from exc
 

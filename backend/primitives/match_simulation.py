@@ -12,6 +12,19 @@ from primitives.physics import Field, create_world, step
 from primitives.run_to import run_to
 from primitives.match_breaks import DEFAULT_HALF_BREAK_MS, DEFAULT_HYDRATION_BREAK_MS, MatchBreaks
 
+from primitives.behaviour_api.actions import Command
+from primitives.behaviour_api.context import snapshot_from_match
+from primitives.behaviour_api.registry import API_VERSION
+from primitives.behaviour_api.runtime import (
+    BehaviourRuntime,
+    BehaviourRuntimeError,
+    BehaviourWorkerDead,
+)
+from primitives.behaviour_api.validation import (
+    ExecutionError,
+    normalize_action,
+    validate_static,
+)
 
 width = 100.0
 height = 60.0
@@ -40,7 +53,23 @@ class PlayerProfile:
     control: int
     behaviour_id: int | None = None
     behaviour_mode: BehaviourMode = BehaviourMode.BALANCED
-    behaviour_version: int | None = None
+
+    behaviour_code: str | None = None
+    behaviour_version: int = 1
+    behaviour_api_version: int = API_VERSION
+
+    def __post_init__(self):
+        if type(self.behaviour_version) is not int or self.behaviour_version < 1:
+            raise ValueError("Versión de comportamiento inválida.")
+
+        if type(self.behaviour_api_version) is not int or self.behaviour_api_version != API_VERSION:
+            raise ValueError("Versión de API de comportamientos incompatible.")
+
+        if self.behaviour_code is not None:
+            diagnostics = validate_static(self.behaviour_code)
+
+            if diagnostics:
+                raise ValueError(diagnostics[0]["message"])
 
     #Esto me srive para definir el significado de control en un jugador. 100pts son 2mts y 20 son 0.4mts
     @property
@@ -170,6 +199,9 @@ class Match:
 
         self.time = 0.0
 
+        self._behaviour_runtime: BehaviourRuntime | None = None
+        self.behaviour_errors: dict[int, dict] = {}
+
         self._breaks = MatchBreaks(
             hydration_ms=hydration_break_ms,
             half_ms=half_break_ms,
@@ -247,7 +279,7 @@ class Match:
     def checkpoint(self) -> dict:
         """Estado privado para retomar desde el último snapshot confirmado."""
         return {
-            "version": 3,
+            "version": 4,
             "match_id": self.match_id,
             "duration_ms": self.duration_ms,
             "local_team": asdict(self.local_team),
@@ -270,13 +302,17 @@ class Match:
                 }
                 for body in (*self.world.players, self.world.ball)
             ],
+            "behaviour_errors": {
+                str(player_id): error
+                for player_id, error in self.behaviour_errors.items()
+            },
         }
 
     @classmethod
     def from_checkpoint(cls, data: dict) -> "Match":
         version = data.get("version")
 
-        if version not in (1, 2, 3):
+        if version not in (1, 2, 3, 4):
             raise ValueError("Versión de checkpoint incompatible.")
 
         def team_from_data(team: dict) -> Team:
@@ -344,6 +380,43 @@ class Match:
         for body in match.world.players:
             match.world.space.reindex_shapes_for_body(body)
 
+        errors = data.get("behaviour_errors", {})
+
+        if type(errors) is not dict:
+            raise ValueError(
+                "Estado de errores inválido."
+            )
+
+        custom_ids = {
+            profile.id
+            for profile in match.player_profiles
+            if profile.behaviour_code is not None
+        }
+
+        restored_errors = {}
+
+        for player_id, error in errors.items():
+            player_id = int(player_id)
+
+            if (
+                    player_id not in custom_ids
+                    or type(error) is not dict
+                    or type(error.get("code")) is not str
+                    or type(error.get("message")) is not str
+            ):
+                raise ValueError(
+                    "Estado de errores inválido."
+                )
+
+            restored_errors[player_id] = error
+
+        match.behaviour_errors = restored_errors
+
+        if version < 4 and custom_ids:
+            raise ValueError(
+                "El checkpoint no admite comportamientos custom."
+            )
+
         return match
 
     def get_players_state(self) -> list[dict]:
@@ -353,7 +426,8 @@ class Match:
                 "teamId": profile.club_id,
                 "name": profile.name,
                 "behaviourId": profile.behaviour_id,
-                "behaviourMode": profile.behaviour_mode,
+                "behaviourMode": "CUSTOM" if profile.behaviour_code is not None else profile.behaviour_mode,
+                "behaviourVersion": profile.behaviour_version,
                 "x": float(body.position.x),
                 "y": float(body.position.y),
             }
@@ -394,6 +468,7 @@ class Match:
         profile: PlayerProfile,
         target_goal: tuple[float, float],
         dt: float,
+        apply_movement: bool = True
     ) -> Action | None:
         ball_position = self.world.ball.position
         ball_in_own_half = (
@@ -446,87 +521,243 @@ class Match:
                     and 0 <= shot_y <= height                                   #Ahora no se pide que vaya adentro del arco, solo que vaya dentro de la cancha
                 ):
                     raise ValueError("La patada debe apuntar dentro del arco rival.")
-            run_to(player, action.move_target, profile.real_speed, dt)
+            if apply_movement:
+                run_to(player, action.move_target, profile.real_speed, dt)
+
             return action
+
         except Exception:
             # Un error del programa deja quieto a ese jugador durante este paso.
             player.velocity = (0, 0)
             logger.exception("Falló el comportamiento del jugador %s", profile.id)
             return None
 
-    def change_behaviour(self, player_id: int, new_mode: BehaviourMode) -> None:
-        target_profile = next(
-            (p for p in self.player_profiles if p.id == player_id))
-        
-        is_local = target_profile.club_id == self.local_team.club_id
-        team = self.local_team if is_local else self.visitor_team           #De aca saco a que equipo pertenece
+    def change_behaviour(
+            self,
+            player_id: int,
+            *,
+            club_id: int,
+            behaviour_id: int,
+            behaviour_mode: BehaviourMode,
+            behaviour_code: str | None,
+            behaviour_version: int,
+            behaviour_api_version: int
+    ) -> None:
+        target = next(
+            (
+                profile
+                for profile in self.player_profiles
+                if profile.id == player_id
+            ), None)
 
-        for i, profile in enumerate(team.players):
-            if profile.id == player_id:
-                new_players = list(team.players)
-                new_players[i] = replace(profile, behaviour_mode=new_mode)      #Replace me deja "Cambiar" el comportamiento al jugador
+        if target is None or target.club_id != club_id:
+            raise ValueError("El jugador no pertenece al equipo indicado.")
 
-                if is_local:
-                    self.local_team = replace(team, players=tuple(new_players))
-                else:
-                    self.visitor_team = replace(team, players=tuple(new_players))
+        updated = replace(
+            target,
+            behaviour_id=behaviour_id,
+            behaviour_mode=BehaviourMode(behaviour_mode),
+            behaviour_code=behaviour_code,
+            behaviour_version=behaviour_version,
+            behaviour_api_version=behaviour_api_version,
+        )
 
-                self.player_profiles = (self.local_team.players + self.visitor_team.players)    #Hay que pisar los valores viejos
-                return
+        if club_id == self.local_team.club_id:
+            self.local_team = replace(
+                self.local_team,
+                players=tuple(
+                    updated if profile.id == player_id else profile
+                    for profile in self.local_team.players
+                ),
+            )
+
+        else:
+            self.visitor_team = replace(
+                self.visitor_team,
+                players=tuple(
+                    updated if profile.id == player_id else profile
+                    for profile in self.visitor_team.players
+                ),
+            )
+
+        self.player_profiles = self.local_team.players + self.visitor_team.players
+
+        self.behaviour_errors.pop(player_id, None)
+
 
     def _run_play(self, dt: float) -> None:
         if not isfinite(dt) or dt <= 0:
             raise ValueError("dt debe ser positivo y finito")
+
         if self.finished:
             return
+
         duration = self.duration_ms / 1000
         dt = min(dt, duration - self.time)
-        shots = []
-        for player, profile in zip(
-            self.world.players, self.player_profiles, strict=True
-        ):
-            target_goal = (
-                (width, height / 2) if self.team_side(profile.club_id) == "LEFT"
-                else (0, height / 2)
-            )
-            action = self.run_behaviour(player, profile, target_goal, dt)
-            distance = (player.position - self.world.ball.position).length
-            if (
-                action is not None
-                and action.kick_target is not None
-                and distance <= profile.kick_range
-                and self.time >= self.next_kick_at.get(profile.id, 0)
-            ):
 
-                relative_distance = distance / profile.kick_range               # Uso esta distancia para usar el control del jugador, no solo quien está mas cerca
-                decider = random.random()                                       #Ahora usamos un numero random para decidir quien patea, en vez de id
-                shots.append(
-                    (relative_distance, decider, player, profile, action.kick_target)
+        snapshot = snapshot_from_match(
+            self,
+            SHOT_BASE_SPEED,
+            SHOT_POWER_FACTOR,
+        )
+
+        commands = []
+        shots = []
+
+        # Primero se obtienen todas las decisiones.
+        for player, profile in zip(
+                self.world.players,
+                self.player_profiles,
+                strict=True,
+        ):
+            if profile.behaviour_code is not None:
+                command = self._run_custom_behaviour(
+                    profile,
+                    snapshot,
                 )
 
-        if shots:
-            _, _, player, profile, target = min(
-                shots, key=lambda shot: (shot[0], shot[1])
+            else:
+                target_goal = (
+                    (width, height / 2)
+                    if self.team_side(profile.club_id) == "LEFT"
+                    else (0, height / 2)
+                )
+
+                action = self.run_behaviour(
+                    player,
+                    profile,
+                    target_goal,
+                    dt,
+                    False,
+                )
+
+                if action is None:
+                    continue
+
+                try:
+                    command = normalize_action(
+                        action,
+                        snapshot,
+                        profile.id,
+                    )
+
+                except ExecutionError:
+                    player.velocity = (0, 0)
+
+                    logger.exception(
+                        "Acción predeterminada inválida: jugador=%s",
+                        profile.id,
+                    )
+                    continue
+
+            if command is not None:
+                commands.append((
+                    player,
+                    profile,
+                    command,
+                ))
+
+        # Después se aplican movimientos y se reúnen patadas.
+        for player, profile, command in commands:
+            run_to(
+                player,
+                command.move_target,
+                profile.real_speed,
+                dt,
             )
-            shot_speed = SHOT_BASE_SPEED + profile.power * SHOT_POWER_FACTOR
+
+            distance_to_ball = (
+                    player.position
+                    - self.world.ball.position
+            ).length
+
+            if (command.kick_target is not None
+                and command.kick_speed is not None
+                and distance_to_ball <= profile.kick_range
+                and self.time >= self.next_kick_at.get(profile.id, 0)
+                and (pymunk.Vec2d(*command.kick_target) - self.world.ball.position).length > 0):
+                shots.append((
+                    distance_to_ball / profile.kick_range,
+                    random.random(),
+                    player,
+                    profile,
+                    command.kick_target,
+                    command.kick_speed))
+
+        if shots:
+            (_, _, player, profile, target, shot_speed,) = min(shots,
+                key=lambda shot: (
+                    shot[0],
+                    shot[1],
+                )
+            )
+
             if kick(player, self.world.ball, target, shot_speed, profile.kick_range):
-                self.next_kick_at[profile.id] = self.time + profile.real_agility
+                self.next_kick_at[profile.id] = (self.time + profile.real_agility)
 
         scoring_side = step(self.world, dt)
-        self.time = min(duration, self.time + dt)
-        # Evita un paso adicional por error de acumulación de floats.
+
+        self.time = min(duration, self.time + dt,)
+
         if duration - self.time < 1e-9:
             self.time = duration
 
         if scoring_side is not None:
             scorer_by_side = {
                 self.team_side(self.local_team.club_id): "LOCAL",
+
                 self.team_side(self.visitor_team.club_id): "VISITANTE",
             }
-            self.scorer[scorer_by_side[scoring_side]] += 1
-            self.restart()
-            logger.info("Partido %s: goles %s", self.match_id, self.scorer)
 
+            self.scorer[scorer_by_side[scoring_side]] += 1
+
+            self.restart()
+
+            logger.info(
+                "Partido %s: goles %s",
+                self.match_id,
+                self.scorer,
+            )
     def run_match(self, dt: float) -> None:
         """Avanza el encuentro, incluyendo tiempo de juego y descansos."""
         self._breaks.advance(self, dt)
+
+    def close_runtime(self) -> None:
+        runtime = self._behaviour_runtime
+        self._behaviour_runtime = None
+
+        if runtime is not None:
+            runtime.close()
+
+    def _run_custom_behaviour(self, profile: PlayerProfile, snapshot) -> Command | None:
+        if profile.id in self.behaviour_errors:
+            self.player_bodies[profile.id].velocity = (0, 0)
+            return None
+
+        try:
+            if self._behaviour_runtime is None:
+                self._behaviour_runtime = BehaviourRuntime()
+
+            key = self._behaviour_runtime.load(profile.behaviour_code)
+
+            return self._behaviour_runtime.decide(key, snapshot, profile.id)
+
+        except BehaviourRuntimeError as error:
+            self.behaviour_errors[profile.id] = {
+                "code": error.code,
+                "message": str(error)[:256],
+                "diagnostics": error.diagnostics,
+            }
+
+            self.player_bodies[profile.id].velocity = (0, 0)
+
+            if isinstance(error, BehaviourWorkerDead):
+                self.close_runtime()
+
+            logger.warning(
+                "Comportamiento deshabilitado: jugador=%s error=%s",
+                profile.id,
+                error.code,
+            )
+
+            return None

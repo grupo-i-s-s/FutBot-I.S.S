@@ -389,7 +389,7 @@ def finish_fixture_match(db, match, finished_at, monkeypatch):
 
 
 @pytest.mark.parametrize("frequency, interval", [
-    ("CONTINUOUS", timedelta(seconds=120)),
+    ("CONTINUOUS", timedelta(seconds=360)),
     ("DAILY", timedelta(days=1)),
     ("WEEKLY", timedelta(days=7)),
 ])

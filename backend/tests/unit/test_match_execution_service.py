@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 from app.errors import AppError
 from app.services import match_execution_service as service
+from app.services.match_request_handler import enqueue_request, pending_requests
 
 
 class Simulation:
@@ -16,6 +17,8 @@ class Simulation:
         self.time = 0
         self.steps_left = steps
         self.steps = []
+        self.close_calls = 0
+        self.behaviour_changes = []
 
     def snapshot(self, sequence, sent_at):
         return {"sequence": sequence, "sentAt": sent_at,
@@ -27,9 +30,16 @@ class Simulation:
         self.steps_left -= 1
         self.finished = self.steps_left == 0
 
+    def close_runtime(self):
+        self.close_calls += 1
+
+    def change_behaviour(self, player_id, **program):
+        self.behaviour_changes.append((player_id, program))
+
 
 @pytest.fixture
 def execution(monkeypatch, db, now, freeze_time):
+    service.clear_requests(42)
     freeze_time(service)
     simulation = Simulation()
     row = SimpleNamespace(match_id=42, league_round_id=None, status="SCHEDULED", duration_ms=1000,
@@ -49,7 +59,8 @@ def execution(monkeypatch, db, now, freeze_time):
     service.Match.from_checkpoint.return_value = simulation
     monkeypatch.setattr(service, "monotonic", Mock(return_value=0))
     monkeypatch.setattr(service, "sleep", Mock())
-    return SimpleNamespace(row=row, repo=repo, simulation=simulation)
+    yield SimpleNamespace(row=row, repo=repo, simulation=simulation)
+    service.clear_requests(42)
 
 
 def test_execution_persists_initial_and_final_snapshots_and_stops_at_finish(db, execution, now):
@@ -61,6 +72,7 @@ def test_execution_persists_initial_and_final_snapshots_and_stops_at_finish(db, 
     assert db.commit.call_count == 2
     service.prepare_match_start.assert_called_once_with(db, execution.row, now, duration_ms=1000)
     service.sleep.assert_called_once_with(service.STEPS_PER_SNAPSHOT * service.PHYSICS_DT)
+    assert execution.simulation.close_calls == 1
 
 
 def test_finished_league_match_updates_fixture_before_committing(db, execution, monkeypatch):
@@ -86,6 +98,7 @@ def test_execution_batches_steps_and_preserves_sequence(db, execution):
     assert result["sequence"] == 11
     assert execution.repo.save_progress.call_count == 3
     assert service.sleep.call_count == 2
+    assert simulation.close_calls == 1
 
 
 @pytest.mark.parametrize("duration", [0, -1, True, 1.5, "1000"])
@@ -104,6 +117,7 @@ def test_terminal_match_returns_saved_snapshot_without_replaying(db, execution, 
     execution.row.snapshot = {"sequence": 8}
     assert service._execute(db, 42, None) is execution.row.snapshot
     db.rollback.assert_called_once()
+    assert execution.simulation.close_calls == 0
     service.prepare_match_start.assert_not_called()
     execution.repo.save_progress.assert_not_called()
 
@@ -145,6 +159,7 @@ def test_resume_uses_saved_checkpoint_without_rebuilding_lineup(db, execution):
     assert result["sequence"] == 9
     assert db.commit.call_count == 1
     db.rollback.assert_called_once()
+    assert execution.simulation.close_calls == 1
 
 
 def test_resume_cannot_change_duration(db, execution):
@@ -155,6 +170,7 @@ def test_resume_cannot_change_duration(db, execution):
     assert error.value.code == "MATCH_INVALID_DURATION"
     execution.repo.save_progress.assert_not_called()
     db.commit.assert_not_called()
+    assert execution.simulation.close_calls == 1
 
 
 def test_stop_during_execution_returns_last_persisted_snapshot(db, execution):
@@ -165,6 +181,7 @@ def test_stop_during_execution_returns_last_persisted_snapshot(db, execution):
     assert execution.simulation.steps == []
     assert execution.repo.save_progress.call_count == 1
     service.sleep.assert_not_called()
+    assert execution.simulation.close_calls == 1
 
 
 def test_stop_before_start_does_not_acquire_execution_session(execution):
@@ -190,6 +207,85 @@ def test_commit_failure_never_advances_simulation(db, execution):
         service._execute(db, 42, None)
     assert error.value is failure
     assert execution.simulation.steps == []
+    assert execution.simulation.close_calls == 1
+
+
+@pytest.mark.parametrize("error_type", [ValueError, TypeError, KeyError])
+def test_invalid_checkpoint_becomes_domain_error(db, execution, error_type):
+    execution.row.status = "RUNNING"
+    execution.row.runtime_state = {"invalid": True}
+    service.Match.from_checkpoint.side_effect = error_type("invalid checkpoint")
+
+    with pytest.raises(AppError) as error:
+        service._execute(db, 42, None)
+
+    assert error.value.code == "MATCH_STATE_INVALID"
+    execution.repo.save_progress.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_simulation_failure_closes_runtime(db, execution):
+    failure = RuntimeError("simulation failed")
+    execution.simulation.run_match = Mock(side_effect=failure)
+
+    with pytest.raises(RuntimeError) as error:
+        service._execute(db, 42, None)
+
+    assert error.value is failure
+    assert execution.simulation.close_calls == 1
+    assert execution.repo.save_progress.call_count == 1
+
+
+def test_custom_change_is_acknowledged_only_after_persisting(db, execution):
+    program = {
+        "behaviour_mode": "BALANCED",
+        "behaviour_code": "def decide(observation):\n    return ir_a_pelota()",
+        "behaviour_version": 2,
+        "behaviour_api_version": 1,
+    }
+    request_id = enqueue_request(42, {
+        "action": "CHANGE_BEHAVIOUR",
+        "player_id": 74,
+        "club_id": 7,
+        "behaviour_id": 99,
+        "program": program,
+    })
+    pending_at_commit = []
+    db.commit.side_effect = lambda: pending_at_commit.append(
+        [request["request_id"] for request in pending_requests(42)]
+    )
+
+    service._execute(db, 42, None)
+
+    assert execution.simulation.behaviour_changes == [
+        (74, {"club_id": 7, "behaviour_id": 99, **program})
+    ]
+    assert pending_at_commit == [[request_id], [request_id]]
+    assert pending_requests(42) == []
+    assert execution.simulation.close_calls == 1
+
+
+def test_failed_commit_keeps_custom_change_pending(db, execution):
+    request_id = enqueue_request(42, {
+        "action": "CHANGE_BEHAVIOUR",
+        "player_id": 74,
+        "club_id": 7,
+        "behaviour_id": 99,
+        "program": {
+            "behaviour_mode": "BALANCED",
+            "behaviour_code": "def decide(observation):\n    return ir_a_pelota()",
+            "behaviour_version": 2,
+            "behaviour_api_version": 1,
+        },
+    })
+    db.commit.side_effect = [None, RuntimeError("commit failed")]
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service._execute(db, 42, None)
+
+    assert [request["request_id"] for request in pending_requests(42)] == [request_id]
+    assert len(execution.simulation.behaviour_changes) == 1
+    assert execution.simulation.close_calls == 1
 
 
 @pytest.mark.parametrize("fails", [False, True])

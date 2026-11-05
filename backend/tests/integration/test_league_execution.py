@@ -144,11 +144,11 @@ def test_scheduler_finishes_all_rounds_offline_and_resumes_saved_match(database,
                     LeagueRound.league_id == data.id, LeagueRound.number == round_number + 1,
                 ))
                 assert next_round.schedule_confirmed
-                assert next_round.scheduled_at.replace(tzinfo=timezone.utc) == clock[0] + timedelta(seconds=120)
+                assert next_round.scheduled_at.replace(tzinfo=timezone.utc) == clock[0] + timedelta(seconds=360)
                 assert match_scheduler_service._get_due_match_ids() == []
             else:
                 assert league.status == "finished"
-        clock[0] += timedelta(seconds=120)
+        clock[0] += timedelta(seconds=360)
 
     assert match_scheduler_service._get_due_match_ids() == []
     with Session(database) as db:
@@ -158,6 +158,26 @@ def test_scheduler_finishes_all_rounds_offline_and_resumes_saved_match(database,
         assert len(db.scalars(select(LeagueStanding)).all()) == count
         ranking = league_service.league_rank(data.id, db)
         assert all(row["pj"] == count - 1 for row in ranking)
+
+
+def test_league_captures_custom_behaviour_source_and_version(database, running_league):
+    data, _ = running_league
+    source = "def decide(observation):\n    return ir_a_pelota()\n"
+    with Session(database) as db:
+        for behaviour in db.scalars(select(Behavior)):
+            behaviour.code = source
+            behaviour.version = 4
+        db.commit()
+        start(db, data)
+
+    ids = match_scheduler_service._get_due_match_ids()
+    assert len(ids) == 1
+    with Session(database) as db:
+        row = db.get(Matches, ids[0])
+        players = row.runtime_state["local_team"]["players"]
+        assert all(player["behaviour_code"] == source for player in players)
+        assert all(player["behaviour_version"] == 4 for player in players)
+    assert match_execution_service.run_persisted_match(ids[0])["state"]["status"] == "FINISHED"
 
 
 def test_busy_club_delays_whole_round_without_cancelling_matches(database, running_league):

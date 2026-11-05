@@ -113,7 +113,7 @@ def test_fixture_serializes_dates_in_utc(db, fixture, now, naive):
 
 
 @pytest.mark.parametrize("frequency, interval", [
-    ("CONTINUOUS", timedelta(seconds=120)),
+    ("CONTINUOUS", timedelta(seconds=360)),
     ("DAILY", timedelta(days=1)),
     ("WEEKLY", timedelta(days=7)),
 ])

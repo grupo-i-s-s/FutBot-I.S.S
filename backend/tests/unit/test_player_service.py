@@ -149,12 +149,24 @@ def test_assign_behaviour_rolls_back_failed_write(monkeypatch):
     db.commit.assert_not_called()
 
 
-def test_player_listing_is_scoped_to_authenticated_club(db, monkeypatch):
-    players = [object()]
-    get_players = MagicMock(return_value=players)
-    monkeypatch.setattr(player_service.player_repository, "get_players_by_club", get_players)
-    assert player_service.get_players(db, 7) is players
-    get_players.assert_called_once_with(db, 7)
+def test_player_listing_is_scoped_to_authenticated_club(db):
+    players = [object(), object()]
+    query = db.query.return_value
+    filtered = query.filter.return_value
+    filtered.count.return_value = 12
+    paginated = filtered.order_by.return_value.offset.return_value.limit.return_value
+    paginated.all.return_value = players
+
+    result, total = player_service.get_players(db, 7, page=2, limit=10)
+
+    assert result is players
+    assert total == 12
+    db.query.assert_called_once_with(Player)
+    conditions = query.filter.call_args.args
+    assert any(condition.compare(Player.club_id == 7) for condition in conditions)
+    assert any(condition.compare(Player.is_deleted.is_(False)) for condition in conditions)
+    filtered.order_by.return_value.offset.assert_called_once_with(10)
+    filtered.order_by.return_value.offset.return_value.limit.assert_called_once_with(10)
     db.commit.assert_not_called()
 
 

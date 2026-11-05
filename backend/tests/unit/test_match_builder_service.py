@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 from app.errors import AppError
 from app.services import match_builder_service as service
+from primitives.behaviour_api.registry import API_VERSION
 from primitives.behaviours import BehaviourMode, DEFAULT_CODES, LEGACY_CODE
 
 
@@ -24,8 +25,9 @@ def teams(monkeypatch):
         ]
         behaviours[club_id] = [
             SimpleNamespace(
-                id=club_id * 100 + index,
-                name=name, code=DEFAULT_CODES[name], version=1,
+                id=club_id * 100 + index, club_id=club_id,
+                name=name, code=DEFAULT_CODES[name],
+                kind="PLAYER", version=1, validation_status="VALID",
             )
             for index, name in enumerate(("Equilibrado", "Ofensivo", "Defensivo"))
         ]
@@ -140,6 +142,71 @@ def test_builder_rejects_unsupported_behaviour_code(db, teams):
     with pytest.raises(AppError) as error:
         service.build_match(db, 42)
     assert error.value.code == "MATCH_INVALID_BEHAVIOUR"
+
+
+@pytest.mark.parametrize("club_id", [7, 9])
+def test_builder_accepts_custom_behaviour_and_freezes_source_and_version(db, teams, club_id):
+    source = "def decide(observation):\n    return ir_a_pelota()\n"
+    behaviour = teams.behaviours[club_id][2]
+    behaviour.name = "Perseguir pelota"
+    behaviour.code = source
+    behaviour.version = 4
+
+    match = service.build_match(db, 42)
+    player_id = club_id * 10 + 4
+    profile = next(player for player in match.player_profiles if player.id == player_id)
+
+    assert profile.club_id == club_id
+    assert profile.behaviour_id == behaviour.id
+    assert profile.behaviour_code == source
+    assert profile.behaviour_version == 4
+    assert profile.behaviour_api_version == API_VERSION
+
+    updated_source = "def decide(observation):\n    return ir_a(posicion_base())\n"
+    behaviour.code = updated_source
+    behaviour.version = 5
+    updated_match = service.build_match(db, 43)
+    updated_profile = next(
+        player for player in updated_match.player_profiles if player.id == player_id
+    )
+
+    assert profile.behaviour_code == source
+    assert profile.behaviour_version == 4
+    assert updated_profile.behaviour_code == updated_source
+    assert updated_profile.behaviour_version == 5
+    db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("kind, validation_status", [
+    ("PLAYER", "INVALID"),
+    ("PLAYER", "PENDING"),
+    ("COACH", "VALID"),
+])
+def test_builder_rejects_custom_behaviour_that_is_not_valid_player(
+    db, teams, kind, validation_status,
+):
+    behaviour = teams.behaviours[7][2]
+    behaviour.code = "def decide(observation):\n    return ir_a_pelota()\n"
+    behaviour.kind = kind
+    behaviour.validation_status = validation_status
+
+    with pytest.raises(AppError) as error:
+        service.build_match(db, 42)
+
+    assert error.value.code == "MATCH_INVALID_BEHAVIOUR"
+    db.commit.assert_not_called()
+
+
+def test_builder_rejects_custom_behaviour_from_opponent_club(db, teams):
+    foreign_behaviour = teams.behaviours[9][2]
+    foreign_behaviour.code = "def decide(observation):\n    return ir_a_pelota()\n"
+    teams.lineups[7]["starters"][0]["behaviourId"] = foreign_behaviour.id
+
+    with pytest.raises(AppError) as error:
+        service.build_match(db, 42)
+
+    assert error.value.code == "MATCH_INVALID_LINEUP"
+    db.commit.assert_not_called()
 
 
 @pytest.mark.parametrize("missing, code", [("match", "MATCH_NOT_FOUND"), ("visitor", "MATCH_NO_VISITOR")])

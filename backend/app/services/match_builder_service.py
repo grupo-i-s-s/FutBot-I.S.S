@@ -9,7 +9,7 @@ from app.repository import (
     team_repository,
 )
 from app.schemas.team_schemas import Lineup
-from primitives.behaviours import resolve_behaviour
+from primitives.behaviour_api.runtime import resolve_program
 from primitives.formations import FORMATIONS
 from primitives.match_simulation import Match, PlayerProfile, Team
 
@@ -64,7 +64,28 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
             )
 
         try:
-            mode = resolve_behaviour(behaviour.code, behaviour.name)
+            if (
+                    behaviour.kind != "PLAYER"
+                    or behaviour.validation_status != "VALID"
+            ):
+                raise AppError(
+                    "MATCH_INVALID_BEHAVIOUR",
+                    f"El comportamiento de {player.name} no está habilitado.",
+                )
+
+            try:
+                program = resolve_program(
+                    behaviour.code,
+                    behaviour.name,
+                    version=behaviour.version,
+                )
+
+            except ValueError as error:
+                raise AppError(
+                    "MATCH_INVALID_BEHAVIOUR",
+                    f"El comportamiento de {player.name} es inválido: {error}",
+                ) from error
+
         except ValueError as exc:
             raise AppError(
                 "MATCH_INVALID_BEHAVIOUR",
@@ -82,8 +103,7 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
                 strength=player.strength,
                 control=player.control,
                 behaviour_id=behaviour.id,
-                behaviour_mode=mode,
-                behaviour_version=behaviour.version,
+                **program,
             )
         )
 
