@@ -14,6 +14,11 @@ export default function CreateBehaviourPage() {
         setError('');
         setSuccess('');
 
+        if (!name.trim() || !code.trim()) {
+            setError('Deben completarse todos los campos.');
+            return;
+        }
+
         try {
             await createBehaviour(name, code);
             setSuccess('Comportamiento creado exitosamente.');
@@ -54,6 +59,18 @@ export default function CreateBehaviourPage() {
                 >
                     Guardar Comportamiento
                 </button>
+
+                {error && (
+                    <p role="alert">
+                        {error}
+                    </p>
+                )}
+
+                {success && (
+                    <p role="status">
+                        {success}
+                    </p>
+                )}
             </form>
         </div>
     );
