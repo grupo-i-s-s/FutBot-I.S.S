@@ -25,20 +25,17 @@ export default function CreateBehaviourPage() {
         }
     }
 
-    const handleEditorChange = (value, event) => {
-        console.log("Código del usuario:", value);
-    };
-
     return (
         <div className="max-w-4xl mx-auto p-6 flex flex-col">
             <h2 className="text-2xl font-bold mb-6 text-gray-800 ">Crear Comportamiento</h2>
-            <form onSubmit={(e) => e.preventDefault()} className="w-full space-y-4">
+            <form onSubmit={handleSubmit} className="w-full space-y-4">
                 <div>
                     <input
                         type="text"
                         placeholder="Ingrese el nombre"
                         defaultValue=""
                         className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+                        onChange={(event) => setName(event.target.value)}
                     />
                 </div>
                 <div>
@@ -48,7 +45,7 @@ export default function CreateBehaviourPage() {
                         defaultLanguage="python"
                         defaultValue="# Escribe tu código aquí"
                         theme="vs-dark"
-                        onChange={handleEditorChange}
+                        onChange={(value) => setCode(value)}
                     />
                 </div>
                 <button
