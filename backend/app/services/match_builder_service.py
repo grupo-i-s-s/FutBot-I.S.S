@@ -14,8 +14,11 @@ from primitives.formations import FORMATIONS
 from primitives.match_simulation import Match, PlayerProfile, Team
 
 
-def _build_team(db: Session, club_id: int, name: str, avatar: str) -> Team:
-    saved_team = team_repository.get_by_club(db, club_id)
+def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=None) -> Team:
+    if league_teams is None:
+        saved_team = team_repository.get_by_club(db, club_id)
+    else:
+        saved_team = league_teams.get(club_id)
 
     if saved_team is None:
         raise AppError(
@@ -118,6 +121,7 @@ def build_match(
     match_id: int,
     *,
     duration_ms: int | None = None,
+    league_teams=None,
 ) -> Match:
     match = matches_repository.get_by_id(db, match_id)
 
@@ -140,8 +144,8 @@ def build_match(
     )
 
     return Match(
-        _build_team(db, match.creator_id, names[match.creator_id], avatars[match.creator_id]),
-        _build_team(db, match.visitor_id, names[match.visitor_id], avatars[match.visitor_id]),
+        _build_team(db, match.creator_id, names[match.creator_id], avatars[match.creator_id], league_teams),
+        _build_team(db, match.visitor_id, names[match.visitor_id], avatars[match.visitor_id], league_teams),
         match_id=match_id,
         duration_ms=(
             match.duration_ms

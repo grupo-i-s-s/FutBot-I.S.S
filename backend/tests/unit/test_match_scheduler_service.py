@@ -36,8 +36,10 @@ def test_due_query_closes_session_and_uses_utc_time(db, monkeypatch, now, freeze
 
     repo = Mock(return_value=[42, 43])
     monkeypatch.setattr(service, "SessionLocal", session)
+    monkeypatch.setattr(service, "get_due_league_match_ids", Mock(return_value=[44]))
     monkeypatch.setattr(service.matches_repository, "get_due_match_ids", repo)
-    assert service._get_due_match_ids() == [42, 43]
+    assert service._get_due_match_ids() == [44, 42, 43]
+    service.get_due_league_match_ids.assert_called_once_with(db, now)
     repo.assert_called_once_with(db, now)
     assert closed == [True]
 

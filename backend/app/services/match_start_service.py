@@ -32,6 +32,9 @@ def prepare_match_start(db: Session, match: Matches, now: datetime, *, duration_
     if match.status not in PENDING_STATUSES:
         raise AppError("MATCH_STATE_INVALID", "El partido no está pendiente de inicio.")
 
+    if getattr(match, "league_round_id", None) is not None:
+        return None
+
     if match.init_date > now:
         return None
 

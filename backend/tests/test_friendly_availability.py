@@ -22,6 +22,7 @@ from app.errors import AppError
 from app.main import app_error_handler, validation_error_handler
 from app.models.auth_model import AuthSession, Club, User
 from app.models.behaviour_model import Behavior
+from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
@@ -52,7 +53,7 @@ def context(sqlite_match_dates):
 
     Base.metadata.create_all(engine, tables=[
         model.__table__
-        for model in (User, Club, AuthSession, Behavior, Player, DefaultTeam, Matches)
+        for model in (User, Club, AuthSession, Behavior, Player, DefaultTeam, League, LeagueRound, Matches)
     ])
     application = FastAPI(dependencies=[Depends(require_browser_write)])
     for router in (auth_router, club_router, matches_router):
@@ -202,7 +203,7 @@ def postgres_context():
         connect_args={"options": f"-csearch_path={schema}", "connect_timeout": 3},
     )
     try:
-        Base.metadata.create_all(engine, tables=[model.__table__ for model in (User, Club, Matches)])
+        Base.metadata.create_all(engine, tables=[model.__table__ for model in (User, Club, League, LeagueRound, Matches)])
         with Session(engine) as db:
             for club_id in (1, 2):
                 db.add(User(id=club_id, email=f"availability-{club_id}@example.com", password_hash="unused"))

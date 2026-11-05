@@ -150,20 +150,13 @@ export default function LeagueListPage() {
                                             Tu club ya está inscripto.
                                         </p>
                                     )}
-                                    <Link
-                                        to={league.isMember
-                                            ? `/leagues/${league.id}/lobby`
-                                            : `/leagues/${league.id}/join`}
-                                        className="leagues-link"
-                                    >
-                                        {league.isMember ?
-                                            (<Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver
-                                                    lobby </Link>
-                                            ) : league.canJoin ?
-                                                (<Link to={`/leagues/${league.id}/join`} className="leagues-link">Unirme
-                                                    a liga</Link>)
-                                                : (<p className="leagues-message">Inscripción no disponible.</p>)}
-                                    </Link>
+                                    {league.isMember ? (
+                                        <Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver lobby</Link>
+                                    ) : league.canJoin ? (
+                                        <Link to={`/leagues/${league.id}/join`} className="leagues-link">Inscribirse</Link>
+                                    ) : (
+                                        <p className="leagues-message">Inscripción no disponible.</p>
+                                    )}
                                 </li>
                             ))}
                         </ul>

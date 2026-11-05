@@ -109,7 +109,7 @@ def test_join_uses_six_selected_players_and_authenticated_club(db, leagues):
 
 
 @pytest.mark.parametrize("case, status", [
-    ("missing", 404), ("closed", 409), ("started", 409),
+    ("missing", 404), ("closed", 409),
     ("full", 409), ("registered", 409), ("foreign_player", 400),
 ])
 def test_join_rejects_unavailable_league_or_invalid_roster(db, leagues, now, case, status):
@@ -117,17 +117,19 @@ def test_join_rejects_unavailable_league_or_invalid_roster(db, leagues, now, cas
         leagues.repo.get_league_for_join.return_value = None
     elif case == "closed":
         leagues.row.status = "finished"
-    elif case == "started":
-        leagues.row.start_datetime = now
     elif case == "full":
         leagues.repo.count_registrations.return_value = leagues.row.max_teams
     elif case == "registered":
         leagues.repo.get_registration.return_value = SimpleNamespace(club_id=7)
     else:
         leagues.players.get_players_by_club.return_value = [SimpleNamespace(id=i) for i in range(1, 6)]
-    with pytest.raises(HTTPException) as error:
+    codes = {"closed": "LEAGUE_CLOSED", "full": "LEAGUE_FULL", "registered": "ALREADY_REGISTERED"}
+    with pytest.raises(AppError if case in codes else HTTPException) as error:
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6])
-    assert error.value.status_code == status
+    if case in codes:
+        assert error.value.code == codes[case]
+    else:
+        assert error.value.status_code == status
     leagues.repo.create_registration.assert_not_called()
     db.commit.assert_not_called()
 
@@ -143,22 +145,20 @@ def test_join_rejects_nonunique_or_noninteger_six_player_lineup(db, leagues, lin
     leagues.repo.create_registration.assert_not_called()
 
 
-@pytest.mark.parametrize("legacy", [False, True])
 @pytest.mark.parametrize("supplied, valid", [(None, False), ("wrong", False), ("secret", True)])
-def test_join_private_access_password_or_legacy_code(db, leagues, legacy, supplied, valid):
+def test_join_private_league_verifies_only_password_hash(db, leagues, supplied, valid):
     leagues.row.is_private = True
-    leagues.row.access_code = "secret" if legacy else None
-    leagues.row.password_hash = None if legacy else "encoded"
+    leagues.row.password_hash = "encoded"
     service.verify_password.return_value = valid
     if valid:
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], supplied)
         leagues.repo.create_registration.assert_called_once()
     else:
-        with pytest.raises(HTTPException) as error:
+        with pytest.raises(AppError) as error:
             service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], supplied)
-        assert error.value.status_code == 409
+        assert error.value.code == "LEAGUE_ACCESS_INVALID"
         leagues.repo.create_registration.assert_not_called()
-    if supplied and not legacy:
+    if supplied:
         service.verify_password.assert_called_once_with(supplied, "encoded")
     else:
         service.verify_password.assert_not_called()
@@ -168,8 +168,28 @@ def test_password_hash_takes_precedence_over_legacy_code(db, leagues):
     leagues.row.access_code = "secret"
     leagues.row.password_hash = "encoded"
     service.verify_password.return_value = False
-    with pytest.raises(HTTPException):
+    with pytest.raises(AppError):
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], "secret")
+    leagues.repo.create_registration.assert_not_called()
+
+
+@pytest.mark.parametrize("private", [False, True])
+def test_unmigrated_plaintext_password_never_allows_join(db, leagues, private):
+    leagues.row.is_private = private
+    leagues.row.access_code = "secret"
+    with pytest.raises(AppError) as error:
+        service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], "secret")
+    assert error.value.code == "LEAGUE_ACCESS_INVALID"
+    service.verify_password.assert_not_called()
+    leagues.repo.create_registration.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_password_hash_protects_league_even_if_private_flag_is_missing(db, leagues):
+    leagues.row.password_hash = "encoded"
+    with pytest.raises(AppError) as error:
+        service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6])
+    assert error.value.code == "LEAGUE_ACCESS_INVALID"
     leagues.repo.create_registration.assert_not_called()
 
 
@@ -200,6 +220,15 @@ def test_leave_removes_only_current_club_registration(db, leagues):
     db.commit.assert_called_once()
 
 
+def test_open_league_allows_join_and_leave_after_planned_start(db, leagues, now):
+    leagues.row.start_datetime = now - timedelta(days=1)
+    service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6])
+    leagues.repo.get_registration.return_value = SimpleNamespace(club_id=7)
+    service.leave_league(db, 42, 7)
+    leagues.repo.create_registration.assert_called_once()
+    leagues.repo.delete_registration.assert_called_once()
+
+
 @pytest.mark.parametrize("member", [True, False])
 def test_lobby_counts_members_and_includes_creator_without_registration(db, leagues, member):
     leagues.row.registrations = [SimpleNamespace(club_id=7)] if member else []
@@ -223,6 +252,17 @@ def test_lobby_handles_missing_club_and_never_reports_negative_capacity(db, leag
     assert len(result["clubs"]) == 1
     assert result["registered_teams"] == 2
     assert result["remaining_slots"] == 0
+
+
+def test_running_lobby_includes_saved_standings(db, leagues):
+    leagues.row.status = "running"
+    leagues.repo.get_clubs_by_ids.return_value = [SimpleNamespace(id=1), SimpleNamespace(id=7)]
+    standings = [SimpleNamespace(club_id=7, points=3)]
+    leagues.repo.get_standings.return_value = standings
+    result = service.get_league_lobby(db, 42, 7)
+    assert result["standings"] == standings
+    leagues.repo.get_standings.assert_called_once_with(db, 42)
+    db.commit.assert_not_called()
 
 
 def test_missing_lobby_is_not_found(db, leagues):

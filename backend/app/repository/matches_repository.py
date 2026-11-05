@@ -132,6 +132,7 @@ def get_due_match_ids(db: Session, now: datetime) -> list[int]:
         db.scalars(
             select(Matches.match_id)
             .where(
+                Matches.league_round_id.is_(None),
                 Matches.init_date <= now,
                 Matches.status.in_(("WAITING", "WAITING_OPPONENT", "SCHEDULED", "RUNNING")),
             )
@@ -152,11 +153,10 @@ def get_clubs_for_update(db: Session, club_ids: tuple[int, ...]) -> list[Club]:
     )
 
 
-def clubs_have_running_match(db: Session, club_ids: tuple[int, ...], match_id: int) -> bool:
-    running_match_id = db.scalar(
+def clubs_have_running_match(db: Session, club_ids: tuple[int, ...], match_id: int | None = None) -> bool:
+    query = (
         select(Matches.match_id)
         .where(
-            Matches.match_id != match_id,
             Matches.status == "RUNNING",
             or_(
                 Matches.creator_id.in_(club_ids),
@@ -165,4 +165,6 @@ def clubs_have_running_match(db: Session, club_ids: tuple[int, ...], match_id: i
         )
         .limit(1)
     )
-    return running_match_id is not None
+    if match_id is not None:
+        query = query.where(Matches.match_id != match_id)
+    return db.scalar(query) is not None

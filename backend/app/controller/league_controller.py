@@ -9,10 +9,22 @@ from app.schemas.league_schemas import (
     LeagueLobbyRead,
     LeaveLeagueResponse,
     LeagueJoinRequest,
+    StartLeagueResponse,
+    LeagueFixtureRead,
 )
-from app.services import league_service
+from app.services import league_fixture_service, league_service
 
 league_router = APIRouter(prefix="/leagues", tags=["leagues"])
+
+
+@league_router.get("/{id}/fixture", response_model=LeagueFixtureRead)
+def get_league_fixture(id: int, club: CurrentClub, db: Database):
+    return league_fixture_service.get_league_fixture(db, id, club.id)
+
+
+@league_router.post("/{id}/start", response_model=StartLeagueResponse)
+def start_league(id: int, club: CurrentClub, db: Database):
+    return league_service.start_league(db=db, league_id=id, club_id=club.id)
 
 
 @league_router.get(

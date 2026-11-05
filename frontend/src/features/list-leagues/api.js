@@ -11,7 +11,6 @@ export async function getLeagues(name = '', signal) {
     const path = query ? `/leagues?${query}` : '/leagues';
 
     const response = await request(path, {signal});
-    const now = Date.now();
 
     return {
         ...response,
@@ -20,8 +19,7 @@ export async function getLeagues(name = '', signal) {
             canJoin:
                 !league.isMember &&
                 league.status === 'open' &&
-                league.availableSlots > 0 &&
-                new Date(league.startDatetime).getTime() > now,
+                league.availableSlots > 0,
         })),
     };
 }
