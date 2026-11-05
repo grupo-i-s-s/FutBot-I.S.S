@@ -123,9 +123,13 @@ def test_join_rejects_unavailable_league_or_invalid_roster(db, leagues, now, cas
         leagues.repo.get_registration.return_value = SimpleNamespace(club_id=7)
     else:
         leagues.players.get_players_by_club.return_value = [SimpleNamespace(id=i) for i in range(1, 6)]
-    with pytest.raises(HTTPException) as error:
+    codes = {"closed": "LEAGUE_CLOSED", "full": "LEAGUE_FULL", "registered": "ALREADY_REGISTERED"}
+    with pytest.raises(AppError if case in codes else HTTPException) as error:
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6])
-    assert error.value.status_code == status
+    if case in codes:
+        assert error.value.code == codes[case]
+    else:
+        assert error.value.status_code == status
     leagues.repo.create_registration.assert_not_called()
     db.commit.assert_not_called()
 
@@ -150,9 +154,9 @@ def test_join_private_league_verifies_only_password_hash(db, leagues, supplied, 
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], supplied)
         leagues.repo.create_registration.assert_called_once()
     else:
-        with pytest.raises(HTTPException) as error:
+        with pytest.raises(AppError) as error:
             service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], supplied)
-        assert error.value.status_code == 409
+        assert error.value.code == "LEAGUE_ACCESS_INVALID"
         leagues.repo.create_registration.assert_not_called()
     if supplied:
         service.verify_password.assert_called_once_with(supplied, "encoded")
@@ -164,7 +168,7 @@ def test_password_hash_takes_precedence_over_legacy_code(db, leagues):
     leagues.row.access_code = "secret"
     leagues.row.password_hash = "encoded"
     service.verify_password.return_value = False
-    with pytest.raises(HTTPException):
+    with pytest.raises(AppError):
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], "secret")
     leagues.repo.create_registration.assert_not_called()
 
@@ -173,9 +177,9 @@ def test_password_hash_takes_precedence_over_legacy_code(db, leagues):
 def test_unmigrated_plaintext_password_never_allows_join(db, leagues, private):
     leagues.row.is_private = private
     leagues.row.access_code = "secret"
-    with pytest.raises(HTTPException) as error:
+    with pytest.raises(AppError) as error:
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6], "secret")
-    assert error.value.status_code == 409
+    assert error.value.code == "LEAGUE_ACCESS_INVALID"
     service.verify_password.assert_not_called()
     leagues.repo.create_registration.assert_not_called()
     db.commit.assert_not_called()
@@ -183,9 +187,9 @@ def test_unmigrated_plaintext_password_never_allows_join(db, leagues, private):
 
 def test_password_hash_protects_league_even_if_private_flag_is_missing(db, leagues):
     leagues.row.password_hash = "encoded"
-    with pytest.raises(HTTPException) as error:
+    with pytest.raises(AppError) as error:
         service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6])
-    assert error.value.status_code == 409
+    assert error.value.code == "LEAGUE_ACCESS_INVALID"
     leagues.repo.create_registration.assert_not_called()
 
 

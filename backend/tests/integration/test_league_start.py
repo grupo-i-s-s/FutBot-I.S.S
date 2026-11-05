@@ -23,6 +23,7 @@ for name, value in {
     os.environ.setdefault(name, value)
 
 from app.controller.league_controller import league_router
+from app.errors import AppError
 from app.database import Base, get_db
 from app.dependencies import get_current_club
 from app.models.auth_model import Club, User
@@ -178,11 +179,11 @@ def test_password_migration_preserves_hashes_and_is_repeatable(database, league_
         assert not public.is_private
         assert public.password_hash is public.access_code is None
         for wrong_password in [None, "wrong-password"]:
-            with pytest.raises(HTTPException) as error:
+            with pytest.raises(AppError) as error:
                 league_service.join_league(
                     db, legacy.id, league_data.clubs[3], league_data.lineups[3], wrong_password,
                 )
-            assert error.value.status_code == 409
+            assert error.value.code == "LEAGUE_ACCESS_INVALID"
         league_service.join_league(
             db, legacy.id, league_data.clubs[3], league_data.lineups[3], "old-password",
         )
@@ -310,9 +311,9 @@ def test_running_league_rejects_join_and_leave(database, league_data):
     data = league_data
     with Session(database) as db:
         league_service.start_league(db, data.id, data.clubs[0])
-        with pytest.raises(HTTPException) as error:
+        with pytest.raises(AppError) as error:
             league_service.join_league(db, data.id, data.clubs[3], data.lineups[3])
-        assert error.value.status_code == 409
+        assert error.value.code == "LEAGUE_CLOSED"
         db.rollback()
         with pytest.raises(HTTPException) as error:
             league_service.leave_league(db, data.id, data.clubs[1])
@@ -467,6 +468,10 @@ def test_concurrent_operations_keep_participants_consistent(database, league_dat
                     league.status = "cancelled"
                     db.commit()
                 return 200
+            except AppError as exc:
+                assert exc.code == "LEAGUE_CLOSED"
+                db.rollback()
+                return 409
             except HTTPException as exc:
                 db.rollback()
                 return exc.status_code

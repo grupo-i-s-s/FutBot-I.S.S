@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
+from app.services.league_access_service import check_access_limit
 from app.repository import league_repository, player_repository
 from app.schemas.league_schemas import (
     CreateLeagueRequest,
@@ -250,35 +251,36 @@ def join_league(
         )
 
     if league.is_private or league.password_hash is not None or league.access_code is not None:
+        check_access_limit(club_id, league_id)
         if not (
             access_code and league.password_hash
             and verify_password(access_code, league.password_hash)
         ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="El código de acceso es incorrecto.",
+            raise AppError(
+                "LEAGUE_ACCESS_INVALID",
+                "La contraseña de la liga es incorrecta.",
             )
 
     if league.status != "open":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No es posible unirse a una liga que ya ha comenzado o no está abierta.",
+        raise AppError(
+            "LEAGUE_CLOSED",
+            "No es posible unirse a una liga que ya ha comenzado o no está abierta.",
         )
 
     registration_count = league_repository.count_registrations(db, league_id)
 
     if registration_count >= league.max_teams:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="La liga ha alcanzado el límite máximo de equipos.",
+        raise AppError(
+            "LEAGUE_FULL",
+            "La liga ha alcanzado el límite máximo de equipos.",
         )
 
     existing_registration = league_repository.get_registration(db, league_id, club_id)
 
     if existing_registration:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El club ya se encuentra inscripto en esta liga.",
+        raise AppError(
+            "ALREADY_REGISTERED",
+            "El club ya se encuentra inscripto en esta liga.",
         )
 
     if (

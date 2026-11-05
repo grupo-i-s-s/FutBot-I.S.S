@@ -6,6 +6,12 @@ from sqlalchemy import event
 from app.models.matches_model import Matches
 
 
+@pytest.fixture(autouse=True)
+def isolated_league_access_attempts(monkeypatch):
+    from app.services import league_access_service
+    monkeypatch.setattr(league_access_service, "_attempts", {})
+
+
 @pytest.fixture
 def sqlite_match_dates():
     def restore_timezone(match, context):
