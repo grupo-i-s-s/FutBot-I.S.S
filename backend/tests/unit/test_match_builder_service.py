@@ -25,7 +25,7 @@ def teams(monkeypatch):
         behaviours[club_id] = [
             SimpleNamespace(
                 id=club_id * 100 + index,
-                name=name, code=DEFAULT_CODES[name],
+                name=name, code=DEFAULT_CODES[name], version=1,
             )
             for index, name in enumerate(("Equilibrado", "Ofensivo", "Defensivo"))
         ]

@@ -149,6 +149,21 @@ def get_fixture_matches(db: Session, league_id: int) -> list[Matches]:
         .join(LeagueRound, Matches.league_round_id == LeagueRound.id)
         .where(LeagueRound.league_id == league_id)
         .order_by(LeagueRound.number, Matches.match_id)
+        .execution_options(populate_existing=True)
+    ).all())
+
+
+def get_running_league_ids(db: Session) -> list[int]:
+    return list(db.scalars(
+        select(League.id).where(League.status == "running").order_by(League.id)
+    ).all())
+
+
+def get_round_matches_for_update(db: Session, round_id: int) -> list[Matches]:
+    return list(db.scalars(
+        select(Matches).where(Matches.league_round_id == round_id)
+        .order_by(Matches.match_id).with_for_update()
+        .execution_options(populate_existing=True)
     ).all())
 
 

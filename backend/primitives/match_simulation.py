@@ -40,6 +40,7 @@ class PlayerProfile:
     control: int
     behaviour_id: int | None = None
     behaviour_mode: BehaviourMode = BehaviourMode.BALANCED
+    behaviour_version: int | None = None
 
     #Esto me srive para definir el significado de control en un jugador. 100pts son 2mts y 20 son 0.4mts
     @property

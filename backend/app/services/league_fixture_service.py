@@ -78,6 +78,9 @@ def update_fixture_schedule(db: Session, round_id: int) -> None:
 
     rounds = league_repository.get_fixture_rounds(db, league.id)
     matches = league_repository.get_fixture_matches(db, league.id)
+    if matches and all(match.status == "FINISHED" for match in matches):
+        league.status = "finished"
+        return
     matches_by_round = {round_.id: [] for round_ in rounds}
     for match in matches:
         matches_by_round[match.league_round_id].append(match)
