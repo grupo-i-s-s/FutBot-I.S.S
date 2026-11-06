@@ -153,6 +153,12 @@ def _execute(
                     "El partido fue eliminado durante la ejecución.",
                 )
 
+            if row.status == "CANCELLED":
+                snapshot = row.snapshot
+                db.rollback()
+                clear_requests(match_id)
+                return snapshot
+
             snapshot = _persist(db, row, simulation)
 
             acknowledge_requests(
