@@ -1,7 +1,8 @@
 import {useEffect, useState} from 'react';
-import {useParams} from 'react-router';
+import {useParams, useNavigate} from 'react-router';
 import {getBehaviour} from './api';
 import './BehaviourDetailPage.css';
+import DeleteBehaviourButton from './components/DeleteBehaviourButton';
 
 export default function BehaviourDetailPage() {
     const {behaviourId} = useParams();
@@ -10,6 +11,7 @@ export default function BehaviourDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [attempt, setAttempt] = useState(0);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const controller = new AbortController();
@@ -79,6 +81,18 @@ export default function BehaviourDetailPage() {
                         <h2 className="behaviour-detail-name">
                             {behaviour.name}
                         </h2>
+                        
+                        <DeleteBehaviourButton
+                            behaviour={behaviour}
+                            onDeleted={(deletedBehaviour) => {
+                                navigate('/behaviours', {
+                                    replace: true,
+                                    state: {
+                                        notice: `El comportamiento “${deletedBehaviour.name}” se eliminó correctamente.`,
+                                    },
+                                });
+                            }}
+                        />                        
 
                         <p className="behaviour-detail-description">
                             Código del comportamiento. Solo lectura.

@@ -44,3 +44,7 @@ class MatchStateResponse(BaseModel):
     visitor_score: int = Field(serialization_alias="visitorScore")
     duration_ms: int = Field(serialization_alias="durationMs")
     model_config = ConfigDict(populate_by_name=True)
+
+class LiveRequests(BaseModel):
+    player_id: int
+    behaviour_id: int

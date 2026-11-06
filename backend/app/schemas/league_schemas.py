@@ -20,6 +20,19 @@ class LeagueLobbyClubRead(BaseModel):
     name: str
 
 
+class LeagueStandingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    club_id: int = Field(serialization_alias="clubId")
+    played: int
+    wins: int
+    draws: int
+    losses: int
+    goals_for: int = Field(serialization_alias="goalsFor")
+    goals_against: int = Field(serialization_alias="goalsAgainst")
+    points: int
+
+
 class LeagueLobbyRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,6 +54,7 @@ class LeagueLobbyRead(BaseModel):
     registered_teams: int = Field(serialization_alias="registeredTeams")
     remaining_slots: int = Field(serialization_alias="remainingSlots")
     is_registered: bool = Field(serialization_alias="isRegistered")
+    standings: list[LeagueStandingRead] = Field(default_factory=list)
 
 
 class LeaveLeagueResponse(BaseModel):
@@ -52,6 +66,11 @@ class LeaveLeagueResponse(BaseModel):
 class CreateLeagueResponse(BaseModel):
     league_id: int = Field(serialization_alias="leagueId")
     message: str
+
+
+class StartLeagueResponse(BaseModel):
+    league_id: int = Field(serialization_alias="leagueId")
+    status: str
 
 
 class RoundInterval(str, Enum):
@@ -120,3 +139,34 @@ class LeagueRead(BaseModel):
 
 class LeagueListResponse(BaseModel):
     items: list[LeagueRead]
+
+
+class LeagueFixtureMatchRead(BaseModel):
+    match_id: int = Field(serialization_alias="matchId")
+    creator_club_id: int = Field(serialization_alias="creatorClubId")
+    creator_club_name: str = Field(serialization_alias="creatorClubName")
+    visitor_club_id: int = Field(serialization_alias="visitorClubId")
+    visitor_club_name: str = Field(serialization_alias="visitorClubName")
+    status: str
+    local_score: int = Field(serialization_alias="localScore")
+    visitor_score: int = Field(serialization_alias="visitorScore")
+
+
+class LeagueFixtureRoundRead(BaseModel):
+    number: int
+    scheduled_at: datetime = Field(serialization_alias="scheduledAt")
+    schedule_confirmed: bool = Field(serialization_alias="scheduleConfirmed")
+    bye_club_id: int | None = Field(serialization_alias="byeClubId")
+    matches: list[LeagueFixtureMatchRead]
+
+
+class LeagueNextMatchRead(LeagueFixtureMatchRead):
+    round_number: int = Field(serialization_alias="roundNumber")
+    scheduled_at: datetime = Field(serialization_alias="scheduledAt")
+    schedule_confirmed: bool = Field(serialization_alias="scheduleConfirmed")
+
+
+class LeagueFixtureRead(BaseModel):
+    league_id: int = Field(serialization_alias="leagueId")
+    rounds: list[LeagueFixtureRoundRead]
+    next_match: LeagueNextMatchRead | None = Field(serialization_alias="nextMatch")

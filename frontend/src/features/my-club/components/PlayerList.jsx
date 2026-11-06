@@ -25,10 +25,14 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned, c
                 </CardTitle>
                 <CardDescription>{totalPlayers} jugadores en el plantel</CardDescription>
 
-                <CardAction>
-                    <Link to="/crear-jugador" className={buttonVariants({ size: 'sm' })}>
-                        <Plus className="size-4" aria-hidden="true" />
+                <CardAction className="flex flex-col items-stretch gap-2">
+                    <Link to="/crear-jugador" className={buttonVariants({size: 'sm'})}>
+                        <Plus className="size-4" aria-hidden="true"/>
                         Crear Nuevo jugador
+                    </Link>
+
+                    <Link to="/behaviours" className={buttonVariants({size: 'sm'})}>
+                        Mis Comportamientos
                     </Link>
                 </CardAction>
             </CardHeader>

@@ -11,6 +11,8 @@ from app.database import engine, get_db
 from app.main import app
 from app.models.auth_model import Club, User
 from app.models.league_model import League, LeagueRegistration
+from app.migrate_league_passwords import migrate_league_passwords
+from app.services import league_access_service
 
 
 @pytest.fixture
@@ -130,8 +132,10 @@ def test_listing_requires_session(league_database_client):
 
 
 @pytest.mark.parametrize("kind", ["public", "private", "legacy"])
-def test_join_updates_listing_and_lobby_for_newly_created_league(league_database_client, kind):
+def test_join_updates_listing_and_lobby_for_newly_created_league(league_database_client, kind, monkeypatch):
     client, db = league_database_client
+    clock = [100.0]
+    monkeypatch.setattr(league_access_service, "monotonic", lambda: clock[0])
     prefix = uuid4().hex[:10]
 
     def register_and_login(label):
@@ -157,6 +161,8 @@ def test_join_updates_listing_and_lobby_for_newly_created_league(league_database
     if kind == "legacy":
         league.access_code = "clave-de-liga"
         db.commit()
+        migrate_league_passwords(db)
+        assert league.access_code is None
 
     club_id = register_and_login("member")
     players = client.get("/players").json()["items"]
@@ -200,6 +206,9 @@ def test_join_updates_listing_and_lobby_for_newly_created_league(league_database
     league.status = "open"
     league.start_datetime = datetime.now(timezone.utc) - timedelta(days=1)
     db.commit()
-    assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 409
+    # Este flujo ya hizo cinco intentos; la nueva inscripción ocurre un minuto después.
+    clock[0] += 60
+    assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 201
+    assert client.post(f"/leagues/{league.id}/leave").status_code == 200
     assert client.post("/auth/logout").status_code == 204
     assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 401

@@ -82,15 +82,24 @@ it('retains the lobby route and displays the creator registration from develop',
 
 it.each([false, true])('joins a league from the listing and opens its lobby (private: %s)', async (isPrivate) => {
     let joined = false;
+    const ids = [56, 51, 55, 52, 54, 53];
+    const slots = ids.map(playerId => ({playerId, behaviourId: 7}));
+    const players = [51, 52, 53, 54, 55, 56].map(id => ({
+        id, name: id === 51 ? 'Jugadora del club' : `Jugador ${id}`,
+    }));
     const league = {
         id: 42, name: 'Liga para inscripción', isPrivate, isMember: false,
         registeredCount: 1, availableSlots: 7, maxTeams: 8, status: 'open',
+        startDatetime: '2000-01-01T00:00:00Z',
     };
     const fetchMock = vi.fn(async (url, options) => {
         let response;
         if (url === '/api/leagues') response = {items: [league]};
         else if (url === '/api/auth/me') response = {clubId: 8};
-        else if (url === '/api/players') response = {items: [{id: 51, name: 'Jugadora del club'}]};
+        else if (url === '/api/team/default') response = {
+            clubId: 8, lineUp: {formationId: 2, starters: slots.slice(0, 3), substitutes: slots.slice(3)},
+        };
+        else if (url.startsWith('/api/players/by-ids?')) response = players;
         else if (url === '/api/leagues/42/join') {
             joined = true;
             response = {message: 'Te has unido a la liga exitosamente.'};
@@ -112,9 +121,9 @@ it.each([false, true])('joins a league from the listing and opens its lobby (pri
     }
     fireEvent.click(screen.getByRole('button', {name: 'Confirmar inscripción'}));
     expect(await screen.findByText('Tu club está inscripto.')).toBeInTheDocument();
-    expect(screen.getByText('Mi club')).toBeInTheDocument();
+    expect(screen.getByText('Mi club', {selector: '.player-name'})).toBeInTheDocument();
     const [, options] = fetchMock.mock.calls.find(([url]) => url.endsWith('/join'));
     expect(JSON.parse(options.body)).toEqual({
-        clubId: 8, lineUp: [51], ...(isPrivate ? {accessCode: 'clave-de-liga'} : {}),
+        clubId: 8, lineUp: ids, ...(isPrivate ? {accessCode: 'clave-de-liga'} : {}),
     });
 });

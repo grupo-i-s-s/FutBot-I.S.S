@@ -39,6 +39,11 @@ app = FastAPI(
 app.include_router(api_router)
 
 error_status = {
+    "LEAGUE_ACCESS_INVALID": 409,
+    "LEAGUE_ACCESS_RATE_LIMIT": 429,
+    "LEAGUE_FULL": 409,
+    "LEAGUE_CLOSED": 409,
+    "ALREADY_REGISTERED": 409,
     "ACCOUNT_DUPLICATE": 400,
     "PASSWORD_INVALID": 400,
     "INVALID_CREDENTIALS": 401,
@@ -60,21 +65,30 @@ error_status = {
     "MATCH_ALREADY_RUNNING": 409,
     "MATCH_STATE_INVALID": 409,
     "MATCH_INVALID_DURATION": 400,
+    "BEHAVIOUR_INVALID": 400,
+    "BEHAVIOUR_IN_USE": 409,
+    "BEHAVIOUR_NAME_DUPLICATE": 409,
 }
 
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    error = {
+        "code": exc.code,
+        "message": exc.message,
+        "fields": exc.fields,
+    }
+
+    if exc.diagnostics is not None:
+        error["diagnostics"]=exc.diagnostics
+
     return JSONResponse(
-        status_code=error_status.get(exc.code, 400),
-        content={
-            "error": {
-                "code": exc.code,
-                "message": exc.message,
-                "fields": exc.fields,
-            }
-        },
-    )
+        status_code=error_status.get(exc.code, 400), 
+        content={"error": error},
+        headers={"Retry-After": exc.fields["retryAfter"]}
+        if exc.code == "LEAGUE_ACCESS_RATE_LIMIT" else None,
+        )
+
 
 
 @app.exception_handler(RequestValidationError)

@@ -1,0 +1,17 @@
+BEGIN;
+
+CREATE TABLE league_standings
+(
+    league_id INTEGER NOT NULL REFERENCES leagues (id) ON DELETE CASCADE,
+    club_id INTEGER NOT NULL REFERENCES clubs (id) ON DELETE CASCADE,
+    played INTEGER NOT NULL DEFAULT 0,
+    wins INTEGER NOT NULL DEFAULT 0,
+    draws INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    goals_for INTEGER NOT NULL DEFAULT 0,
+    goals_against INTEGER NOT NULL DEFAULT 0,
+    points INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (league_id, club_id)
+);
+
+COMMIT;

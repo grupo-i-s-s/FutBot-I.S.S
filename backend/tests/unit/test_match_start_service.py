@@ -43,6 +43,14 @@ def test_future_match_is_untouched(db, start, now):
     db.flush.assert_not_called()
 
 
+def test_league_match_cannot_start_outside_its_round(db, start, now):
+    start.row.league_round_id = 8
+    assert service.prepare_match_start(db, start.row, now) is None
+    assert start.row.status == "SCHEDULED"
+    start.repo.get_clubs_for_update.assert_not_called()
+    start.builder.assert_not_called()
+
+
 @pytest.mark.parametrize("status", ["RUNNING", "FINISHED", "CANCELLED"])
 def test_nonpending_match_cannot_start_again(db, start, now, status):
     start.row.status = status

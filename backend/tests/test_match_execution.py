@@ -48,7 +48,8 @@ def database(monkeypatch, sqlite_match_dates):
             db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}",
                         avatar=f"avatar-{club_id:02d}.png"))
             db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
-                            code=DEFAULT_CODES["Equilibrado"]))
+                            code=DEFAULT_CODES["Equilibrado"], kind="PLAYER", version=1,
+                            validation_status="VALID"))
             for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f"Jugador {club_id}-{index}", power=60, agility=60,
@@ -90,6 +91,7 @@ def test_executor_persists_result_and_second_call_does_not_play_again(database, 
         assert row.local_score == 0 and row.visitor_score == 6
         assert row.started_at is not None and row.finished_at is not None
         assert row.snapshot == final
+        assert row.runtime_state["version"] == 4
         assert [team["avatar"] for team in final["state"]["teams"]] == [
             "avatar-01.png", "avatar-02.png",
         ]
@@ -123,6 +125,7 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
         assert row.local_score == 3 and row.sequence == 2
         # Cambiar el club después de comenzar no reconstruye la alineación.
         db.get(Behavior, 1).code = "código incompatible nuevo"
+        db.get(Behavior, 1).version = 2
         db.get(Club, 1).avatar = "avatar-20.png"
         db.commit()
 
@@ -134,6 +137,11 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
     assert final["state"]["status"] == "FINISHED"
     assert final["state"]["teams"][0]["score"] == 6
     assert final["state"]["teams"][0]["avatar"] == "avatar-01.png"
+    assert {
+        player["behaviourVersion"]
+        for player in final["state"]["players"]
+        if player["teamId"] == 1
+    } == {1}
     assert final["sequence"] == 3
 
 
