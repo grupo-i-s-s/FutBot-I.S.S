@@ -132,7 +132,7 @@ def get_match_state(db, match_id: int, club_id: int) -> MatchStateResponse:
         duration_ms=match.duration_ms,
     )
 
-TEST_OPPONENT_CLUB_ID = 2  # Reemplazar por el ID real del club rival de prueba
+TEST_OPPONENT_CLUB_ID = 999 # Reemplazar por el ID real del club rival de prueba
 
 
 def create_behaviour_test_match(db: Session, club_id: int) -> dict:
