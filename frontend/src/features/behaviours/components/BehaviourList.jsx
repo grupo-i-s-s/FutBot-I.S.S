@@ -69,10 +69,15 @@ export default function BehaviourList() {
                 <Link to="/mi-club" className={buttonVariants({ size: 'sm' })}>
                     Volver a Mi Club
                 </Link>
-                <Link to="/crear-comportamiento" className={buttonVariants({ size: 'sm' })}>
-                    <Plus className="size-4" aria-hidden="true" />
-                    Crear nuevo comportamiento
-                </Link>
+                <div className="flex gap-2">
+                    <Link to="/crear-comportamiento" className={buttonVariants({ size: 'sm' })}>
+                        <Plus className="size-4" aria-hidden="true" />
+                        Crear nuevo comportamiento
+                    </Link>
+                    <Link to="/prueba-de-comportamiento" className={buttonVariants({ size: 'sm' })}>
+                        Probar comportamientos
+                    </Link>
+                </div>
             </div>
 
             {behaviours.length === 0 && (
