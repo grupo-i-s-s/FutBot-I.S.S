@@ -1,9 +1,10 @@
-import React, {useEffect, useState} from 'react';
-import {fetchBehaviours} from '../services/behavioursApi';
-import {useLocation} from 'react-router';
+import React, { useEffect, useState } from 'react';
+import { fetchBehaviours } from '../services/behavioursApi';
+import { buttonVariants } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 import DeleteBehaviourButton from './DeleteBehaviourButton';
-import {Link} from 'react-router';
-import {buttonVariants} from '@/components/ui/button';
+import { Link, useLocation } from 'react-router';
+
 
 export default function BehaviourList() {
     const [behaviours, setBehaviours] = useState([]);
@@ -47,8 +48,8 @@ export default function BehaviourList() {
         );
     }
 
-    function handleDeleted(deletedBehaviour){
-        setBehaviours((current) => 
+    function handleDeleted(deletedBehaviour) {
+        setBehaviours((current) =>
             current.filter((item) => item.id !== deletedBehaviour.id)
         );
         setNotice(`El comportamiento “${deletedBehaviour.name}” se eliminó correctamente.`);
@@ -57,20 +58,28 @@ export default function BehaviourList() {
     return (
         <div className="max-w-4xl mx-auto p-6">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Catálogo de Comportamientos</h2>
+
             {notice && (
-                <p role="status" className='mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800'>
+                <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
                     {notice}
                 </p>
             )}
+
+            <div className="mb-6 flex justify-between items-center gap-4">
+                <Link to="/mi-club" className={buttonVariants({ size: 'sm' })}>
+                    Volver a Mi Club
+                </Link>
+                <Link to="/crear-comportamiento" className={buttonVariants({ size: 'sm' })}>
+                    <Plus className="size-4" aria-hidden="true" />
+                    Crear nuevo comportamiento
+                </Link>
+            </div>
+
             {behaviours.length === 0 && (
-                <p className='py-6 text-center text-gray-500'>
-                    No hay comportamientos disponibles en este momento. 
+                <p className="py-6 text-center text-gray-500">
+                    No hay comportamientos disponibles en este momento.
                 </p>
             )}
-
-            <Link to="/mi-club" className={buttonVariants({size: 'sm'}) }>
-                Volver a Mi Club
-            </Link>
 
             <ul className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {behaviours.map((behaviour) => (
@@ -81,8 +90,8 @@ export default function BehaviourList() {
                                 <h3 className="text-lg font-semibold text-gray-900">{behaviour.name}</h3>
                                 {behaviour.isDefault && (
                                     <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-medium">
-                    Default
-                  </span>
+                                        Default
+                                    </span>
                                 )}
                             </div>
                             <p className="text-gray-600 text-sm mb-4">{behaviour.description || 'Sin descripción.'}</p>
