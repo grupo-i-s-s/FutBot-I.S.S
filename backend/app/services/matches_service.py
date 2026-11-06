@@ -156,7 +156,7 @@ def create_behaviour_test_match(db: Session, club_id: int) -> dict:
     match = Matches(
         creator_id= club_id,
         visitor_id= TEST_OPPONENT_CLUB_ID,
-        init_date= now + timedelta(seconds=3),
+        init_date= now + timedelta(seconds=1),
         status = "SCHEDULED",
     )
     db.add(match)
