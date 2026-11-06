@@ -7,6 +7,7 @@ import MatchPage from './features/friendly-matches/MatchPage.jsx';
 import MyClubPage from './features/my-club/MyClubPage.jsx';
 import NotFoundPage from './features/not-found/NotFoundPage.jsx';
 import CreateFriendlyMatch from './features/friendly-matches/Create_friendly_match.jsx';
+import BehaviourTest from './features/ftest-behaviour/BehaviourTest.jsx';
 import CreatePlayerPage from './features/create-players/CreatePlayersPage.jsx';
 import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx';
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx';
@@ -47,6 +48,7 @@ export default function App() {
                 <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
                 <Route path="/behaviours" element={<BehaviourList />} />
                 <Route path="/crear-comportamiento" element={<CreateBehaviourPage />} />
+                <Route path="/prueba-de-comportamiento" element={<BehaviourTest />} />
                 <Route path="*" element={<NotFoundPage />} />
             </Routes>
         </>
