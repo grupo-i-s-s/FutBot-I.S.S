@@ -1,11 +1,11 @@
-import {useEffect, useState} from 'react';
-import {useParams, useNavigate} from 'react-router';
-import {getBehaviour} from './api';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router';
+import { getBehaviour } from './api';
 import './BehaviourDetailPage.css';
 import DeleteBehaviourButton from './components/DeleteBehaviourButton';
 
 export default function BehaviourDetailPage() {
-    const {behaviourId} = useParams();
+    const { behaviourId } = useParams();
 
     const [behaviour, setBehaviour] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -81,7 +81,7 @@ export default function BehaviourDetailPage() {
                         <h2 className="behaviour-detail-name">
                             {behaviour.name}
                         </h2>
-                        
+
                         <DeleteBehaviourButton
                             behaviour={behaviour}
                             onDeleted={(deletedBehaviour) => {
@@ -92,15 +92,15 @@ export default function BehaviourDetailPage() {
                                     },
                                 });
                             }}
-                        />                        
+                        />
 
                         <p className="behaviour-detail-description">
                             Código del comportamiento. Solo lectura.
                         </p>
 
                         <pre className="behaviour-detail-code">
-              <code>{behaviour.code}</code>
-            </pre>
+                            <code>{behaviour.code}</code>
+                        </pre>
                     </>
                 )}
 
