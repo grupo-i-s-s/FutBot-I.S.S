@@ -43,6 +43,12 @@ def prepare_match_start(db: Session, match: Matches, now: datetime, *, duration_
         return None
 
     club_ids = (match.creator_id, match.visitor_id)
+
+    for club_id in club_ids:
+        test_matches = matches_repository.get_active_test_match(db, club_id, bot_club_id=999)
+        if test_matches is not None and test_matches.match_id != match.match_id:
+            cancel_match(db, test_matches, "REPLACED_BY_FRIENDLY_MATCH", now)
+
     clubs = matches_repository.get_clubs_for_update(db, club_ids)
 
     if len(clubs) != 2:
