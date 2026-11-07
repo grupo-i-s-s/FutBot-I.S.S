@@ -43,9 +43,9 @@ function LeagueLobbyContent({ id }) {
             } catch (err) {
                 if (!controller.signal.aborted) {
                     if (err.status === 404) {
-                        navigate('/ligas-disponibles', {
+                        navigate('/liga-cancelada', {
                             replace: true,
-                            state: { notice: 'La liga se ha eliminado.' },
+                            state: { notice: 'La liga no existe.' },
                         });
                     } else {
                         setError(err);
@@ -108,7 +108,7 @@ function LeagueLobbyContent({ id }) {
     async function handleLeaveLeague() {
         const isCreator = clubId === lobby?.creatorClubId;
         const message = isCreator
-            ? '¿Seguro que querés eliminar esta liga? Esta acción no se puede deshacer.'
+            ? '¿Seguro que querés cancelar esta liga? Esta acción no se puede deshacer.'
             : '¿Estás seguro de que querés abandonar esta liga?';
 
         if (!window.confirm(message)) return;
@@ -117,7 +117,7 @@ function LeagueLobbyContent({ id }) {
             await abandonarLobby(id);
 
             if (isCreator) {
-                navigate('/ligas-disponibles', {
+                navigate('/home', {
                     replace: true,
                     state: { notice: 'La liga se ha eliminado.' },
                 });

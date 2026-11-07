@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getLeagues } from './api';
-import { Link, useLocation } from 'react-router';
+import { Link } from 'react-router';
 import '../login/LoginPage.css';
 import './LeagueListPage.css';
 
@@ -62,11 +62,6 @@ export default function LeagueListPage() {
                 <h1 className="login-title">
                     Ligas disponibles<br />FutBot
                 </h1>
-                {location.state?.notice && (
-                    <p className="leagues-message" role="status">
-                        {location.state.notice}
-                    </p>
-                )}
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
