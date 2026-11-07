@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.models.auth_model import Club
-from app.repository import club_repository
-from app.schemas.club_schemas import ClubUpdate, ClubPublicRead, ClubListResponse
+from app.repository import club_repository, player_repository
+from app.schemas.club_schemas import ClubUpdate, ClubPublicRead, ClubListResponse, ClubProfileRead
 
 
 def update_club(
@@ -88,4 +88,35 @@ def list_clubs(
         page_size=page_size,
         total=total,
         has_next=page * page_size < total,
+    )
+
+def get_club_profile( db: Session, club_id: int) -> ClubProfileRead:
+    data = club_repository.get_club_profile_data(db, club_id)
+
+    if data is None:
+        raise AppError(
+            "CLUB_NOT_FOUND",
+            "El club solicitado no existe.",
+        )
+
+    players = sorted(
+        player_repository.get_players_by_club(db, club_id),
+        key=lambda player: player.id,
+    )
+
+    return ClubProfileRead(
+        id=data["id"],
+        name=data["name"],
+        avatar=data["avatar"],
+        stats={
+            "played": data["played"],
+            "wins": data["wins"],
+            "draws": data["draws"],
+            "losses": data["losses"],
+        },
+        ranking={
+            "position": data["position"],
+            "points": data["points"],
+        },
+        players=players,
     )
