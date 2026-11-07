@@ -8,6 +8,7 @@ from app.schemas.club_schemas import (
     ClubListResponse
 )
 from app.services import club_services as club_service
+from typing import Annotated
 
 
 club_router = APIRouter(prefix="/club", tags=["club"])
