@@ -1,12 +1,12 @@
-import {useEffect, useState} from 'react';
-import {Link} from 'react-router';
-import {getLeagues} from './api';
+import { useEffect, useState } from 'react';
+import { getLeagues } from './api';
+import { Link, useLocation } from 'react-router';
 import '../login/LoginPage.css';
 import './LeagueListPage.css';
 
 export default function LeagueListPage() {
     const [name, setName] = useState('');
-    const [search, setSearch] = useState({name: ''});
+    const [search, setSearch] = useState({ name: '' });
     const [leagues, setLeagues] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -47,21 +47,26 @@ export default function LeagueListPage() {
         event.preventDefault();
         setIsLoading(true);
         setError(null);
-        setSearch({name: name.trim()});
+        setSearch({ name: name.trim() });
     }
 
     function handleRetry() {
         setIsLoading(true);
         setError(null);
-        setSearch({name: search.name});
+        setSearch({ name: search.name });
     }
 
     return (
         <main className="login-page leagues-page">
             <section className="login-card leagues-card">
                 <h1 className="login-title">
-                    Ligas disponibles<br/>FutBot
+                    Ligas disponibles<br />FutBot
                 </h1>
+                {location.state?.notice && (
+                    <p className="leagues-message" role="status">
+                        {location.state.notice}
+                    </p>
+                )}
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
@@ -141,8 +146,8 @@ export default function LeagueListPage() {
 
                                     <p>
                                         Estado: {league.status === 'open'
-                                        ? 'En espera'
-                                        : league.status}
+                                            ? 'En espera'
+                                            : league.status}
                                     </p>
 
                                     {league.isMember && (

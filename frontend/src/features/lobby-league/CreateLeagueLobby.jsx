@@ -42,9 +42,17 @@ function LeagueLobbyContent({ id }) {
                 }
             } catch (err) {
                 if (!controller.signal.aborted) {
-                    setError(err);
+                    if (err.status === 404) {
+                        navigate('/ligas-disponibles', {
+                            replace: true,
+                            state: { notice: 'La liga se ha eliminado.' },
+                        });
+                    } else {
+                        setError(err);
+                    }
                 }
-            } finally {
+            }
+            finally {
                 if (!controller.signal.aborted) {
                     setLoading(false);
                 }
@@ -54,7 +62,7 @@ function LeagueLobbyContent({ id }) {
         cargarLobby();
 
         return () => controller.abort();
-    }, [id, refresh]);
+    }, [id, refresh, navigate]);
 
     useEffect(() => {
         function actualizar(event) {
@@ -107,9 +115,17 @@ function LeagueLobbyContent({ id }) {
 
         try {
             await abandonarLobby(id);
-            navigate('/mi-club');
+
+            if (isCreator) {
+                navigate('/ligas-disponibles', {
+                    replace: true,
+                    state: { notice: 'La liga se ha eliminado.' },
+                });
+            } else {
+                navigate('/mi-club');
+            }
         } catch (err) {
-            alert('No se pudo abandonar la liga');
+            alert(err.message || 'No se pudo abandonar la liga');
         }
     }
 
