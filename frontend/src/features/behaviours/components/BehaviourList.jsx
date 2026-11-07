@@ -3,7 +3,8 @@ import { fetchBehaviours } from '../services/behavioursApi';
 import { buttonVariants } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import DeleteBehaviourButton from './DeleteBehaviourButton';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { createBehaviourTestMatch } from '../api.js';
 
 
 export default function BehaviourList() {
@@ -12,6 +13,9 @@ export default function BehaviourList() {
     const [error, setError] = useState(null);
     const location = useLocation();
     const [notice, setNotice] = useState(location.state?.notice ?? '');
+    const navigate = useNavigate();
+    const [creatingTest, setCreatingTest] = useState(false);
+    const [testError, setTestError] = useState('');
 
     const loadBehaviours = async () => {
         setLoading(true);
@@ -25,6 +29,22 @@ export default function BehaviourList() {
             setLoading(false);
         }
     };
+
+    async function handleTestBehaviours() {
+        if (creatingTest) return;
+
+        setCreatingTest(true);
+        setTestError('');
+
+        try {
+            const match = await createBehaviourTestMatch();
+            navigate(`/partidos/${match.matchId}`, { replace: true });
+        } catch (error) {
+            setTestError(error.message || 'No se pudo crear el partido de prueba.');
+        } finally {
+            setCreatingTest(false);
+        }
+    }
 
     useEffect(() => {
         loadBehaviours();
@@ -44,6 +64,7 @@ export default function BehaviourList() {
                 >
                     Reintentar
                 </button>
+                {testError && <p role="alert">{testError}</p>}
             </div>
         );
     }
@@ -69,10 +90,20 @@ export default function BehaviourList() {
                 <Link to="/mi-club" className={buttonVariants({ size: 'sm' })}>
                     Volver a Mi Club
                 </Link>
-                <Link to="/crear-comportamiento" className={buttonVariants({ size: 'sm' })}>
-                    <Plus className="size-4" aria-hidden="true" />
-                    Crear nuevo comportamiento
-                </Link>
+                <div className="flex gap-2">
+                    <Link to="/crear-comportamiento" className={buttonVariants({ size: 'sm' })}>
+                        <Plus className="size-4" aria-hidden="true" />
+                        Crear nuevo comportamiento
+                    </Link>
+                    <button
+                        type="button"
+                        className={buttonVariants({ size: 'sm' })}
+                        onClick={handleTestBehaviours}
+                        disabled={creatingTest}
+                    >
+                        {creatingTest ? 'Creando partido...' : 'Probar comportamientos'}
+                    </button>
+                </div>
             </div>
 
             {behaviours.length === 0 && (
