@@ -1,16 +1,16 @@
-import {useEffect, useRef, useState} from 'react';
-import {Link, useNavigate, useParams} from 'react-router';
-import {abandonarLobby, iniciarLiga, obtenerIdentidad, obtenerLobby} from './api.js';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { abandonarLobby, iniciarLiga, obtenerIdentidad, obtenerLobby } from './api.js';
 import LeagueRanking from './LeagueRanking.jsx';
 import LeagueFixture from './LeagueFixture.jsx';
 import './CreateLeagueLobby.css';
 
 export function LeagueLobby() {
-    const {id} = useParams();
-    return <LeagueLobbyContent key={id} id={id}/>;
+    const { id } = useParams();
+    return <LeagueLobbyContent key={id} id={id} />;
 }
 
-function LeagueLobbyContent({id}) {
+function LeagueLobbyContent({ id }) {
     const [lobby, setLobby] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -98,8 +98,13 @@ function LeagueLobbyContent({id}) {
     }
 
     async function handleLeaveLeague() {
-        const confirmed = window.confirm('¿Estás seguro de que querés abandonar esta liga?');
-        if (!confirmed) return;
+        const isCreator = clubId === lobby?.creatorClubId;
+        const message = isCreator
+            ? '¿Seguro que querés eliminar esta liga? Esta acción no se puede deshacer.'
+            : '¿Estás seguro de que querés abandonar esta liga?';
+
+        if (!window.confirm(message)) return;
+
         try {
             await abandonarLobby(id);
             navigate('/mi-club');
@@ -146,7 +151,7 @@ function LeagueLobbyContent({id}) {
                 <h1>Liga
                     <strong> {lobby.name}</strong>
                 </h1>
-                <span>{{open: 'Abierta', running: 'En curso', finished: 'Finalizada', cancelled: 'Cancelada'}[lobby.status]}</span>
+                <span>{{ open: 'Abierta', running: 'En curso', finished: 'Finalizada', cancelled: 'Cancelada' }[lobby.status]}</span>
             </header>
 
             {error && <p role="alert">{error.message}</p>}
@@ -181,7 +186,7 @@ function LeagueLobbyContent({id}) {
                     <div className="lobby-card">
                         <p>Clubes inscriptos: {lobby.registeredTeams}. Mínimo para iniciar: {lobby.minTeams}.</p>
                         <button type="button" onClick={handleStartLeague}
-                                disabled={starting || loading || lobby.registeredTeams < lobby.minTeams}>
+                            disabled={starting || loading || lobby.registeredTeams < lobby.minTeams}>
                             {starting ? 'Iniciando…' : 'Iniciar liga'}
                         </button>
                         {startError && <p role="alert">{startError}</p>}
@@ -190,8 +195,8 @@ function LeagueLobbyContent({id}) {
 
                 {started && (
                     <LeagueFixture key={id} id={id} clubId={clubId} clubs={lobby.clubs}
-                                       leagueStatus={lobby.status} isRegistered={lobby.isRegistered}
-                                       refresh={refresh} onRefresh={() => setRefresh(value => value + 1)}/>
+                        leagueStatus={lobby.status} isRegistered={lobby.isRegistered}
+                        refresh={refresh} onRefresh={() => setRefresh(value => value + 1)} />
                 )}
 
                 <div className="lobby-card">
@@ -234,16 +239,16 @@ function LeagueLobbyContent({id}) {
                     </button>
                 </div>
 
-                {lobby.status === 'open' && lobby.isRegistered && clubId !== lobby.creatorClubId && <div className="leave-league">
+                {lobby.status === 'open' && lobby.isRegistered && <div className="leave-league">
                     <button
                         type="button"
                         onClick={handleLeaveLeague}
                     >
-                        Abandonar Liga
+                        {clubId === lobby.creatorClubId ? 'Cancelar' : 'Abandonar'}
                     </button>
                 </div>}
             </div>
-            {tab === 'ranking' && <LeagueRanking key={refresh} leagueId={id}/>}
+            {tab === 'ranking' && <LeagueRanking key={refresh} leagueId={id} />}
         </div>
     );
 }
