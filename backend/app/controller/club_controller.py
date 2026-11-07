@@ -1,15 +1,34 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
-from app.dependencies import CurrentClub, Database
+from app.dependencies import CurrentClub, Database, CurrentIdentity
 from app.schemas.club_schemas import (
     ClubLeagueListResponse,
     ClubRead,
     ClubUpdate,
+    ClubListResponse
 )
 from app.services import club_services as club_service
 
+
 club_router = APIRouter(prefix="/club", tags=["club"])
 
+@club_router.get("", response_model=ClubListResponse)
+def get_clubs(
+    identity: CurrentIdentity,
+    db: Database,
+    name: str | None = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[
+        int,
+        Query(alias="pageSize", ge=1, le=100),
+    ] = 20,
+):
+    return club_service.list_clubs(
+        db,
+        name=name,
+        page=page,
+        page_size=page_size,
+    )
 
 @club_router.get("/me", response_model=ClubRead)
 def get_my_club(club: CurrentClub):

@@ -34,3 +34,18 @@ class ClubLeagueRead(BaseModel):
 
 class ClubLeagueListResponse(BaseModel):
     items: list[ClubLeagueRead]
+
+class ClubPublicRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    avatar: str
+
+
+class ClubListResponse(BaseModel):
+    items: list[ClubPublicRead]
+    page: int
+    page_size: int = Field(serialization_alias="pageSize")
+    total: int
+    has_next: bool = Field(serialization_alias="hasNext")

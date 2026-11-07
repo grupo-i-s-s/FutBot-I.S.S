@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.errors import AppError
 from app.models.auth_model import Club
 from app.repository import club_repository
-from app.schemas.club_schemas import ClubUpdate
+from app.schemas.club_schemas import ClubUpdate, ClubPublicRead, ClubListResponse
 
 
 def update_club(
@@ -62,3 +62,30 @@ def list_joined_leagues(db: Session, club_id: int) -> dict:
             for league in leagues
         ]
     }
+
+def list_clubs(
+    db: Session,
+    *,
+    name: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> ClubListResponse:
+    normalized_name = name.strip() if name is not None else None
+
+    clubs, total = club_repository.get_clubs(
+        db,
+        name=normalized_name,
+        page=page,
+        page_size=page_size,
+    )
+
+    return ClubListResponse(
+        items=[
+            ClubPublicRead.model_validate(club)
+            for club in clubs
+        ],
+        page=page,
+        page_size=page_size,
+        total=total,
+        has_next=page * page_size < total,
+    )
