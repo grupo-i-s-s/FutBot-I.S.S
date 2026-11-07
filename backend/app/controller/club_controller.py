@@ -13,6 +13,10 @@ from typing import Annotated
 
 club_router = APIRouter(prefix="/club", tags=["club"])
 
+@club_router.get( "/{club_id}", response_model=ClubProfileRead)
+def get_club_profile( club_id: int, identity: CurrentIdentity, db: Database):
+    return club_service.get_club_profile(db, club_id)
+
 @club_router.get("", response_model=ClubListResponse)
 def get_clubs(
     identity: CurrentIdentity,
