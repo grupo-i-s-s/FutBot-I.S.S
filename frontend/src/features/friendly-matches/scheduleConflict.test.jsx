@@ -4,6 +4,7 @@ import {afterEach, expect, it, vi} from 'vitest';
 import CreateFriendlyMatch from './Create_friendly_match.jsx';
 import MatchPage from './MatchPage.jsx';
 import MatchesPage from './Matches.jsx';
+import {SessionProvider} from '../session/SessionProvider.jsx';
 
 vi.mock('./components/MatchCanvas.jsx', () => ({default: () => null}));
 
@@ -75,7 +76,9 @@ it.each([
         });
     }));
     render(<MemoryRouter initialEntries={['/partidos/42']}>
-        <Routes><Route path="/partidos/:matchId" element={<MatchPage/>}/></Routes>
+        <SessionProvider>
+            <Routes><Route path="/partidos/:matchId" element={<MatchPage/>}/></Routes>
+        </SessionProvider>
     </MemoryRouter>);
 
     expect(await screen.findByText(message)).toBeInTheDocument();
