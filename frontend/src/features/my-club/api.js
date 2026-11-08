@@ -1,4 +1,4 @@
-import { request } from '../../api/http';
+import {getSessionRevision, request} from '../../api/http';
 import { notifyClubUpdated } from './clubEvents';
 
 
@@ -31,11 +31,12 @@ export function assignPlayerBehaviour(playerId, behaviourId) {
 }
 
 export async function updateMyClub(changes) {
+    const revision = getSessionRevision();
     const updatedClub = await request('/club/me', {
         method: 'PATCH',
         body: changes,
     });
-    notifyClubUpdated(updatedClub);
+    if (revision === getSessionRevision()) notifyClubUpdated(updatedClub);
     return updatedClub;
 }
 
