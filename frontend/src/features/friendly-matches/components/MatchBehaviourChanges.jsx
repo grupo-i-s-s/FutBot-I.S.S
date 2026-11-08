@@ -2,20 +2,53 @@ import {useState} from 'react';
 import { changeBehaviour } from '../matchApi';
 import '../MatchPage.css'
 
-export default function LiveChangeBehaviour({ match_id, players, behaviours, isMyTeam }) {
-    const [change, setChange] = useState({});
-    const [persistedBehaviour, setPersistedBehaviour] = useState({});
+function PlayerBehaviourSelector({matchId, player, behaviours, canChange}) {
+    const [sending, setSending] = useState(false);
+    const [error, setError] = useState('');
+    const confirmedId = String(player.behaviourId ?? '');
+    const confirmedBehaviour = behaviours.find(({id}) => String(id) === confirmedId);
+    const confirmedName = confirmedBehaviour?.name ?? player.behaviourName ?? 'Sin identificar';
 
-    const changeBehaviourHandler = async (playerId, behaviourId) => {
+    async function handleChange(event) {
+        const behaviourId = event.target.value;
+        if (!canChange || sending || !behaviourId || behaviourId === confirmedId) return;
 
-        setPersistedBehaviour(prev =>({...prev, [playerId]:behaviourId}));
-        setChange(prev => ({...prev, [playerId]:true}));
+        setSending(true);
+        setError('');
+        try {
+            await changeBehaviour(matchId, player.id, Number(behaviourId));
+        } catch (requestError) {
+            setError(requestError.message || 'No se pudo enviar la orden.');
+        } finally {
+            setSending(false);
+        }
+    }
 
-        await changeBehaviour(match_id, playerId, Number(behaviourId));
+    return (
+        <>
+            <p className="mt-2">
+                <span className="font-medium">Comportamiento actual:</span>{' '}
+                {confirmedName}
+            </p>
+            <div className="mt-2">
+                <select
+                    aria-label={`Cambiar táctica de ${player.name} (#${player.id})`}
+                    className="w-full text-sm p-1 border rounded"
+                    value={confirmedId}
+                    disabled={!canChange || sending || behaviours.length === 0}
+                    onChange={handleChange}
+                >
+                    {!confirmedBehaviour && <option value={confirmedId} disabled>{confirmedName}</option>}
+                    {behaviours.map(({id, name}) => <option key={id} value={id}>{name}</option>)}
+                </select>
+                {sending && <p role="status" className="mt-1 text-xs text-muted-foreground">Enviando orden…</p>}
+                {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
+            </div>
+        </>
+    );
+}
 
-        setChange(prev => ({...prev, [playerId]:false}));
-    };
-
+export default function LiveChangeBehaviour({matchId, players, behaviours, isMyTeam, canChange}) {
     return (
         <div>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -32,32 +65,14 @@ export default function LiveChangeBehaviour({ match_id, players, behaviours, isM
                                     #{player.id} {player.name}
                                 </h4>
                                 {isMyTeam ? (
-                                    <>
-                                        <p className="mt-2">
-                                            <span className="font-medium">Comportamiento actual:</span>{' '}
-                                            {player.behaviourName}
-                                        </p>
-
-                                        <div className="mt-2">
-                                            <select
-                                                className="w-full text-sm p-1 border rounded"
-                                                value={persistedBehaviour[player.id] || player.behaviourId}
-                                                disabled={change[player.id]}
-                                                onChange={(e) => changeBehaviourHandler(player.id, e.target.value)}
-                                            >
-                                                <option value="" disabled>Cambiar táctica...</option>
-                                                {behaviours.map(b => (
-                                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                                ))}
-                                            </select>
-                                            
-                                            {change[player.id] && (
-                                                <span className="text-xs text-gray-500 mt-1 block">Enviando orden...</span>
-                                            )}
-                                        </div>
-                                    </>
+                                    <PlayerBehaviourSelector
+                                        matchId={matchId}
+                                        player={player}
+                                        behaviours={behaviours}
+                                        canChange={canChange}
+                                    />
                                 ) : (
-                                    <p className = "text-xs text-gray-400 mt-1 italic"> Oculto </p>
+                                    <p className="text-xs text-gray-400 mt-1 italic">Oculto</p>
                                 )}
                             </div>
                         </div>

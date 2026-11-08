@@ -111,19 +111,23 @@ export default function AvaiableLeagues() {
                                         }}
                                     />
                         </div>
-                        <Link
-                            to={league.isMember
-                                ? `/leagues/${league.id}/lobby`
-                                : `/leagues/${league.id}/join`}
-                            className="home-panel-link"
-                        >
-                            {league.isMember ?
-                                (<Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver lobby </Link>
-                                ) : league.canJoin ?
-                                    (<Link to={`/leagues/${league.id}/join`} className="leagues-link">Unirme a
-                                        liga</Link>)
-                                    : (<p className="leagues-message">Inscripción no disponible.</p>)}
-                        </Link>
+                        {league.isMember ? (
+                            <Link to={`/leagues/${league.id}/lobby`} className="home-panel-link"
+                                  aria-label={`Ver lobby de ${league.name}`}>
+                                Ver lobby
+                            </Link>
+                        ) : league.canJoin ? (
+                            <Link to={`/leagues/${league.id}/join`} className="home-panel-link"
+                                  aria-label={`Unirme a liga ${league.name}`}>
+                                Unirme a liga
+                            </Link>
+                        ) : (
+                            <p className="home-item-description">
+                                {league.status === 'open'
+                                    ? 'La liga está completa.'
+                                    : 'La inscripción está cerrada.'}
+                            </p>
+                        )}
                     </li>
                 ))}
             </ul>

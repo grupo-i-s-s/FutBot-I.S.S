@@ -9,8 +9,9 @@ import MatchBreakNotice, {
     breakLabel,
 } from './components/MatchBreakNotice.jsx';
 import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx';
-import { useState, useEffect } from 'react'
-import { request } from '@/api/http.js';
+import { useState, useEffect } from 'react';
+import { listBehaviours } from '../behaviours/api.js';
+import { useSession } from '../session/SessionProvider.jsx';
 
 const connectionLabels = {
     loading: 'Cargando partido...', connecting: 'Conectando...', reconnecting: 'Reconectando...',
@@ -38,18 +39,18 @@ function resultText(state) {
 export default function MatchPage() {
     const { matchId } = useParams();
     const { snapshot, connectionStatus, error, retry } = useMatchConnection(matchId);
-    const [myClubId, setMyClubId] = useState(null);
-    const [behaviours, setBehaviours] = useState([])
+    const {club} = useSession();
+    const [behaviours, setBehaviours] = useState([]);
+    const [behavioursError, setBehavioursError] = useState('');
 
     useEffect(() => {
-        async function fetchMyClub() {
-            const club = await request('/club/me');
-            const player_behaviours = await request('/behaviours')
-            console.log("Datps que devuelve", club);
-            setMyClubId(club.id);
-            setBehaviours(player_behaviours.items);
-        }
-        fetchMyClub();
+        const controller = new AbortController();
+        listBehaviours({signal: controller.signal}).then(({items}) => {
+            if (!controller.signal.aborted) setBehaviours(items);
+        }).catch((requestError) => {
+            if (!controller.signal.aborted) setBehavioursError(requestError.message);
+        });
+        return () => controller.abort();
     }, []);
 
     const state = snapshot?.state;
@@ -106,18 +107,22 @@ export default function MatchPage() {
                                 {state.teams.map((team) => {
                                     const teamPlayers = state.players.filter((player) => player.teamId === team.id);
 
-                                    const isMyTeam = myClubId ? team.id == myClubId : false;
+                                    const isMyTeam = team.id === club?.id;
                                     return (
                                         <div key={team.id}>
                                             <h2>
                                                 <span style={{ backgroundColor: team.color }} />
-                                                {team.name} {isMyTeam}
+                                                {team.name}
                                             </h2>
+                                            {isMyTeam && state.status === 'RUNNING' && behavioursError && (
+                                                <p role="alert">No se pudieron cargar los comportamientos. {behavioursError}</p>
+                                            )}
                                             <LiveChangeBehaviour
-                                                match_id={matchId}
+                                                matchId={matchId}
                                                 players={teamPlayers}
                                                 behaviours={behaviours}
                                                 isMyTeam={isMyTeam}
+                                                canChange={state.status === 'RUNNING'}
                                             />
                                         </div>
                                     );
