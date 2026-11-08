@@ -25,6 +25,7 @@ from primitives.behaviour_api.validation import (
     normalize_action,
     validate_static,
 )
+from dt_behaviour import DtObservation, resolve_dt_behaviour, dt_decide
 
 width = 100.0
 height = 60.0
@@ -99,6 +100,9 @@ class Team:
     formation_id: int = 1
     formation_positions: tuple[tuple[float, float], ...] | None = None
     avatar: str | None = None
+
+    dt_on: bool = False         #por defecto va false para poder manejar uno
+    dt_code: str | None = None
 
     def __post_init__(self):
         positions = self.formation_positions
@@ -531,7 +535,63 @@ class Match:
             player.velocity = (0, 0)
             logger.exception("Falló el comportamiento del jugador %s", profile.id)
             return None
+        
+    def run_dt(self, team: Team) -> None:   
+        if not team.dt_active or team.dt_code is None:
+            return
 
+        is_local = (team.club_id == self.local_team.club_id)
+        my_goals = self.scorer["LOCAL"] if is_local else self.scorer["VISITANTE"]
+        rival_goals = self.scorer["VISITANTE"] if is_local else self.scorer["LOCAL"]
+
+        players_id = [p.id for p in self.player_profiles if p.club_id == team.club_id]
+
+        obs = DtObservation(
+            time_played = int(self.time),
+            my_goals = my_goals,
+            rival_goals = rival_goals,
+            player_id = players_id
+        )
+
+        try:
+            mode = resolve_dt_behaviour(team.dt_code, "DT")
+            dt_acti  = dt_decide(mode, obs)
+            cambios = dt_acti.tactical_changes
+        except ValueError:
+            try:
+                if self._behaviour_runtime is None:
+                    self._behaviour_runtime = BehaviourRuntime()
+                    key = self._behaviour_runtime.dt_decide(key, obs)
+            except BehaviourRuntimeError as error:
+                logger.warning(f"Error en el dt del club")
+                if isinstance(error, BehaviourWorkerDead):
+                    self.close_runtime()
+
+                    update_team = replace(team, dt_active = False)
+
+                    if is_local:
+                        self.local_team = update_team
+                    else:
+                        self.visitor_team = update_team
+                    return
+
+        for cambio in cambios:
+            try:
+                target = next((p for p in self.player_profiles if p.id == cambio["player_id"]), None)
+                if not target:
+                    continue
+
+                self.change_behaviour(
+                    player_id = cambio["player_id"],
+                    club_id = team.club_id,
+                    behaviour_id = target.behaviour_id,
+                    behaviour_mode = cambio["mode"],
+                    behaviour_code = None,
+                    behaviour_version = target.behaviour_version,
+                    behaviour_api_version = target.behaviour_api_version
+                )
+            except ValueError as exc:
+                logger.warning(f"El DT intento algo invalido, es un bobaso: {exc}")
     def change_behaviour(
             self,
             player_id: int,
