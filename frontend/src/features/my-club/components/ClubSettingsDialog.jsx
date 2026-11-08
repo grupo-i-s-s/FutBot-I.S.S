@@ -29,7 +29,7 @@ import TeamSettings from './TeamSettings';
 const MAX_NAME_LENGTH = 50;
 
 export default function ClubSettingsDialog({
-    club, players, behaviours, isOpen, onOpenChange, onSave, isSaving, saveError,
+    club, behaviours, isOpen, onOpenChange, onSave, isSaving, saveError,
 }) {
     const [isTeamSaving, setIsTeamSaving] = useState(false);
     const busy = isSaving || isTeamSaving;
@@ -57,7 +57,6 @@ export default function ClubSettingsDialog({
                         <TeamSettings
                             key={club.id}
                             clubId={club.id}
-                            players={players}
                             behaviours={behaviours}
                             disabled={isSaving}
                             onSavingChange={setIsTeamSaving}

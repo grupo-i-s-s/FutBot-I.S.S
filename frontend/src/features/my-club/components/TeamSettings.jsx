@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { getDefaultTeam, getFormations, updateDefaultTeam, listPlayers, getPlayersByIds } from '../api';
 import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,9 @@ function loadTeam(response) {
 }
 
 export default function TeamSettings({
-    clubId, players, behaviours, disabled = false, onSavingChange,
+    clubId, behaviours, disabled = false, onSavingChange,
 }) {
+    const inputPrefix = useId();
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [team, setTeam] = useState(null);
@@ -271,12 +272,12 @@ export default function TeamSettings({
             <CardContent>
                 <form aria-label="Equipo para próximos partidos" onSubmit={handleSubmit} noValidate className="space-y-4">
                     <div className="space-y-1">
-                        <label htmlFor="team-formation" className="text-sm font-medium">
+                        <label htmlFor={`${inputPrefix}-formation`} className="text-sm font-medium">
                             Formación
                         </label>
 
                         <select
-                            id="team-formation"
+                            id={`${inputPrefix}-formation`}
                             disabled={disabled || isSaving}
                             className={SELECT_CLASSES}
                             value={team.formation}
@@ -337,10 +338,6 @@ export default function TeamSettings({
                             </legend>
 
                             <div>
-                                <label htmlFor={`team-player-${index}`} className="sr-only">
-                                    Jugador del lugar {index + 1}
-                                </label>
-
                                 <div className="space-y-2">
                                     <p className="text-sm">
                                         Seleccionado:{' '}
@@ -351,12 +348,12 @@ export default function TeamSettings({
                                         </strong>
                                     </p>
 
-                                    <label htmlFor={`team-player-search-${index}`} className="sr-only">
+                                    <label htmlFor={`${inputPrefix}-player-search-${index}`} className="sr-only">
                                         Buscar jugador para el lugar {index + 1}
                                     </label>
 
                                     <input
-                                        id={`team-player-search-${index}`}
+                                        id={`${inputPrefix}-player-search-${index}`}
                                         type="search"
                                         className={SELECT_CLASSES}
                                         value={slotSearch[index] ?? ''}
@@ -409,12 +406,12 @@ export default function TeamSettings({
                             </div>
 
                             <div>
-                                <label htmlFor={`team-behaviour-${index}`} className="sr-only">
+                                <label htmlFor={`${inputPrefix}-behaviour-${index}`} className="sr-only">
                                     Comportamiento del lugar {index + 1}
                                 </label>
 
                                 <select
-                                    id={`team-behaviour-${index}`}
+                                    id={`${inputPrefix}-behaviour-${index}`}
                                     className={SELECT_CLASSES}
                                     value={slot.behaviourId}
                                     onChange={(event) =>

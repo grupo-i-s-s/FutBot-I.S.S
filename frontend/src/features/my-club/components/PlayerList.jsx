@@ -15,7 +15,10 @@ const PACSS_ATTRIBUTES = [
     ['Strength', 'strength'],
 ];
 
-export default function PlayerList({ players, behaviours, onBehaviourAssigned, currentPage, totalPages, totalPlayers, onPageChange }) {
+export default function PlayerList({
+    players, behaviours, onBehaviourAssigned, currentPage, totalPages, totalPlayers,
+    onPageChange, loading, error, onRetry,
+}) {
     return (
         <Card>
             <CardHeader>
@@ -23,7 +26,7 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned, c
                     <Users className="size-5" aria-hidden="true" />
                     Jugadores
                 </CardTitle>
-                <CardDescription>{totalPlayers} jugadores en el plantel</CardDescription>
+                {totalPlayers != null && <CardDescription>{totalPlayers} jugadores en el plantel</CardDescription>}
 
                 <CardAction className="flex flex-col items-stretch gap-2">
                     <Link to="/crear-jugador" className={buttonVariants({size: 'sm'})}>
@@ -38,7 +41,18 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned, c
             </CardHeader>
 
             <CardContent>
-                {players.length === 0 ? (
+                {loading ? (
+                    <p role="status">Cargando jugadores…</p>
+                ) : error ? (
+                    <div className="space-y-2">
+                        <p role="alert" className="text-sm text-destructive">
+                            No se pudo cargar el plantel. {error.message}
+                        </p>
+                        <button type="button" className={buttonVariants({variant: 'outline', size: 'sm'})} onClick={onRetry}>
+                            Reintentar carga del plantel
+                        </button>
+                    </div>
+                ) : players.length === 0 ? (
                     <Empty className="border">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
@@ -51,79 +65,77 @@ export default function PlayerList({ players, behaviours, onBehaviourAssigned, c
                         </EmptyHeader>
                     </Empty>
                 ) : (
-                    <>
-                        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {players.map((player) => (
-                                <li key={player.id}>
-                                    <Item variant="outline">
-                                        <ItemMedia>
-                                            <Avatar>
-                                                <AvatarFallback className="font-bold text-primary">
-                                                    {player.name.charAt(0).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        </ItemMedia>
+                    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {players.map((player) => (
+                            <li key={player.id}>
+                                <Item variant="outline">
+                                    <ItemMedia>
+                                        <Avatar>
+                                            <AvatarFallback className="font-bold text-primary">
+                                                {player.name.charAt(0).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </ItemMedia>
 
-                                        <ItemContent className="min-w-0">
-                                            <ItemTitle className="truncate">
-                                                {player.name}
-                                            </ItemTitle>
+                                    <ItemContent className="min-w-0">
+                                        <ItemTitle className="truncate">
+                                            {player.name}
+                                        </ItemTitle>
 
-                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-sm">
-                                                {PACSS_ATTRIBUTES.map(([label, key]) => (
-                                                    <span key={key}>
-                                                        <strong>{label}:</strong> {player[key]}
-                                                    </span>
-                                                ))}
-                                            </div>
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-sm">
+                                            {PACSS_ATTRIBUTES.map(([label, key]) => (
+                                                <span key={key}>
+                                                    <strong>{label}:</strong> {player[key]}
+                                                </span>
+                                            ))}
+                                        </div>
 
-                                            <ItemDescription className="mt-2">
-                                                <span className="font-medium">
-                                                    Comportamiento:
-                                                </span>{' '}
-                                                {player.behaviourName}
-                                            </ItemDescription>
+                                        <ItemDescription className="mt-2">
+                                            <span className="font-medium">
+                                                Comportamiento:
+                                            </span>{' '}
+                                            {player.behaviourName}
+                                        </ItemDescription>
 
-                                            <BehaviorSelector
-                                                player={player}
-                                                behaviours={behaviours}
-                                                onBehaviourAssigned={onBehaviourAssigned}
-                                            />
-                                        </ItemContent>
-                                    </Item>
-                                </li>
-                            ))}
-                        </ul>
+                                        <BehaviorSelector
+                                            player={player}
+                                            behaviours={behaviours}
+                                            onBehaviourAssigned={onBehaviourAssigned}
+                                        />
+                                    </ItemContent>
+                                </Item>
+                            </li>
+                        ))}
+                    </ul>
+                )}
 
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between border-t pt-4 mt-6">
-                                <span className="text-sm text-muted-foreground">
-                                    Página {currentPage} de {totalPages}
-                                </span>
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t pt-4 mt-6">
+                        <span className="text-sm text-muted-foreground">
+                            Página {currentPage} de {totalPages}
+                        </span>
 
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => onPageChange?.(currentPage - 1)}
-                                        disabled={currentPage <= 1}
-                                        className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                                    >
-                                        <ChevronLeft className="size-4 mr-1" />
-                                        Anterior
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => onPageChange?.(currentPage + 1)}
-                                        disabled={currentPage >= totalPages}
-                                        className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                                    >
-                                        Siguiente
-                                        <ChevronRight className="size-4 ml-1" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => onPageChange?.(currentPage - 1)}
+                                disabled={loading || currentPage <= 1}
+                                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                            >
+                                <ChevronLeft className="size-4 mr-1" />
+                                Anterior
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onPageChange?.(currentPage + 1)}
+                                disabled={loading || currentPage >= totalPages}
+                                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                            >
+                                Siguiente
+                                <ChevronRight className="size-4 ml-1" />
+                            </button>
+                        </div>
+                    </div>
                 )}
             </CardContent>
         </Card >

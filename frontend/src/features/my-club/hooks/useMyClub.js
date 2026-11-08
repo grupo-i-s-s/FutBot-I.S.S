@@ -15,9 +15,8 @@ export function useMyClub(page = 1, limit = 9) {
     const [status, setStatus] = useState('loading');
     const [error, setError] = useState(null);
     const [club, setClub] = useState(null);
-    const [players, setPlayers] = useState([]);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalPlayers, setTotalPlayers] = useState(0);
+    const [roster, setRoster] = useState({items: [], totalPages: 1, total: null});
+    const [rosterAttempt, setRosterAttempt] = useState(0);
     const [behaviours, setBehaviours] = useState([]);
     const [attempt, setAttempt] = useState(0);
     const [leagues, setLeagues] = useState([]);
@@ -30,18 +29,14 @@ export function useMyClub(page = 1, limit = 9) {
             setStatus('loading');
             setError(null);
             try {
-                const [clubData, playerData, behaviourData, leagueData] = await Promise.all([
+                const [clubData, behaviourData, leagueData] = await Promise.all([
                     getMyClub(options),
-                    listPlayers({ page, limit, ...options }),
                     listBehaviours(options),
                     listMyLeagues(options),
                 ]);
                 if (controller.signal.aborted) return;
                 setClub(clubData);
                 setBehaviours(behaviourData.items);
-                setPlayers(withBehaviourName(playerData.items, behaviourData.items));
-                setTotalPages(playerData.totalPages);
-                setTotalPlayers(playerData.total);
                 setLeagues(leagueData.items);
                 setStatus('ready');
             } catch (loadError) {
@@ -54,16 +49,43 @@ export function useMyClub(page = 1, limit = 9) {
 
         loadClub();
         return () => controller.abort();
-    }, [attempt, page, limit]);
+    }, [attempt]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        const query = {page, limit, attempt: rosterAttempt};
+
+        async function loadRoster() {
+            try {
+                const {items, totalPages, total} = await listPlayers({page, limit, signal: controller.signal});
+                if (!controller.signal.aborted) setRoster({items, totalPages, total, query, error: null});
+            } catch (loadError) {
+                if (!controller.signal.aborted && loadError.name !== 'AbortError') {
+                    setRoster(current => ({...current, query, error: loadError}));
+                }
+            }
+        }
+
+        loadRoster();
+        return () => controller.abort();
+    }, [page, limit, rosterAttempt]);
 
     const reload = useCallback(() => setAttempt((value) => value + 1), []);
+    const reloadRoster = useCallback(() => setRosterAttempt(value => value + 1), []);
+    const rosterLoading = !roster.query || roster.query.page !== page
+        || roster.query.limit !== limit || roster.query.attempt !== rosterAttempt;
 
     function updatePlayer(updatedPlayer) {
-        const [namedPlayer] = withBehaviourName([updatedPlayer], behaviours);
-        setPlayers((current) => current.map((player) =>
-            player.id === namedPlayer.id ? namedPlayer : player
-        ));
+        setRoster(current => ({
+            ...current,
+            items: current.items.map(player => player.id === updatedPlayer.id ? updatedPlayer : player),
+        }));
     }
 
-    return { status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub, updatePlayer };
+    return {
+        status, error, club, behaviours, leagues, reload, setClub, updatePlayer,
+        players: withBehaviourName(roster.items, behaviours),
+        totalPages: roster.totalPages, totalPlayers: roster.total,
+        rosterLoading, rosterError: rosterLoading ? null : roster.error, reloadRoster,
+    };
 }

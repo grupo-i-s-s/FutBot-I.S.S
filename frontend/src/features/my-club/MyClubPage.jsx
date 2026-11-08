@@ -17,7 +17,10 @@ const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:
 
 export default function MyClubPage() {
     const [page, setPage] = useState(1);
-    const { status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub, updatePlayer, } = useMyClub(page, 9);
+    const {
+        status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub, updatePlayer,
+        rosterLoading, rosterError, reloadRoster,
+    } = useMyClub(page, 9);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [notice, setNotice] = useState('');
 
@@ -97,6 +100,9 @@ export default function MyClubPage() {
                     totalPages={totalPages}
                     totalPlayers={totalPlayers}
                     onPageChange={setPage}
+                    loading={rosterLoading}
+                    error={rosterError}
+                    onRetry={reloadRoster}
                 />
 
 
@@ -114,7 +120,6 @@ export default function MyClubPage() {
                     <TeamSettings
                         key={club.id}
                         clubId={club.id}
-                        players={players}
                         behaviours={behaviours}
                     />
                 </aside>
@@ -123,7 +128,6 @@ export default function MyClubPage() {
 
             <ClubSettingsDialog
                 club={club}
-                players={players}
                 behaviours={behaviours}
                 isOpen={isSettingsOpen}
                 onOpenChange={(open) => {
