@@ -5,6 +5,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
 
+TEST_OPPONENT_CLUB_ID = 999
+
 
 class Matches(Base):
     __tablename__ = "matches"

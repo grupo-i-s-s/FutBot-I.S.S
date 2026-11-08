@@ -3,9 +3,10 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
-from app.models.matches_model import Matches
+from app.models.matches_model import Matches, TEST_OPPONENT_CLUB_ID
 from app.repository import matches_repository
 from app.services.match_builder_service import build_match
+from app.services.match_schedule_service import LEAGUE_SCHEDULE_CONFLICT, find_league_schedule_conflict
 from app.services.match_snapshot_service import read_snapshot
 from primitives.match_simulation import Match
 
@@ -44,16 +45,26 @@ def prepare_match_start(db: Session, match: Matches, now: datetime, *, duration_
 
     club_ids = (match.creator_id, match.visitor_id)
 
-    for club_id in club_ids:
-        test_matches = matches_repository.get_active_test_match(db, club_id, bot_club_id=999)
-        if test_matches is not None and test_matches.match_id != match.match_id:
-            cancel_match(db, test_matches, "REPLACED_BY_FRIENDLY_MATCH", now)
+    active_tests = []
+    for club_id in sorted(club_ids):
+        test_match = matches_repository.get_active_test_match(db, club_id, TEST_OPPONENT_CLUB_ID)
+        if test_match is not None and test_match.match_id != match.match_id:
+            active_tests.append(test_match)
 
     clubs = matches_repository.get_clubs_for_update(db, club_ids)
 
     if len(clubs) != 2:
         cancel_match(db, match, "INVALID_CLUBS", now)
         return None
+
+    if TEST_OPPONENT_CLUB_ID not in club_ids and find_league_schedule_conflict(
+        db, club_ids, match.init_date, match.duration_ms if duration_ms is None else duration_ms,
+    ):
+        cancel_match(db, match, LEAGUE_SCHEDULE_CONFLICT, now)
+        return None
+
+    for test_match in active_tests:
+        cancel_match(db, test_match, "REPLACED_BY_FRIENDLY_MATCH", now)
 
     if matches_repository.clubs_have_running_match(db, club_ids, match.match_id):
         cancel_match(db, match, "CLUB_BUSY", now)
