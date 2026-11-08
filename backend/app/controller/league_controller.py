@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.dependencies import CurrentClub, Database
 from app.schemas.league_schemas import (
@@ -102,10 +102,15 @@ def create_private_league(
     )
 
 
-@league_router.get("", response_model=LeagueListResponse)
-def get_leagues(club: CurrentClub, db: Database, name: str | None = None):
-    leagues = league_service.list_leagues(db=db, club_id=club.id, name=name)
-    return {"items": leagues}
+@league_router.get("", response_model=LeagueListResponse, response_model_exclude_none=True)
+def get_leagues(
+        club: CurrentClub,
+        db: Database,
+        name: str | None = None,
+        page: int | None = Query(None, ge=1),
+        limit: int | None = Query(None, ge=1, le=100),
+):
+    return league_service.list_leagues(db=db, club_id=club.id, name=name, page=page, limit=limit)
 
 @league_router.get("/{id}/ranking", status_code = status.HTTP_200_OK)
 def get_league_ranking(id:int, club: CurrentClub, db:Database):

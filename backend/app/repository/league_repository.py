@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import func, select
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, selectinload
 from typing import Optional
 
@@ -48,6 +49,7 @@ def create_league(
         round_interval: str,
         *,
         creator_club_id: int,
+        creator_line_up: dict,
         is_private: bool = False,
         password_hash: str | None = None,
 ) -> League:
@@ -63,7 +65,7 @@ def create_league(
     )
     db.add(league)
     league.registrations.append(
-        LeagueRegistration(club_id=creator_club_id)
+        LeagueRegistration(club_id=creator_club_id, line_up=creator_line_up)
     )
     db.flush()
     return league
@@ -201,7 +203,7 @@ def create_registration(
         db: Session,
         league_id: int,
         club_id: int,
-        line_up: list | dict,
+        line_up: dict,
 ) -> LeagueRegistration:
     registration = LeagueRegistration(
         league_id=league_id,
@@ -214,22 +216,42 @@ def create_registration(
     return registration
 
 
-def get_all_available_leagues(
+def get_available_leagues(
         db: Session,
+        club_id: int,
+        *,
         name: str | None = None,
-) -> list[League]:
+        page: int | None = None,
+        limit: int | None = None,
+) -> tuple[list[Row[tuple[League, int, bool]]], int | None]:
+    registered_count = (
+        select(func.count(LeagueRegistration.id))
+        .where(LeagueRegistration.league_id == League.id)
+        .correlate(League)
+        .scalar_subquery()
+    )
+    conditions = [League.status == "open", registered_count < League.max_teams]
+    if name:
+        conditions.append(League.name.icontains(name, autoescape=True))
+
     query = (
-        select(League)
-        .options(selectinload(League.registrations))
+        select(
+            League,
+            registered_count,
+            League.registrations.any(LeagueRegistration.club_id == club_id),
+        )
+        .where(*conditions)
         .order_by(League.id.desc())
     )
+    total = None
+    if page is not None and limit is not None:
+        total = db.execute(select(func.count()).select_from(League).where(*conditions)).scalar_one()
+        offset = (page - 1) * limit
+        if offset >= total:
+            return [], total
+        query = query.offset(offset).limit(limit)
 
-    if name:
-        query = query.where(
-            League.name.icontains(name, autoescape=True)
-        )
-
-    return list(db.scalars(query).all())
+    return list(db.execute(query).all()), total
 
 def get_completed_matches(league_id: int, db: Session):
     return db.scalars(

@@ -53,7 +53,9 @@ def prepare_league_round(db: Session, league_id: int, now: datetime) -> list[int
             for club_id in club_ids:
                 registration = registrations[club_id]
                 if isinstance(registration.line_up, list):
-                    prepare_registration_lineup(db, registration, league.creator_club_id)
+                    prepare_registration_lineup(
+                        db, registration, league.creator_club_id, allow_legacy_reorder=True,
+                    )
             simulations = [
                 build_match(db, match.match_id, league_teams=registrations) for match in current
             ]
