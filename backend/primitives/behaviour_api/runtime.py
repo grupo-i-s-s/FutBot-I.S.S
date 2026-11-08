@@ -270,7 +270,7 @@ class BehaviourRuntime:
 
         return response
 
-    def load(self, source: str) -> str:
+    def load(self, source: str, kind: str = "PLAYER") -> str:
         key = hashlib.sha256(
             f"{API_VERSION}\0{source}".encode("utf-8")
         ).hexdigest()
@@ -288,6 +288,7 @@ class BehaviourRuntime:
                 "op": "load",
                 "key": key,
                 "source": source,
+                "kind": kind,
             },
             self.startup_timeout,
         )
@@ -359,6 +360,30 @@ class BehaviourRuntime:
             raise BehaviourWorkerDead(
                 "INVALID_COMMAND",
                 "El ejecutor devolvió una orden inválida.",
+            ) from error
+
+    def dt_decide(self, key: str, observation) -> dict:
+        from dataclasses import asdict
+
+        response = self._request(
+            {
+                "op": "decide_dt",
+                "key": key,
+                "observation": asdict(observation),
+            },
+            self.decision_timeout,
+        )
+        try:
+            data = response["action"]
+            if type(data) is not dict or "tactical_changes" not in data:
+                raise ValueError("Formato de orden de DT invalido.")
+            return data["tactical_changes"]
+
+        except (KeyError, TypeError, ValueError) as error:
+            self.close()
+            raise BehaviourWorkerDead(
+                "INVALID_COMMAND",
+                "El ejecutor devolvio una orden de DT invalida.",
             ) from error
 
     def close(self) -> None:
