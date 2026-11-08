@@ -12,6 +12,7 @@ from app.repository import (
     behaviour_repository,
     player_repository,
     team_repository,
+    pending_email_verification_repository
 )
 from app.schemas.auth_schemas import (
     ChangePasswordRequest,
@@ -25,8 +26,10 @@ from app.security import (
     hash_password,
     hash_session_token,
     new_session_token,
-    verify_password
+    verify_password,
+    new_email_verification_code
 )
+from app.services import email_service
 from app.schemas.avatar_schemas import DEFAULT_AVATAR
 
 
@@ -117,35 +120,48 @@ def _create_account(
     return public_user(user, club)
 
 
-def register(db: Session, data: RegisterRequest) -> UserResponse:
+def register(db: Session, data: RegisterRequest) -> dict[str, str]:
+    email = str(data.email)
+    now = utc_now()
+
     try:
-        result = _create_account(
+        if user_repository.get_by_email(db, email):
+            raise duplicate_error("email")
+
+        pending = pending_email_verification_repository.get_by_email(db, email, lock=True)
+
+        if pending and pending.expires_at > now:
+            raise AppError(
+                "EMAIL_VERIFICATION_PENDING",
+                "Ya hay una verificación pendiente para ese email. "
+                "Usá el código que recibiste o solicitá uno nuevo.",
+            )
+
+        if pending:
+            pending_email_verification_repository.delete_by_email(db, email)
+
+        code = new_email_verification_code()
+
+        pending_email_verification_repository.create(
             db,
-            email=str(data.email),
+            email=email,
             password_hash=hash_password(data.password),
             club_name=data.club_name,
+            code_hash=hash_password(code),
+            created_at=now,
+            expires_at=now + timedelta(minutes=10),
+            last_sent_at=now,
+            resend_window_started_at=now,
         )
+
         db.commit()
-        return result
-
-    except IntegrityError as exc:
-        db.rollback()
-
-        diagnostic = getattr(exc.orig, "diag", None)
-        constraint = getattr(diagnostic, "constraint_name", None)
-
-        if constraint == "uq_users_email":
-            raise duplicate_error("email") from exc
-
-        if constraint == "clubs_name_key":
-            raise duplicate_error("clubName") from exc
-
-        raise
 
     except Exception:
         db.rollback()
         raise
-
+    
+    email_service.send_verification_code(email, code)
+    return {"message": "Se envio código para verificar tu correo."}
 
 def login(db: Session, data: LoginRequest, previous_token: str | None) -> tuple[UserResponse, str]:
     try:
