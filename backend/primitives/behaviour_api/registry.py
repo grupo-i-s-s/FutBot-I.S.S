@@ -37,6 +37,15 @@ QUERY_METHODS = {
     "rival_mas_cercano": "closest_opponent",
 }
 
+DT_QUERY_METHODS = {
+    "vamos_ganando": "winning",
+    "vamos_empatando": "drawing",
+    "vamos_perdiendo": "losing",
+    "tiempo_jugado": "time_played",
+    "perdiendo_por": "losing_by",
+    "ganando_por": "winning_by",
+}
+
 
 ACTION_METHODS = {
     "patear_a": "kick_to",
@@ -106,3 +115,10 @@ def build_registry(queries: Queries) -> tuple[Registry, Registry]:
     }
 
     return query_registry, action_registry
+
+def build_dt_registry(queries) -> dict[str, callable]:
+    dt_registry = {
+        public_name: getattr(queries, internal_name)
+        for public_name, internal_name in DT_QUERY_METHODS.items()
+    }
+    return dt_registry

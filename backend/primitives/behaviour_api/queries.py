@@ -138,6 +138,7 @@ class DtQueries:
 
     def time_played(self) -> bool:
         return self.obs.time_played / 60                # Lo paso a segundos para que sea mas facil para el usuario
+    
     def losing_by(self, goals: int) -> bool:
             return (self.obs.rival_goals - self.obs.my_goals >= goals)
 

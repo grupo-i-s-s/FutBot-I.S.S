@@ -13,8 +13,8 @@ from types import SimpleNamespace
 from primitives.behaviours import Action, Observation, BehaviourMode
 from primitives.behaviour_api.actions import Command
 from primitives.behaviour_api.context import PlayerView, TickSnapshot, distance
-from primitives.behaviour_api.queries import Queries
-from primitives.behaviour_api.registry import build_registry
+from primitives.behaviour_api.queries import Queries, DtQueries
+from primitives.behaviour_api.registry import build_registry, build_dt_registry
 from dt_behaviour import DtAction, DtObservation
 
 
@@ -489,6 +489,8 @@ def _validation_worker(kind: str = "PLAYER") -> None:
             obs_prueba = DtObservation(
                 time_played=10, my_goals=1, rival_goals=0, players_id=[1, 2, 3]
             )
+            queries = DtQueries(obs_prueba)
+            query_registry = build_dt_registry(queries)
             namespace = {
                 "__builtins__": {
                     "__import__": _safe_import,
@@ -501,15 +503,12 @@ def _validation_worker(kind: str = "PLAYER") -> None:
                     "int": int,
                     "float": float,
                     "bool": bool,
-                }
+                },
+                **query_registry,
             }
 
-            namespace = {
-                "__builtins__": {
-                    "__import__": _safe_import,
-                }
-            }
             exec(program, namespace)
+            
             action = namespace["decide"](obs_prueba)
             diagnostics = validate_action(action, 100, 60)
             if not diagnostics:
@@ -837,6 +836,8 @@ def execute_dt_once(
     compiled,
     observation: DtObservation,
 ) -> DtAction:
+    queries = DtQueries(observation)
+    query_registry = build_dt_registry(queries)
     namespace = {
         "__builtins__": {
             "__import__": _safe_import,
@@ -849,7 +850,8 @@ def execute_dt_once(
             "int": int,
             "float": float,
             "bool": bool,
-        }
+        },
+        **query_registry,
     }
 
     exec(compiled, namespace)
