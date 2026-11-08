@@ -15,7 +15,6 @@ from app.schemas.league_schemas import (
 from app.schemas.team_schemas import Lineup
 from app.security import hash_password, verify_password
 from app.services.league_lineup_service import (
-    is_legacy_lineup,
     prepare_registration_lineup,
     snapshot_default_lineup,
 )
@@ -183,11 +182,8 @@ def start_league(db: Session, league_id: int, club_id: int) -> dict:
         if len(league.registrations) < league.min_teams:
             raise HTTPException(409, "No hay suficientes clubes para iniciar la liga.")
 
-        legacy_club_ids = tuple(sorted(
-            row.club_id for row in league.registrations if is_legacy_lineup(row.line_up)
-        ))
-        if legacy_club_ids:
-            matches_repository.get_clubs_for_update(db, legacy_club_ids)
+        club_ids = tuple(sorted(row.club_id for row in league.registrations))
+        matches_repository.get_clubs_for_update(db, club_ids)
         for registration in league.registrations:
             prepare_registration_lineup(db, registration, league.creator_club_id)
         rounds = generate_league_rounds(db, league)
@@ -206,7 +202,7 @@ def start_league(db: Session, league_id: int, club_id: int) -> dict:
             league_repository.create_round_matches(db, round_, draw.pairings)
 
         league_repository.create_standings(
-            db, league.id, [row.club_id for row in league.registrations],
+            db, league.id, list(club_ids),
         )
         league.status = "running"
         db.commit()

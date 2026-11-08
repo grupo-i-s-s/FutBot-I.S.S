@@ -11,10 +11,6 @@ from primitives.formations import FORMATIONS
 INCOMPLETE_LEGACY_LINEUP = "INCOMPLETE_LEGACY"
 
 
-def is_legacy_lineup(saved: object) -> bool:
-    return isinstance(saved, list) or _is_incomplete_lineup(saved)
-
-
 def _is_incomplete_lineup(saved: object) -> bool:
     return isinstance(saved, dict) and saved.get("status") == INCOMPLETE_LEGACY_LINEUP
 
