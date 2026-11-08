@@ -655,6 +655,10 @@ class Match:
         duration = self.duration_ms / 1000
         dt = min(dt, duration - self.time)
 
+        if int(self.time + dt) > int(self.time):                #Esto hace que el directo tecnico se evalue 1 vez cada segundo y nocada tick
+            self._run_dt(self.local_team)
+            self._run_dt(self.visitor_team)
+
         snapshot = snapshot_from_match(
             self,
             SHOT_BASE_SPEED,
