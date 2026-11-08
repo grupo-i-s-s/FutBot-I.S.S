@@ -3,6 +3,7 @@ import {Link, useNavigate} from 'react-router';
 import {Button} from '@/components/ui/button';
 import {Card} from '@/components/ui/card';
 import {joinFriendlyMatch, listFriendlyMatches, listMyFriendlyMatches} from './api';
+import {friendlyMatchError} from './scheduleConflict.js';
 import './Matches.css';
 
 const statusLabels = {
@@ -61,7 +62,7 @@ export default function MatchesPage() {
             const response = await joinFriendlyMatch(matchId);
             navigate('/partidos/' + response.matchId, {replace: true});
         } catch (error) {
-            setJoinError(error.message || 'No se pudo completar la inscripción al partido.');
+            setJoinError(friendlyMatchError(error, 'No se pudo completar la inscripción al partido.'));
             setRefresh((value) => value + 1);
         } finally {
             setJoiningId(null);

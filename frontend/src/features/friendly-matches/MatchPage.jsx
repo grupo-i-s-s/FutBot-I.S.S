@@ -18,7 +18,15 @@ const connectionLabels = {
 };
 
 function resultText(state) {
-    if (state.status === 'CANCELLED') return 'Partido cancelado.';
+    if (state.status === 'CANCELLED') {
+        if (state.cancellationReason === 'LEAGUE_SCHEDULE_CONFLICT') {
+            return 'El amistoso se canceló porque su horario se superpone con una ronda de liga confirmada.';
+        }
+        if (state.cancellationReason === 'CLUB_BUSY') {
+            return 'El partido se canceló porque uno de los clubes ya estaba jugando otro partido.';
+        }
+        return 'Partido cancelado.';
+    }
     const [local, visitor] = state.teams;
     if (local.score === visitor.score) return 'El partido terminó en empate.';
     return `Ganó ${local.score > visitor.score ? local.name : visitor.name}.`;

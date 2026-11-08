@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import './Create_friendly_match.css';
 import {createFriendlyMatch} from './api';
+import {friendlyMatchError} from './scheduleConflict.js';
 import {useNavigate} from 'react-router';
 
 
@@ -27,7 +28,7 @@ export default function CreateFriendlyMatch() {
             const response = await createFriendlyMatch(matchTime);
             navigate('/partidos/' + response.matchId, {replace: true});
         } catch (error) {
-            setError(error.message || 'No se pudo crear el partido.');
+            setError(friendlyMatchError(error, 'No se pudo crear el partido.'));
         } finally {
             setCreateMatch(false);
         }
