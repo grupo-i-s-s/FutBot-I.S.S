@@ -115,6 +115,17 @@ def test_invalid_save_does_not_replace_the_persisted_team(context, invalid):
     assert context.client.get("/team/default").json()["lineUp"] == lineup(1)
 
 
+def test_reading_a_legacy_invalid_team_reports_incomplete_account(context):
+    with Session(context.engine) as db:
+        db.get(DefaultTeam, 1).line_up = {"formationId": 1, "starters": []}
+        db.commit()
+
+    response = context.client.get("/team/default")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ACCOUNT_INCOMPLETE"
+
+
 def test_configuration_changes_apply_to_future_matches_and_not_resumed_matches(context, monkeypatch):
     assert context.client.put("/team/default", json=lineup(1, 2)).status_code == 200
     now = datetime.now(timezone.utc)

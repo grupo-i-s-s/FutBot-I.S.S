@@ -179,6 +179,7 @@ it.each([false, true])('joins a league from the listing and opens its lobby (pri
     let joined = false;
     const ids = [56, 51, 55, 52, 54, 53];
     const slots = ids.map(playerId => ({playerId, behaviourId: 7}));
+    const lineUp = {formationId: 2, starters: slots.slice(0, 3), substitutes: slots.slice(3)};
     const players = [51, 52, 53, 54, 55, 56].map(id => ({
         id, name: id === 51 ? 'Jugadora del club' : `Jugador ${id}`,
     }));
@@ -192,10 +193,14 @@ it.each([false, true])('joins a league from the listing and opens its lobby (pri
         if (url === '/api/club/me') response = club;
         else if (url === '/api/leagues') response = {items: [league]};
         else if (url === '/api/auth/me') response = {clubId: 8};
-        else if (url === '/api/team/default') response = {
-            clubId: 8, lineUp: {formationId: 2, starters: slots.slice(0, 3), substitutes: slots.slice(3)},
-        };
+        else if (url === '/api/team/default') response = {clubId: 8, lineUp};
         else if (url.startsWith('/api/players/by-ids?')) response = players;
+        else if (url === '/api/catalogs/formations') response = {items: [{
+            id: 2, name: 'Equilibrada', slots: ['Arquero', 'Defensor', 'Delantero'].map(label => ({label})),
+        }]};
+        else if (url === '/api/behaviours') response = {items: [{
+            id: 7, name: 'Ofensivo', kind: 'PLAYER', validationStatus: 'VALID',
+        }]};
         else if (url === '/api/leagues/42/join') {
             joined = true;
             response = {message: 'Te has unido a la liga exitosamente.'};
@@ -220,6 +225,6 @@ it.each([false, true])('joins a league from the listing and opens its lobby (pri
     expect(screen.getByText('Mi club', {selector: '.player-name'})).toBeInTheDocument();
     const [, options] = fetchMock.mock.calls.find(([url]) => url.endsWith('/join'));
     expect(JSON.parse(options.body)).toEqual({
-        clubId: 8, lineUp: ids, ...(isPrivate ? {accessCode: 'clave-de-liga'} : {}),
+        clubId: 8, lineUp, ...(isPrivate ? {accessCode: 'clave-de-liga'} : {}),
     });
 });

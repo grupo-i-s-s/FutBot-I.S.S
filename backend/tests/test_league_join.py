@@ -1,9 +1,11 @@
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.main import app
 from app.models.league_model import League, LeagueRegistration
+from app.models.team_model import DefaultTeam
 from tests.test_default_squad import (
     BROWSER_HEADERS,
     db_session,
@@ -63,7 +65,7 @@ def test_join_league_creates_registration(db_session):
     )
 
     assert registration is not None
-    assert registration.line_up == line_up
+    assert registration.line_up == db_session.get(DefaultTeam, club.id).line_up
 
 
 def test_join_league_uses_one_available_slot(db_session):
@@ -255,7 +257,8 @@ def test_join_league_keeps_registered_line_up(db_session):
         db_session.add(league)
         db_session.flush()
 
-        original_line_up = [player.id for player in club.players][:6]
+        default_team = db_session.get(DefaultTeam, club.id)
+        original_line_up = deepcopy(default_team.line_up)
 
         response = client.post(
             f"/leagues/{league.id}/join",
@@ -277,8 +280,10 @@ def test_join_league_keeps_registered_line_up(db_session):
 
         assert registration is not None
 
-        original_line_up.append(99)
+        default_team.line_up = {**default_team.line_up, "formationId": 2}
+        db_session.flush()
 
         db_session.refresh(registration)
 
-        assert registration.line_up == [player.id for player in club.players][:6]
+        assert registration.line_up == original_line_up
+        assert registration.line_up != default_team.line_up

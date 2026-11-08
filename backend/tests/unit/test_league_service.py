@@ -7,7 +7,8 @@ from unittest.mock import Mock
 
 from app.errors import AppError
 from app.schemas.league_schemas import CreateLeagueRequest, CreatePrivateLeagueRequest
-from app.services import league_service as service
+from app.services import league_lineup_service as lineups, league_service as service
+from primitives.behaviours import DEFAULT_CODES
 
 
 @pytest.fixture
@@ -16,7 +17,13 @@ def leagues(monkeypatch, now, freeze_time):
     repository = Mock()
     players = Mock()
     monkeypatch.setattr(service, "league_repository", repository)
-    monkeypatch.setattr(service, "player_repository", players)
+    monkeypatch.setattr(lineups, "player_repository", players)
+    slots = [{"playerId": i, "behaviourId": 1} for i in range(1, 7)]
+    lineup = {"formationId": 1, "starters": slots[:3], "substitutes": slots[3:]}
+    monkeypatch.setattr(lineups.team_repository, "get_by_club", Mock(return_value=SimpleNamespace(line_up=lineup)))
+    behaviour = SimpleNamespace(id=1, name="Equilibrado", code=DEFAULT_CODES["Equilibrado"],
+                                kind="PLAYER", version=1, validation_status="VALID")
+    monkeypatch.setattr(lineups.behaviour_repository, "get_all_behaviours", Mock(return_value=[behaviour]))
     monkeypatch.setattr(service, "hash_password", Mock(return_value="hashed-secret"))
     monkeypatch.setattr(service, "verify_password", Mock(return_value=True))
     league = SimpleNamespace(
@@ -31,7 +38,7 @@ def leagues(monkeypatch, now, freeze_time):
     repository.get_registration.return_value = None
     repository.count_registrations.return_value = 2
     players.get_players_by_club.return_value = [SimpleNamespace(id=i) for i in range(1, 7)]
-    return SimpleNamespace(repo=repository, players=players, row=league)
+    return SimpleNamespace(repo=repository, players=players, row=league, lineup=lineup)
 
 
 def creation(now, **changes):
@@ -50,7 +57,7 @@ def test_create_preserves_creator_and_hashes_only_private_password(db, leagues, 
     assert args == dict(db=db, name="Demo", min_teams=3, max_teams=8,
                         start_date=now + timedelta(days=1), round_interval="DAILY",
                         is_private=private, password_hash="hashed-secret" if private else None,
-                        creator_club_id=7)
+                        creator_club_id=7, creator_line_up=leagues.lineup)
     assert result["league_id"] == 42
     assert service.hash_password.call_count == int(private)
     db.commit.assert_called_once()
@@ -99,10 +106,10 @@ def test_create_translates_only_known_constraint(db, leagues, now, integrity_err
     db.commit.assert_not_called()
 
 
-def test_join_uses_six_selected_players_and_authenticated_club(db, leagues):
-    selected = [6, 4, 2, 1, 3, 5]
+def test_join_upgrades_legacy_player_ids_to_complete_lineup(db, leagues):
+    selected = [1, 2, 3, 4, 5, 6]
     result = service.join_league(db, 42, 7, selected)
-    leagues.repo.create_registration.assert_called_once_with(db, 42, 7, selected)
+    leagues.repo.create_registration.assert_called_once_with(db, 42, 7, leagues.lineup)
     leagues.players.get_players_by_club.assert_called_once_with(db, 7)
     assert result["clubId"] == 7
     db.commit.assert_called_once()
@@ -113,6 +120,7 @@ def test_join_uses_six_selected_players_and_authenticated_club(db, leagues):
     ("full", 409), ("registered", 409), ("foreign_player", 400),
 ])
 def test_join_rejects_unavailable_league_or_invalid_roster(db, leagues, now, case, status):
+    selected = [1, 2, 3, 4, 5, 6]
     if case == "missing":
         leagues.repo.get_league_for_join.return_value = None
     elif case == "closed":
@@ -122,10 +130,10 @@ def test_join_rejects_unavailable_league_or_invalid_roster(db, leagues, now, cas
     elif case == "registered":
         leagues.repo.get_registration.return_value = SimpleNamespace(club_id=7)
     else:
-        leagues.players.get_players_by_club.return_value = [SimpleNamespace(id=i) for i in range(1, 6)]
+        selected[-1] = 99
     codes = {"closed": "LEAGUE_CLOSED", "full": "LEAGUE_FULL", "registered": "ALREADY_REGISTERED"}
     with pytest.raises(AppError if case in codes else HTTPException) as error:
-        service.join_league(db, 42, 7, [1, 2, 3, 4, 5, 6])
+        service.join_league(db, 42, 7, selected)
     if case in codes:
         assert error.value.code == codes[case]
     else:
@@ -274,12 +282,25 @@ def test_missing_lobby_is_not_found(db, leagues):
 
 
 @pytest.mark.parametrize("name, normalized", [(None, None), ("  Demo  ", "Demo"), ("  ", "")])
-def test_list_normalizes_filter_and_derives_membership_capacity(db, leagues, name, normalized):
-    leagues.row.max_teams = 1
-    leagues.repo.get_all_available_leagues.return_value = [leagues.row]
-    item = service.list_leagues(db, 7, name)[0]
-    leagues.repo.get_all_available_leagues.assert_called_once_with(db, name=normalized)
-    assert (item.id, item.registered_count, item.available_slots, item.is_member) == (42, 2, 0, True)
+def test_list_normalizes_filter_and_preserves_membership_capacity(db, leagues, name, normalized):
+    leagues.repo.get_available_leagues.return_value = ([(leagues.row, 2, True)], None)
+    listing = service.list_leagues(db, 7, name)
+    leagues.repo.get_available_leagues.assert_called_once_with(db, 7, name=normalized, page=None, limit=None)
+    item = listing.items[0]
+    assert (item.id, item.registered_count, item.available_slots, item.is_member) == (42, 2, 6, True)
     assert "password_hash" not in item.model_dump()
-    assert service.list_leagues(db, 99, name)[0].is_member is False
+    assert listing.total is None
     db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize("page, limit, expected_page, expected_limit", [(None, 10, 1, 10), (2, None, 2, 20)])
+def test_list_defaults_missing_pagination_parameter(db, leagues, page, limit, expected_page, expected_limit):
+    leagues.repo.get_available_leagues.return_value = ([], 41)
+    listing = service.list_leagues(db, 7, page=page, limit=limit)
+    leagues.repo.get_available_leagues.assert_called_once_with(
+        db, 7, name=None, page=expected_page, limit=expected_limit,
+    )
+    assert listing.model_dump(by_alias=True) == {
+        "items": [], "total": 41, "page": expected_page, "limit": expected_limit,
+        "totalPages": 5 if expected_limit == 10 else 3,
+    }
