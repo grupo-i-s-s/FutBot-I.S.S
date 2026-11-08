@@ -8,6 +8,13 @@ class Setting:
     cookie_secure: bool
     session_hours: int
     allowed_origins: frozenset[str]
+    smtp_host: str
+    smtp_port: int
+    smtp_username: str
+    smtp_password: str
+    smtp_from: str
+    smtp_starttls: bool
+    smtp_timeout: int
 
 
 settings = Setting(cookie_name="FutBotSession",
@@ -16,7 +23,14 @@ settings = Setting(cookie_name="FutBotSession",
                    allowed_origins=frozenset(origin.strip().rstrip("/")
                                              for origin in
                                              os.getenv("AUTH_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
-                                             if origin.strip()))
+                                             if origin.strip()),
+                   smtp_host=os.getenv("SMTP_HOST", "smtp.gmail.com"),
+                   smtp_port=int(os.getenv("SMTP_PORT", "587")),
+                   smtp_username=os.getenv("SMTP_USERNAME", ""),
+                   smtp_password=os.getenv("SMTP_PASSWORD", ""),
+                   smtp_from=os.getenv("SMTP_FROM", ""),
+                   smtp_starttls=os.getenv("SMTP_STARTTLS", "true").lower() == "true",
+                   smtp_timeout=int(os.getenv("SMTP_TIMEOUT", "10")),)
 
 if settings.session_hours <= 0:
     raise ValueError("AUTH_SESSION_HOURS debe ser positivo")
