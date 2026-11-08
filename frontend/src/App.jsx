@@ -18,6 +18,7 @@ import CreateBehaviourPage from './features/create-behaviour/CreateBehaviourPage
 import BehaviourList from './features/behaviours/components/BehaviourList.jsx';
 import LeagueListPage from './features/list-leagues/LeagueListPage.jsx';
 import NavBar from './features/nav-bar/navBar.jsx';
+import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 
 export default function App() {
     const { pathname } = useLocation();
@@ -47,6 +48,7 @@ export default function App() {
                 <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
                 <Route path="/behaviours" element={<BehaviourList />} />
                 <Route path="/crear-comportamiento" element={<CreateBehaviourPage />} />
+                <Route path="/clubes" element={<ClubsListPage />} />
                 <Route path="*" element={<NotFoundPage />} />
             </Routes>
         </>
