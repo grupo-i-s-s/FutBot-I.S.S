@@ -34,8 +34,7 @@ def clear_session_cookie(response: Response) -> None:
         samesite="lax"
     )
 
-
-@auth_router.post("/register", response_model=UserResponse, status_code=201)
+@auth_router.post("/register", status_code=202)
 def register(data: RegisterRequest, db: Database):
     return auth_service.register(db, data)
 
