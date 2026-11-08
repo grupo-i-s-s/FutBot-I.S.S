@@ -7,6 +7,7 @@ from app.schemas.auth_schemas import (
     LoginRequest,
     RegisterRequest,
     UserResponse,
+    VerifyEmailRequest
 )
 from app.services import auth_service
 

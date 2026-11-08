@@ -18,7 +18,8 @@ from app.schemas.auth_schemas import (
     ChangePasswordRequest,
     LoginRequest,
     RegisterRequest,
-    UserResponse
+    UserResponse,
+    VerifyEmailRequest
 )
 from app.schemas.team_schemas import Lineup
 from app.security import (
@@ -159,7 +160,7 @@ def register(db: Session, data: RegisterRequest) -> dict[str, str]:
     except Exception:
         db.rollback()
         raise
-    
+
     email_service.send_verification_code(email, code)
     return {"message": "Se envio código para verificar tu correo."}
 
@@ -303,6 +304,74 @@ def change_password(db: Session, identity: Identity, data: ChangePasswordRequest
         session_repository.delete_for_user(db, user.id)
 
         db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+def verify_email(db: Session, data: VerifyEmailRequest) -> UserResponse:
+    email = str(data.email)
+    now = utc_now()
+
+    try:
+        pending = pending_email_verification_repository.get_by_email(db, email, lock=True)
+
+        if pending is None:
+            raise AppError(
+                "EMAIL_VERIFICATION_INVALID",
+                "El código no es válido o venció. Iniciá el registro nuevamente.",
+            )
+
+        if pending.expires_at <= now:
+            pending_email_verification_repository.delete_by_email(db, email)
+            db.commit()
+            raise AppError(
+                "EMAIL_VERIFICATION_INVALID",
+                "El código no es válido o venció. Iniciá el registro nuevamente.",
+            )
+
+        if not verify_password(data.code, pending.code_hash):
+            attempts = pending_email_verification_repository.increment_attempts(db, pending)
+
+            if attempts >= 5:
+                pending_email_verification_repository.delete_by_email(db, email)
+
+            db.commit()
+
+            if attempts >= 5:
+                raise AppError(
+                    "EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED",
+                    "Se agotaron los intentos. Iniciá el registro nuevamente.",
+                )
+
+            raise AppError(
+                "EMAIL_VERIFICATION_INVALID",
+                "El código no es válido o venció.",
+            )
+
+        result = _create_account(
+            db,
+            email=email,
+            password_hash=pending.password_hash,
+            club_name=pending.club_name,
+        )
+        pending_email_verification_repository.delete_by_email(db, email)
+        db.commit()
+        return result
+
+    except IntegrityError as exc:
+        db.rollback()
+
+        diagnostic = getattr(exc.orig, "diag", None)
+        constraint = getattr(diagnostic, "constraint_name", None)
+
+        if constraint == "uq_users_email":
+            raise duplicate_error("email") from exc
+
+        if constraint == "clubs_name_key":
+            raise duplicate_error("clubName") from exc
+
+        raise
 
     except Exception:
         db.rollback()
