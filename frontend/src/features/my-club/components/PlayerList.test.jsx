@@ -1,4 +1,5 @@
 import {render, screen} from '@testing-library/react';
+import {MemoryRouter} from 'react-router';
 import {describe, expect, it, vi} from 'vitest';
 
 import PlayerList from './PlayerList';
@@ -25,7 +26,8 @@ describe('PlayerList', () => {
                 ]}
                 behaviours={[]}
                 onBehaviourAssigned={vi.fn()}
-            />
+            />,
+            {wrapper: MemoryRouter},
         );
 
         expect(screen.getByText('Marta')).toBeInTheDocument();
@@ -45,7 +47,8 @@ describe('PlayerList', () => {
                 players={[]}
                 behaviours={[]}
                 onBehaviourAssigned={vi.fn()}
-            />
+            />,
+            {wrapper: MemoryRouter},
         );
 
         expect(screen.getByText('Sin jugadores')).toBeInTheDocument();

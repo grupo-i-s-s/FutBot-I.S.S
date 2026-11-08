@@ -249,6 +249,25 @@ def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
     assert restored.time == pytest.approx(2 / 30)
 
 
+@pytest.mark.parametrize("field, value, message", [
+    ("time", "2", "Reloj"),
+    ("scorer", {"LEFT": 2, "RIGHT": 1}, "Marcador"),
+    ("next_kick_at", {"10": "pronto"}, "próximo remate"),
+])
+def test_checkpoint_rejects_corrupt_state_before_resuming(field, value, message):
+    checkpoint = match_simulation.Match(team(1), team(2)).checkpoint()
+    checkpoint[field] = value
+    with pytest.raises(ValueError, match=message):
+        match_simulation.Match.from_checkpoint(checkpoint)
+
+
+def test_checkpoint_rejects_malformed_vectors_before_setting_physics():
+    checkpoint = match_simulation.Match(team(1), team(2)).checkpoint()
+    checkpoint["bodies"][0]["position"] = [1]
+    with pytest.raises(ValueError, match="Posición"):
+        match_simulation.Match.from_checkpoint(checkpoint)
+
+
 def test_default_roster_finishes_and_scores_with_real_physics():
     # Reproduce la demo: tres titulares de atributos 60, dos equilibrados y un ofensivo.
     modes = (BehaviourMode.BALANCED, BehaviourMode.BALANCED, BehaviourMode.OFFENSIVE)

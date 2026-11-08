@@ -54,17 +54,20 @@ it('muestra la franja ocupada al intentar unirse a un amistoso', async () => {
     expect(await screen.findByRole('button', {name: 'Unirse'})).toBeEnabled();
 });
 
-it('explica la cancelación por cruce de liga en el detalle del amistoso', async () => {
+it.each([
+    [conflictCode, 0, /se superpone con una ronda de liga confirmada/],
+    ['CHECKPOINT_UNRECOVERABLE', 2, /no se pudo recuperar el estado guardado.*partido quedó sin resultado/],
+])('explica en el detalle la cancelación por %s', async (reason, localScore, message) => {
     vi.stubGlobal('fetch', vi.fn(async (url) => {
         if (url === '/api/club/me') return jsonResponse({id: 1});
         if (url === '/api/behaviours') return jsonResponse({items: []});
         return jsonResponse({
             schemaVersion: 1, type: 'match.snapshot', matchId: 42, sequence: 1, sentAt: conflictStart,
             state: {
-                status: 'CANCELLED', cancellationReason: conflictCode, clockMs: 0, durationMs: 300_000,
+                status: 'CANCELLED', cancellationReason: reason, clockMs: 0, durationMs: 300_000,
                 field: {width: 1000, height: 600, goalWidth: 120},
                 teams: [
-                    {id: 1, name: 'Club local', side: 'LEFT', score: 0},
+                    {id: 1, name: 'Club local', side: 'LEFT', score: localScore},
                     {id: 2, name: 'Club visitante', side: 'RIGHT', score: 0},
                 ],
                 players: [], ball: null,
@@ -75,6 +78,8 @@ it('explica la cancelación por cruce de liga en el detalle del amistoso', async
         <Routes><Route path="/partidos/:matchId" element={<MatchPage/>}/></Routes>
     </MemoryRouter>);
 
-    expect(await screen.findByText(/se superpone con una ronda de liga confirmada/)).toBeInTheDocument();
+    expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Cancelado');
+    expect(screen.getByLabelText(`Marcador: ${localScore} a 0`)).toBeInTheDocument();
+    expect(screen.queryByText(/Ganó|terminó en empate/)).not.toBeInTheDocument();
 });

@@ -16,7 +16,7 @@ from test_league_start import database, league_data
 from app.errors import AppError
 from app.models.behaviour_model import Behavior
 from app.models.league_model import League, LeagueRegistration, LeagueRound, LeagueStanding
-from app.models.matches_model import Matches
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
 from app.models.team_model import DefaultTeam
 from app.repository import league_repository, matches_repository
 from app.services import league_execution_service as execution
@@ -206,6 +206,52 @@ def test_busy_club_delays_whole_round_without_cancelling_matches(database, runni
         ids = execution.get_due_league_match_ids(db, clock[0])
         assert len(ids) == 2
         assert all(db.get(Matches, id_).started_at.replace(tzinfo=timezone.utc) == clock[0] for id_ in ids)
+
+
+def test_unrecoverable_checkpoint_releases_clubs_and_league_continues(database, running_league):
+    data, clock = running_league
+    with Session(database) as db:
+        start(db, data, 4)
+
+    broken_id, other_id = match_scheduler_service._get_due_match_ids()
+    with Session(database) as db:
+        broken = db.get(Matches, broken_id)
+        released_clubs = (broken.creator_id, broken.visitor_id)
+        last_sequence = broken.sequence
+        broken.runtime_state = {"version": 999}
+        db.commit()
+
+    cancelled = match_execution_service.run_persisted_match(broken_id)
+    assert cancelled["sequence"] == last_sequence + 1
+    assert cancelled["state"]["status"] == "CANCELLED"
+    assert cancelled["state"]["cancellationReason"] == CHECKPOINT_UNRECOVERABLE
+    assert match_execution_service.run_persisted_match(broken_id) == cancelled
+    assert match_scheduler_service._get_due_match_ids() == [other_id]
+    with Session(database) as db:
+        assert db.get(Matches, broken_id).finished_at.replace(tzinfo=timezone.utc) == clock[0]
+        assert not matches_repository.clubs_have_running_match(db, released_clubs)
+        assert not matches_repository.get_confirmed_league_slots(db, released_clubs, clock[0] + timedelta(seconds=1))
+        assert not league_repository.get_fixture_rounds(db, data.id)[1].schedule_confirmed
+
+    clock[0] += timedelta(seconds=2)
+    assert match_execution_service.run_persisted_match(other_id)["state"]["status"] == "FINISHED"
+
+    for round_number in (2, 3):
+        clock[0] += timedelta(seconds=360)
+        with Session(database) as db:
+            next_round = league_repository.get_fixture_rounds(db, data.id)[round_number - 1]
+            assert next_round.schedule_confirmed
+            assert next_round.scheduled_at.replace(tzinfo=timezone.utc) == clock[0]
+        due = match_scheduler_service._get_due_match_ids()
+        assert len(due) == 2
+        for match_id in due:
+            assert match_execution_service.run_persisted_match(match_id)["state"]["status"] == "FINISHED"
+
+    assert match_scheduler_service._get_due_match_ids() == []
+    with Session(database) as db:
+        assert db.get(League, data.id).status == "finished"
+        ranking = league_service.league_rank(data.id, db)
+        assert all(entry["pj"] == (2 if entry["id"] in released_clubs else 3) for entry in ranking)
 
 
 def test_invalid_second_match_rolls_back_entire_round(database, running_league, monkeypatch):

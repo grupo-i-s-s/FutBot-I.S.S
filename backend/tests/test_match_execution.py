@@ -18,7 +18,7 @@ from app.main import app
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
 from app.models.league_model import League, LeagueRound
-from app.models.matches_model import Matches
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
 from app.repository import matches_repository
@@ -144,6 +144,38 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
         if player["teamId"] == 1
     } == {1}
     assert final["sequence"] == 3
+
+
+@pytest.mark.parametrize("checkpoint", [None, {"version": 99}, ["legacy"]])
+def test_unrecoverable_match_releases_clubs_and_exposes_partial_score(database, checkpoint):
+    with Session(database) as db:
+        row = db.get(Matches, 42)
+        row.status = "RUNNING"
+        row.started_at = datetime.now(timezone.utc)
+        row.sequence = 5
+        row.clock_ms = 100
+        row.local_score = 2
+        row.runtime_state = checkpoint
+        row.snapshot = {"state": {"status": "RUNNING", "phase": "HALF_BREAK"}}
+        db.commit()
+
+    cancelled = execution.run_persisted_match(42)
+
+    assert cancelled["sequence"] == 6
+    state = cancelled["state"]
+    assert state["status"] == "CANCELLED"
+    assert state["cancellationReason"] == CHECKPOINT_UNRECOVERABLE
+    assert state["clockMs"] == 100 and state["durationMs"] == 200
+    assert [team["score"] for team in state["teams"]] == [2, 0]
+    assert "phase" not in state and state["players"] == [] and state["ball"] is None
+    with Session(database) as db:
+        row = db.get(Matches, 42)
+        assert row.finished_at is not None
+        assert row.runtime_state == checkpoint
+        assert read_snapshot(db, 42, 1) == read_snapshot(db, 42, 2) == cancelled
+        assert not matches_repository.clubs_have_running_match(db, (1, 2))
+        assert 42 not in matches_repository.get_due_match_ids(db, datetime.now(timezone.utc))
+    assert execution.run_persisted_match(42) == cancelled
 
 
 def test_persistence_failure_never_publishes_uncommitted_final_state(database, monkeypatch):

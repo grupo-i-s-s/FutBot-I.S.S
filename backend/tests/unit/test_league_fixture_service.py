@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi import HTTPException
 
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE
 from app.schemas.league_schemas import LeagueFixtureRead
 from app.services import league_fixture_service as service
 
@@ -21,6 +22,7 @@ def fixture(monkeypatch, now):
         match_id=index + 1, league_round_id=index // 2 + 1,
         creator_id=home, visitor_id=away, status="SCHEDULED",
         local_score=0, visitor_score=0, finished_at=None,
+        cancellation_reason=None,
         init_date=rounds[index // 2].scheduled_at,
     ) for index, (home, away) in enumerate(pairings)]
     repository = Mock()
@@ -119,11 +121,17 @@ def test_fixture_serializes_dates_in_utc(db, fixture, now, naive):
     ("DAILY", timedelta(days=1)),
     ("WEEKLY", timedelta(days=7)),
 ])
-def test_last_finished_match_confirms_next_round_and_shifts_forecasts(db, fixture, now, frequency, interval):
+@pytest.mark.parametrize("last_status", ["FINISHED", "CANCELLED"])
+def test_last_resolved_match_confirms_next_round_and_shifts_forecasts(
+        db, fixture, now, frequency, interval, last_status,
+):
     fixture.league.round_interval = frequency
     for index, match in enumerate(fixture.matches[:2]):
         match.status = "FINISHED"
         match.finished_at = now + timedelta(hours=index + 1)
+    fixture.matches[1].status = last_status
+    if last_status == "CANCELLED":
+        fixture.matches[1].cancellation_reason = CHECKPOINT_UNRECOVERABLE
 
     service.update_fixture_schedule(db, 1)
 
@@ -142,12 +150,36 @@ def test_last_finished_match_confirms_next_round_and_shifts_forecasts(db, fixtur
     db.commit.assert_not_called()
 
 
-def test_incomplete_round_does_not_confirm_next_schedule(db, fixture, now):
+@pytest.mark.parametrize("status, reason, has_finished_at", [
+    ("SCHEDULED", None, False),
+    ("CANCELLED", "UNRELATED_CANCELLATION", True),
+    ("CANCELLED", CHECKPOINT_UNRECOVERABLE, False),
+])
+def test_incomplete_round_does_not_confirm_next_schedule(db, fixture, now, status, reason, has_finished_at):
     fixture.matches[0].status = "FINISHED"
     fixture.matches[0].finished_at = now + timedelta(hours=2)
+    fixture.matches[1].status = status
+    fixture.matches[1].cancellation_reason = reason
+    fixture.matches[1].finished_at = now + timedelta(hours=3) if has_finished_at else None
     service.update_fixture_schedule(db, 1)
     fixture.repo.update_round_schedule.assert_not_called()
     fixture.club_locks.assert_not_called()
+
+
+@pytest.mark.parametrize("reason, expected", [
+    (CHECKPOINT_UNRECOVERABLE, "finished"),
+    ("UNRELATED_CANCELLATION", "running"),
+])
+def test_league_closes_only_if_all_matches_are_resolved(db, fixture, now, reason, expected):
+    for match in fixture.matches:
+        match.status = "FINISHED"
+        match.finished_at = now
+    fixture.matches[-1].status = "CANCELLED"
+    fixture.matches[-1].cancellation_reason = reason
+
+    service.update_fixture_schedule(db, 3)
+
+    assert fixture.league.status == expected
 
 
 @pytest.mark.parametrize("already_confirmed", [False, True])
