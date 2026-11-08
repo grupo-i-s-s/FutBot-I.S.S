@@ -6,6 +6,7 @@ import smtplib
 
 from app.errors import AppError
 from app.services import email_service
+from app import security
 
 
 @pytest.fixture
@@ -72,3 +73,22 @@ def test_send_email_converts_provider_error_to_app_error(monkeypatch, smtp_setti
 
     assert error.value.code == "EMAIL_DELIVERY_FAILED"
     assert "test-app-password" not in str(error.value)
+
+def test_new_email_verification_code_has_six_digits(monkeypatch):
+    monkeypatch.setattr(security.secrets, "randbelow", lambda _: 67)
+
+    assert security.new_email_verification_code() == "000067"
+
+
+def test_send_verification_code_email(monkeypatch):
+    send = Mock()
+    monkeypatch.setattr(email_service, "send_email", send)
+
+    email_service.send_verification_code("user@example.com", "123456")
+
+    send.assert_called_once()
+    recipient, subject, body = send.call_args.args
+    assert recipient == "user@example.com"
+    assert subject == "Verificá tu correo en FutBot"
+    assert "123456" in body
+    assert "10 minutos" in body
