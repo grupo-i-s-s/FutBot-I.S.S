@@ -68,59 +68,69 @@ def public_user(user: User, club: Club) -> UserResponse:
     )
 
 
+def _create_account(
+    db: Session,
+    *,
+    email: str,
+    password_hash: str,
+    club_name: str,
+) -> UserResponse:
+    existing_email = user_repository.get_by_email(db, email)
+    if existing_email:
+        raise duplicate_error("email")
+
+    user = user_repository.create_user(
+        db,
+        email=email,
+        password_hash=password_hash,
+    )
+
+    club = user_repository.create_club(
+        db,
+        user_id=user.id,
+        name=club_name,
+        avatar=DEFAULT_AVATAR,
+    )
+
+    behaviours = behaviour_repository.create_default_behaviours(db, club.id)
+    players = player_repository.create_default_players(db, club.id, behaviours)
+
+    line_up = Lineup.model_validate({
+        "formationId": 1,
+        "starters": [
+            {
+                "playerId": player.id,
+                "behaviourId": player.behavior_id,
+            }
+            for player in players[:3]
+        ],
+        "substitutes": [
+            {
+                "playerId": player.id,
+                "behaviourId": player.behavior_id,
+            }
+            for player in players[3:]
+        ],
+    })
+
+    team_repository.save(db, club.id, line_up.model_dump(by_alias=True))
+    return public_user(user, club)
+
+
 def register(db: Session, data: RegisterRequest) -> UserResponse:
     try:
-        existing_email = user_repository.get_by_email(db, str(data.email))
-
-        if existing_email:
-            raise duplicate_error("email")
-
-        user = user_repository.create_user(
+        result = _create_account(
             db,
             email=str(data.email),
-            password_hash=hash_password(data.password)
+            password_hash=hash_password(data.password),
+            club_name=data.club_name,
         )
-
-        club = user_repository.create_club(
-            db,
-            user_id=user.id,
-            name=data.club_name,
-            avatar=DEFAULT_AVATAR,
-        )
-
-        behaviours = behaviour_repository.create_default_behaviours(db, club.id)
-
-        players = player_repository.create_default_players(db, club.id, behaviours)
-
-        line_up = Lineup.model_validate({
-            "formationId": 1,
-            "starters": [
-                {
-                    "playerId": player.id,
-                    "behaviourId": player.behavior_id,
-                }
-                for player in players[:3]
-            ],
-            "substitutes": [
-                {
-                    "playerId": player.id,
-                    "behaviourId": player.behavior_id,
-                }
-                for player in players[3:]
-            ],
-        })
-
-        team_repository.save(db, club.id, line_up.model_dump(by_alias=True))
-
-        result = public_user(user, club)
-
         db.commit()
         return result
 
     except IntegrityError as exc:
         db.rollback()
 
-        # Resuelve también el caso de dos registros simultáneos que intentan utilizar el mismo email o username.
         diagnostic = getattr(exc.orig, "diag", None)
         constraint = getattr(diagnostic, "constraint_name", None)
 
