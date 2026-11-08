@@ -38,23 +38,31 @@ def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
         return _with_club_avatars(db, match.snapshot)
     if match.status not in ("WAITING", "WAITING_OPPONENT", "SCHEDULED"):
         raise AppError("MATCH_STATE_INVALID", "Falta el snapshot persistido del partido.")
+    return empty_match_snapshot(db, match, datetime.now(timezone.utc))
+
+
+def empty_match_snapshot(db: Session, match, now: datetime, *, status: str = "WAITING") -> dict:
     ids = (match.creator_id,) if match.visitor_id is None else (match.creator_id, match.visitor_id)
     names = matches_repository.get_club_names(db, ids)
     avatars = matches_repository.get_club_avatars(db, ids)
+    cancelled = status == "CANCELLED"
+    scores = (match.local_score, match.visitor_score) if cancelled else (0, 0)
+    state = {
+        "status": status, "clockMs": match.clock_ms if cancelled else 0, "durationMs": match.duration_ms,
+        "field": {"width": width, "height": height, "goalWidth": goal_width},
+        "teams": [
+            {"id": club, "name": names[club], "avatar": avatars.get(club, DEFAULT_AVATAR),
+             "side": side, "score": score, "color": color}
+            for club, side, score, color in (
+                (match.creator_id, "LEFT", scores[0], "#2563eb"),
+                (match.visitor_id, "RIGHT", scores[1], "#dc2626"),
+            ) if club is not None
+        ],
+        "players": [], "ball": None,
+    }
+    if cancelled:
+        state["cancellationReason"] = match.cancellation_reason
     return {
-        "schemaVersion": 1, "type": "match.snapshot", "matchId": match_id,
-        "sequence": match.sequence, "sentAt": datetime.now(timezone.utc).isoformat(),
-        "state": {
-            "status": "WAITING", "clockMs": 0, "durationMs": match.duration_ms,
-            "field": {"width": width, "height": height, "goalWidth": goal_width},
-            "teams": [
-                {"id": club, "name": names[club], "avatar": avatars.get(club, DEFAULT_AVATAR),
-                 "side": side, "score": 0, "color": color}
-                for club, side, color in (
-                    (match.creator_id, "LEFT", "#2563eb"),
-                    (match.visitor_id, "RIGHT", "#dc2626"),
-                ) if club is not None
-            ],
-            "players": [], "ball": None,
-        },
+        "schemaVersion": 1, "type": "match.snapshot", "matchId": match.match_id,
+        "sequence": match.sequence, "sentAt": now.isoformat(), "state": state,
     }

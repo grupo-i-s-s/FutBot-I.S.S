@@ -4,9 +4,11 @@ from threading import Event
 from time import monotonic, sleep
 
 from app.errors import AppError
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE
 from app.repository import matches_repository
 from app.services.match_start_service import prepare_match_start
 from app.services.league_fixture_service import update_fixture_schedule
+from app.services.match_snapshot_service import empty_match_snapshot
 from primitives.match_simulation import Match
 from app.services.match_request_handler import live_request
 import logging
@@ -28,6 +30,22 @@ def _persist(db: Session, row, simulation: Match) -> dict:
     if simulation.finished and row.league_round_id is not None:
         update_fixture_schedule(db, row.league_round_id)
     db.commit()
+    return snapshot
+
+
+def _close_unrecoverable_match(db: Session, row, error: Exception) -> dict:
+    now = datetime.now(timezone.utc)
+    row.status = "CANCELLED"
+    row.cancellation_reason = CHECKPOINT_UNRECOVERABLE
+    row.finished_at = now
+    row.sequence += 1
+    snapshot = empty_match_snapshot(db, row, now, status="CANCELLED")
+    row.snapshot = snapshot
+    if row.league_round_id is not None:
+        update_fixture_schedule(db, row.league_round_id)
+    db.commit()
+    clear_requests(row.match_id)
+    logger.warning("Partido %s cancelado por checkpoint irrecuperable: %s", row.match_id, error)
     return snapshot
 
 
@@ -53,28 +71,31 @@ def _execute(
             return snapshot
 
         if row.status == "RUNNING":
-            if row.runtime_state is None:
-                raise AppError(
-                    "MATCH_STATE_INVALID",
-                    "Falta el estado para reanudar el partido.",
-                )
-
             try:
+                if row.runtime_state is None:
+                    raise ValueError("Falta el estado para reanudar el partido.")
                 simulation = Match.from_checkpoint(row.runtime_state)
-
-            except (ValueError, TypeError, KeyError) as error:
-                raise AppError(
-                    "MATCH_STATE_INVALID",
-                    "El estado guardado del partido es inválido.",
-                ) from error
-
-            resources.callback(simulation.close_runtime)
+                resources.callback(simulation.close_runtime)
+                if (
+                    simulation.match_id != row.match_id
+                    or simulation.duration_ms != row.duration_ms
+                    or simulation.local_team.club_id != row.creator_id
+                    or simulation.visitor_team.club_id != row.visitor_id
+                ):
+                    raise ValueError("El checkpoint no corresponde al partido guardado.")
+            except (ValueError, TypeError, KeyError, AttributeError, OverflowError) as error:
+                return _close_unrecoverable_match(db, row, error)
 
             if duration_ms is not None and duration_ms != simulation.duration_ms:
                 raise AppError(
                     "MATCH_INVALID_DURATION",
                     "No se puede cambiar la duración de un partido iniciado.",
                 )
+
+            if simulation.finished:
+                snapshot = _persist(db, row, simulation)
+                clear_requests(match_id)
+                return snapshot
 
             snapshot = row.snapshot
             db.rollback()
