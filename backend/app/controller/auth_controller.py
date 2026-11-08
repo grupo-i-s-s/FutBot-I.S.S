@@ -76,3 +76,7 @@ def change_password(data: ChangePasswordRequest, db: Database, identity: Current
     clear_session_cookie(response)
 
     return response
+
+@auth_router.post("/verify-email", response_model=UserResponse)
+def verify_email(data: VerifyEmailRequest, db: Database):
+    return auth_service.verify_email(db, data)
