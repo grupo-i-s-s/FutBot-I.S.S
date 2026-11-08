@@ -75,15 +75,8 @@ export function useMyClub(page = 1, limit = 9) {
     const rosterLoading = !roster.query || roster.query.page !== page
         || roster.query.limit !== limit || roster.query.attempt !== rosterAttempt;
 
-    function updatePlayer(updatedPlayer) {
-        setRoster(current => ({
-            ...current,
-            items: current.items.map(player => player.id === updatedPlayer.id ? updatedPlayer : player),
-        }));
-    }
-
     return {
-        status, error, club, behaviours, leagues, reload, setClub, updatePlayer,
+        status, error, club, behaviours, leagues, reload, setClub,
         players: withBehaviourName(roster.items, behaviours),
         totalPages: roster.totalPages, totalPlayers: roster.total,
         rosterLoading, rosterError: rosterLoading ? null : roster.error, reloadRoster,

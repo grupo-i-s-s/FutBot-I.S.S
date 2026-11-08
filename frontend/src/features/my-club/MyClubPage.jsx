@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { CircleAlert, Info } from 'lucide-react';
+import { Brain, CircleAlert, Info, Shirt, Trophy, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ClubBehaviourList from './components/ClubBehaviourList';
 import ClubHeader from './components/ClubHeader';
 import ClubSettingsDialog from './components/ClubSettingsDialog';
 import TeamSettings from './components/TeamSettings';
@@ -13,12 +15,18 @@ import { updateMyClub } from './api';
 
 
 
-const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12 xl:w-[calc(100%_-_560px)]';
+const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-6xl space-y-6 py-8 sm:py-12';
+const CLUB_TABS = [
+    {value: 'team', label: 'Mi equipo', icon: Shirt},
+    {value: 'players', label: 'Jugadores', icon: Users},
+    {value: 'behaviours', label: 'Comportamientos', icon: Brain},
+    {value: 'leagues', label: 'Ligas inscriptas', icon: Trophy},
+];
 
 export default function MyClubPage() {
     const [page, setPage] = useState(1);
     const {
-        status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub, updatePlayer,
+        status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub,
         rosterLoading, rosterError, reloadRoster,
     } = useMyClub(page, 9);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -91,40 +99,52 @@ export default function MyClubPage() {
                 </Alert>
             )}
 
-            <div className="relative">
-                <PlayerList
-                    players={players}
-                    behaviours={behaviours}
-                    onBehaviourAssigned={updatePlayer}
-                    currentPage={page}
-                    totalPages={totalPages}
-                    totalPlayers={totalPlayers}
-                    onPageChange={setPage}
-                    loading={rosterLoading}
-                    error={rosterError}
-                    onRetry={reloadRoster}
-                />
-
-
-                <aside
-                    aria-label="Ligas inscriptas"
-                    className="mt-6 xl:absolute xl:top-0 xl:mt-0 xl:left-[-280px] xl:w-64"
+            <Tabs defaultValue="team" className="w-full min-w-0 gap-4">
+                <TabsList
+                    aria-label="Secciones de Mi club"
+                    className="w-full gap-2 rounded-xl border bg-card p-2 shadow-sm group-data-horizontal/tabs:h-16"
                 >
-                    <LeagueList leagues={leagues} />
-                </aside>
+                    {CLUB_TABS.map(({value, label, icon: Icon}) => (
+                        <TabsTrigger
+                            key={value}
+                            value={value}
+                            className="gap-2 rounded-lg px-3 font-semibold text-foreground/80 hover:bg-accent data-active:bg-primary data-active:text-primary-foreground data-active:hover:bg-primary data-active:hover:text-primary-foreground dark:data-active:bg-primary dark:data-active:text-primary-foreground"
+                        >
+                            <Icon className="size-[18px]" aria-hidden="true" />
+                            {label}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
 
-                <aside
-                    aria-label="Mi equipo"
-                    className="mt-6 xl:absolute xl:top-0 xl:mt-0 xl:right-[-280px] xl:w-64"
-                >
+                <TabsContent value="team" keepMounted>
                     <TeamSettings
                         key={club.id}
                         clubId={club.id}
                         behaviours={behaviours}
                     />
-                </aside>
-            </div>
+                </TabsContent>
 
+                <TabsContent value="players">
+                    <PlayerList
+                        players={players}
+                        currentPage={page}
+                        totalPages={totalPages}
+                        totalPlayers={totalPlayers}
+                        onPageChange={setPage}
+                        loading={rosterLoading}
+                        error={rosterError}
+                        onRetry={reloadRoster}
+                    />
+                </TabsContent>
+
+                <TabsContent value="behaviours">
+                    <ClubBehaviourList behaviours={behaviours} />
+                </TabsContent>
+
+                <TabsContent value="leagues">
+                    <LeagueList leagues={leagues} />
+                </TabsContent>
+            </Tabs>
 
             <ClubSettingsDialog
                 club={club}

@@ -258,3 +258,6 @@ def get_completed_matches(league_id: int, db: Session):
         select(Matches).join(LeagueRound, Matches.league_round_id == LeagueRound.id)
         .where(LeagueRound.league_id == league_id, Matches.status == "FINISHED")
     ).all()
+
+def delete_league(db: Session, league: League) -> None:
+    db.delete(league)

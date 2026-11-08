@@ -201,13 +201,11 @@ def test_password_hash_protects_league_even_if_private_flag_is_missing(db, leagu
     leagues.repo.create_registration.assert_not_called()
 
 
-@pytest.mark.parametrize("case, status", [("missing", 404), ("creator", 409), ("closed", 409),
+@pytest.mark.parametrize("case, status", [("missing", 404), ("closed", 409),
                                           ("started", 409), ("not_member", 409)])
 def test_leave_rejects_without_removing_registration(db, leagues, now, case, status):
     if case == "missing":
         leagues.repo.get_league_by_id.return_value = None
-    elif case == "creator":
-        leagues.row.creator_club_id = 7
     elif case == "closed":
         leagues.row.status = "running"
     elif case == "started":
@@ -215,6 +213,7 @@ def test_leave_rejects_without_removing_registration(db, leagues, now, case, sta
     with pytest.raises(HTTPException) as error:
         service.leave_league(db, 42, 7)
     assert error.value.status_code == status
+    leagues.repo.delete_league.assert_not_called()
     leagues.repo.delete_registration.assert_not_called()
     db.commit.assert_not_called()
 
@@ -225,7 +224,25 @@ def test_leave_removes_only_current_club_registration(db, leagues):
     assert service.leave_league(db, 42, 7)["league_id"] == 42
     leagues.repo.get_registration.assert_called_once_with(db, 42, 7)
     leagues.repo.delete_registration.assert_called_once_with(db, registration)
+    leagues.repo.delete_league.assert_not_called()
     db.commit.assert_called_once()
+
+
+def test_creator_can_cancel_open_league(db, leagues):
+    assert service.leave_league(db, 42, leagues.row.creator_club_id)["league_id"] == 42
+    leagues.repo.delete_league.assert_called_once_with(db, leagues.row)
+    leagues.repo.delete_registration.assert_not_called()
+    db.commit.assert_called_once()
+
+
+@pytest.mark.parametrize("status", ["running", "finished"])
+def test_creator_cannot_cancel_league_that_started(db, leagues, status):
+    leagues.row.status = status
+    with pytest.raises(HTTPException) as error:
+        service.leave_league(db, 42, leagues.row.creator_club_id)
+    assert error.value.status_code == 409
+    leagues.repo.delete_league.assert_not_called()
+    db.commit.assert_not_called()
 
 
 def test_open_league_allows_join_and_leave_after_planned_start(db, leagues, now):

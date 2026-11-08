@@ -23,13 +23,6 @@ export function listBehaviours(options) {
     return request('/behaviours', options);
 }
 
-export function assignPlayerBehaviour(playerId, behaviourId) {
-    return request(`/players/${playerId}/behaviour`, {
-        method: 'PATCH',
-        body: { behaviourId },
-    });
-}
-
 export async function updateMyClub(changes) {
     const revision = getSessionRevision();
     const updatedClub = await request('/club/me', {

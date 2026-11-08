@@ -15,16 +15,6 @@
     padding: 12px clamp(16px, 3vw, 32px);
 }
 
-.app-nav-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 18px;
-    font-weight: 850;
-    letter-spacing: 2px;
-    white-space: nowrap;
-}
-
 .app-nav-club {
     display: flex;
     align-items: center;

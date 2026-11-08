@@ -4,7 +4,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
-import { BehaviorSelector } from './BehaviorSelector';
 import { buttonVariants } from '@/components/ui/button';
 
 const PACSS_ATTRIBUTES = [
@@ -16,7 +15,7 @@ const PACSS_ATTRIBUTES = [
 ];
 
 export default function PlayerList({
-    players, behaviours, onBehaviourAssigned, currentPage, totalPages, totalPlayers,
+    players, currentPage, totalPages, totalPlayers,
     onPageChange, loading, error, onRetry,
 }) {
     return (
@@ -32,10 +31,6 @@ export default function PlayerList({
                     <Link to="/crear-jugador" className={buttonVariants({size: 'sm'})}>
                         <Plus className="size-4" aria-hidden="true"/>
                         Crear Nuevo jugador
-                    </Link>
-
-                    <Link to="/behaviours" className={buttonVariants({size: 'sm'})}>
-                        Mis Comportamientos
                     </Link>
                 </CardAction>
             </CardHeader>
@@ -96,12 +91,6 @@ export default function PlayerList({
                                             </span>{' '}
                                             {player.behaviourName}
                                         </ItemDescription>
-
-                                        <BehaviorSelector
-                                            player={player}
-                                            behaviours={behaviours}
-                                            onBehaviourAssigned={onBehaviourAssigned}
-                                        />
                                     </ItemContent>
                                 </Item>
                             </li>

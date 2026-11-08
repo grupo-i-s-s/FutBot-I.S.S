@@ -1,6 +1,5 @@
-import {Goal} from 'lucide-react';
 import {useState} from 'react';
-import {Link, NavLink, useNavigate} from 'react-router';
+import {NavLink, useNavigate} from 'react-router';
 import ClubAvatar from '../my-club/components/ClubAvatar';
 import {useSession} from '../session/SessionProvider.jsx';
 import './navBar.css';
@@ -44,11 +43,6 @@ export default function NavBar() {
     return (
         <header className="app-nav">
             <div className="app-nav-inner">
-                <Link to={authenticated ? '/home' : '/'} className="app-nav-brand" aria-label="FutBot, inicio">
-                    <Goal size={24} aria-hidden="true" />
-                    <span>FUTBOT</span>
-                </Link>
-
                 {authenticated && <>
                     <div className="app-nav-club">
                         <ClubAvatar avatar={club.avatar} clubName={club.name} size="md" />

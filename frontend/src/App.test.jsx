@@ -36,8 +36,8 @@ function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
     return fetchMock;
 }
 
-it('redirects an anonymous visit to a private URL to / without fetching the private page', async () => {
-    const fetchMock = renderRoute('/ligas-disponibles', {}, () => jsonResponse(invalidSession, 401));
+it.each(['/ligas-disponibles', '/liga-cancelada'])('redirects anonymous visits to %s to /', async (path) => {
+    const fetchMock = renderRoute(path, {}, () => jsonResponse(invalidSession, 401));
 
     expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/$/);
@@ -46,7 +46,7 @@ it('redirects an anonymous visit to a private URL to / without fetching the priv
     expect(nav.getByRole('link', {name: 'Iniciar sesión'})).toBeInTheDocument();
     expect(nav.getByRole('link', {name: 'Registrarse'})).toHaveAttribute('href', '/registro');
     expect(nav.queryByRole('link', {name: 'Mi club'})).not.toBeInTheDocument();
-    expect(screen.getByRole('link', {name: /futbot/i})).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).queryByRole('link', {name: /futbot/i})).not.toBeInTheDocument();
 
     fireEvent.click(nav.getByRole('link', {name: 'Registrarse'}));
     expect(await screen.findByRole('heading', {name: 'Registro Usuario'})).toBeInTheDocument();
@@ -76,7 +76,7 @@ it('updates the navigation on login and logout', async () => {
     expect(await screen.findByRole('img', {name: `Escudo de ${club.name}`})).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/home$/));
     expect(screen.getByText(club.name)).toBeInTheDocument();
-    expect(screen.getByRole('link', {name: /futbot/i})).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).queryByRole('link', {name: /futbot/i})).not.toBeInTheDocument();
     const nav = within(screen.getByRole('navigation'));
     expect(nav.getByRole('link', {name: 'Mi club'})).toHaveAttribute('href', '/mi-club');
     expect(nav.getByRole('link', {name: 'Amistosos'})).toHaveAttribute('href', '/partidos-disponibles');
@@ -173,6 +173,17 @@ it('retains the lobby route and displays the creator registration from develop',
     expect(screen.getByText('Creador')).toBeInTheDocument();
     expect(screen.getByText('Tu club está inscripto.')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/leagues/42/lobby', expect.anything());
+});
+
+it('shows the cancellation page when an authenticated club opens a deleted league lobby', async () => {
+    renderRoute('/leagues/42/lobby', {
+        '/api/leagues/42/lobby': () => jsonResponse({detail: 'La liga no existe.'}, 404),
+        '/api/auth/me': () => jsonResponse({clubId: club.id}),
+    });
+
+    expect(await screen.findByRole('heading', {name: /fue cancelada/i})).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/liga-cancelada$/);
+    expect(screen.getByRole('link', {name: 'Ver ligas disponibles'})).toHaveAttribute('href', '/ligas-disponibles');
 });
 
 it.each([false, true])('joins a league from the listing and opens its lobby (private: %s)', async (isPrivate) => {
