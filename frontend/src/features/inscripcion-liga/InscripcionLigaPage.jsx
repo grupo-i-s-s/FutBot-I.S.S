@@ -5,6 +5,25 @@ import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from '@/components/ui/card';
 import {getDefaultTeam, getLeagueLobby, joinLeague,} from './api.js';
 
+function LineupGroup({title, players}) {
+    return (
+        <section aria-label={title}>
+            <h3 className="font-medium">{title}</h3>
+            <ol className="mt-2 space-y-2">
+                {players.map(player => (
+                    <li key={player.id}>
+                        <p>{player.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                            {player.position && <>{player.position} · </>}
+                            {player.behaviourName}
+                        </p>
+                    </li>
+                ))}
+            </ol>
+        </section>
+    );
+}
+
 export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
     const {id} = useParams();
     const [searchParams] = useSearchParams();
@@ -18,6 +37,8 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
     const [passwordError, setPasswordError] = useState('');
     const [retryAfter, setRetryAfter] = useState(0);
     const [accessCode, setAccessCode] = useState('');
+    const [lineupChanged, setLineupChanged] = useState(false);
+    const [teamReload, setTeamReload] = useState(0);
     const joiningRef = useRef(false);
     const needsAccessCode = league?.isPrivate === true;
 
@@ -36,17 +57,19 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
             setAccessCode('');
             setPasswordError('');
             setRetryAfter(0);
+            setLineupChanged(false);
+            setError('');
             if (!suppliedLeague && !leagueId) {
                 setLoading(false);
                 return;
             }
             try {
                 setLoading(true);
-                setError('');
                 const selectedLeague = suppliedLeague
                     || await getLeagueLobby(leagueId, {signal: controller.signal});
                 if (controller.signal.aborted) return;
                 setLeague(selectedLeague);
+                if (selectedLeague.isRegistered) return;
                 const data = await getDefaultTeam({signal: controller.signal});
                 if (!controller.signal.aborted) {
                     setTeam(data);
@@ -62,10 +85,10 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
 
         loadTeam();
         return () => controller.abort();
-    }, [leagueId, suppliedLeague]);
+    }, [leagueId, suppliedLeague, teamReload]);
 
     async function handleJoin() {
-        if (joiningRef.current || !league || !team || retryAfter > 0
+        if (joiningRef.current || !league || !team || lineupChanged || retryAfter > 0
             || needsAccessCode && !accessCode.trim()) return;
 
         joiningRef.current = true;
@@ -84,6 +107,12 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
         } catch (err) {
             if (err.code === 'LEAGUE_ACCESS_INVALID') {
                 setPasswordError('La contraseña de la liga es incorrecta. Revisala y volvé a intentar.');
+            } else if (err.code === 'LEAGUE_LINEUP_CHANGED') {
+                setLineupChanged(true);
+                setError('Tu equipo guardado cambió. Actualizá la alineación y revisala antes de inscribirte.');
+            } else if (err.code === 'LEAGUE_LINEUP_INVALID') {
+                setTeam(null);
+                setError(err.message || 'Tu equipo guardado ya no es válido. Revisá la alineación antes de inscribirte.');
             } else if (err.status === 429) {
                 const seconds = Number(err.retryAfter);
                 setRetryAfter(Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : 60);
@@ -118,19 +147,6 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
         );
     }
 
-    if (!team) {
-        return (
-            <Alert variant="destructive">
-                <AlertTitle>No se pudo cargar el equipo</AlertTitle>
-                <AlertDescription>
-                    {error ||
-                        'No se encontró un equipo disponible para inscribirse.'}
-                    {' '}<Link to="/mi-club">Configurar mi equipo</Link>
-                </AlertDescription>
-            </Alert>
-        );
-    }
-
     if (league.isRegistered) {
         return (
             <Card>
@@ -148,6 +164,18 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
         );
     }
 
+    if (!team) {
+        return (
+            <Alert variant="destructive">
+                <AlertTitle>No se pudo cargar el equipo</AlertTitle>
+                <AlertDescription>
+                    {error || 'No se encontró un equipo disponible para inscribirse.'}
+                    {' '}<Link to="/mi-club">Configurar mi equipo</Link>
+                </AlertDescription>
+            </Alert>
+        );
+    }
+
     return (
         <Card>
             <CardHeader>
@@ -159,14 +187,15 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
             </CardHeader>
 
             <CardContent className="space-y-4">
-                <div>
+                <div className="space-y-3">
                     <h2 className="font-semibold">
                         Equipo que se inscribirá
                     </h2>
-
-                    <ul className="mt-2 space-y-1">
-                        {team.players.map((player) => <li key={player.id}>{player.name}</li>)}
-                    </ul>
+                    <p>Formación <strong>{team.formationName}</strong></p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <LineupGroup title="Titulares" players={team.starters} />
+                        <LineupGroup title="Suplentes" players={team.substitutes} />
+                    </div>
                 </div>
 
                 {needsAccessCode && (
@@ -207,12 +236,17 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
                         </AlertDescription>
                     </Alert>
                 )}
+                {lineupChanged && (
+                    <Button variant="outline" onClick={() => setTeamReload(count => count + 1)}>
+                        Actualizar equipo
+                    </Button>
+                )}
 
                 {retryAfter > 0 && <p role="alert">Alcanzaste el límite de intentos. Podés volver a intentar en {retryAfter} segundos.</p>}
 
                 <Button
                     onClick={handleJoin}
-                    disabled={joining || retryAfter > 0 || team.lineUp.length !== 6 || needsAccessCode && !accessCode.trim()}
+                    disabled={joining || lineupChanged || retryAfter > 0 || needsAccessCode && !accessCode.trim()}
                 >
                     {joining
                         ? 'Inscribiendo...'

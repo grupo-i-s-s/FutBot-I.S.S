@@ -2,7 +2,7 @@ import {Trophy} from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
-import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle} from '@/components/ui/item';
+import {Item, ItemActions, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemTitle} from '@/components/ui/item';
 import {Link} from 'react-router';
 import {buttonVariants} from '@/components/ui/button';
 
@@ -53,6 +53,15 @@ export default function LeagueList({leagues}) {
                                 <ItemActions>
                                     <Badge variant="secondary">{league.status}</Badge>
                                 </ItemActions>
+                                <ItemFooter>
+                                    <Link
+                                        to={`/leagues/${league.id}/lobby`}
+                                        className={buttonVariants({variant: 'outline', size: 'sm'})}
+                                        aria-label={`Ver lobby de ${league.name}`}
+                                    >
+                                        Ver lobby
+                                    </Link>
+                                </ItemFooter>
                             </Item>
                         ))}
                     </ItemGroup>
