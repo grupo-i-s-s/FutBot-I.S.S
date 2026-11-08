@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from app.schemas.avatar_schemas import AvatarFilename
+from app.schemas.Dt_schemas import DtRead
 
 
 class ClubRead(BaseModel):
@@ -11,6 +12,8 @@ class ClubRead(BaseModel):
     friendly_available: bool = Field(
         serialization_alias="friendlyAvailable"
     )
+
+    dt: DtRead | None = None 
 
 
 class ClubUpdate(BaseModel):
