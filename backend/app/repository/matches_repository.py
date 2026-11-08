@@ -7,6 +7,7 @@ from app.database import engine
 from app.errors import AppError
 from app.models.auth_model import Club
 from app.models.behaviour_model import Behavior
+from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 
@@ -122,9 +123,12 @@ def list_for_club(db: Session, club_id: int):
         select(Matches, creator.name, visitor.name)
         .join(creator, creator.id == Matches.creator_id)
         .outerjoin(visitor, visitor.id == Matches.visitor_id)
-        .where(or_(Matches.creator_id == club_id, Matches.visitor_id == club_id),
+        .where(
+            or_(Matches.creator_id == club_id, Matches.visitor_id == club_id),
+            Matches.league_round_id.is_(None),
             Matches.creator_id != 999,
-            Matches.visitor_id != 999,)
+            Matches.visitor_id.is_distinct_from(999),
+        )
         .order_by(Matches.init_date.desc(), Matches.match_id.desc())
     ).all()
 
@@ -141,6 +145,24 @@ def get_due_match_ids(db: Session, now: datetime) -> list[int]:
             .order_by(Matches.init_date, Matches.match_id)
         ).all()
     )
+
+
+def get_confirmed_league_slots(db: Session, club_ids: tuple[int, ...], before: datetime):
+    # Las escrituras de horarios se sincronizan por club. No bloquear partidos
+    # ajenos aquí: sus ejecutores adquieren primero la fila de su partido.
+    return db.execute(
+        select(LeagueRound.scheduled_at, Matches.duration_ms)
+        .join(LeagueRound, LeagueRound.id == Matches.league_round_id)
+        .join(League, League.id == LeagueRound.league_id)
+        .where(
+            League.status == "running",
+            LeagueRound.schedule_confirmed.is_(True),
+            Matches.status.not_in(("FINISHED", "CANCELLED")),
+            LeagueRound.scheduled_at < before,
+            or_(Matches.creator_id.in_(club_ids), Matches.visitor_id.in_(club_ids)),
+        )
+        .order_by(LeagueRound.scheduled_at, Matches.match_id)
+    ).all()
 
 
 def get_clubs_for_update(db: Session, club_ids: tuple[int, ...]) -> list[Club]:
