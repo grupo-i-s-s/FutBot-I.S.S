@@ -1,21 +1,13 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import CurrentClub, Database, CurrentIdentity
-from app.schemas.club_schemas import (
-    ClubLeagueListResponse,
-    ClubRead,
-    ClubUpdate,
-    ClubListResponse
-)
+from app.schemas.club_schemas import (ClubLeagueListResponse, ClubRead, ClubUpdate, ClubListResponse, ClubProfileRead)
 from app.services import club_services as club_service
 from typing import Annotated
 
 
 club_router = APIRouter(prefix="/club", tags=["club"])
 
-@club_router.get( "/{club_id}", response_model=ClubProfileRead)
-def get_club_profile( club_id: int, identity: CurrentIdentity, db: Database):
-    return club_service.get_club_profile(db, club_id)
 
 @club_router.get("", response_model=ClubListResponse)
 def get_clubs(
@@ -52,3 +44,7 @@ def update_my_club(
 @club_router.get("/me/leagues", response_model=ClubLeagueListResponse)
 def get_my_leagues(club: CurrentClub, db: Database):
     return club_service.list_joined_leagues(db, club.id)
+
+@club_router.get( "/{club_id}", response_model=ClubProfileRead)
+def get_club_profile( club_id: int, identity: CurrentIdentity, db: Database):
+    return club_service.get_club_profile(db, club_id)
