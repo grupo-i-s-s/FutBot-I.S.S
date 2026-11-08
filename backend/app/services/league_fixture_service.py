@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
 from app.repository import league_repository, matches_repository
 
 ROUND_INTERVALS = {
@@ -11,6 +12,13 @@ ROUND_INTERVALS = {
     "WEEKLY": timedelta(days=7),
 }
 PENDING_STATUSES = {"WAITING", "WAITING_OPPONENT", "SCHEDULED"}
+
+
+def is_resolved_league_match(match: Matches) -> bool:
+    return match.finished_at is not None and (
+        match.status == "FINISHED"
+        or (match.status == "CANCELLED" and match.cancellation_reason == CHECKPOINT_UNRECOVERABLE)
+    )
 
 
 def _utc(value: datetime) -> datetime:
@@ -71,14 +79,14 @@ def get_league_fixture(db: Session, league_id: int, club_id: int) -> dict:
 
 
 def update_fixture_schedule(db: Session, round_id: int) -> None:
-    """Se llama al finalizar un partido, dentro de la misma transacción."""
+    """Se llama al cerrar un partido, dentro de la misma transacción."""
     league = league_repository.get_league_for_round(db, round_id)
     if league is None or league.status != "running":
         return
 
     rounds = league_repository.get_fixture_rounds(db, league.id)
     matches = league_repository.get_fixture_matches(db, league.id)
-    if matches and all(match.status == "FINISHED" for match in matches):
+    if matches and all(is_resolved_league_match(match) for match in matches):
         league.status = "finished"
         return
     matches_by_round = {round_.id: [] for round_ in rounds}
@@ -100,10 +108,7 @@ def update_fixture_schedule(db: Session, round_id: int) -> None:
             continue
 
         previous_matches = matches_by_round[previous.id]
-        confirmed = bool(previous_matches) and all(
-            match.status == "FINISHED" and match.finished_at is not None
-            for match in previous_matches
-        )
+        confirmed = bool(previous_matches) and all(is_resolved_league_match(match) for match in previous_matches)
         if confirmed:
             scheduled_at = max(_utc(match.finished_at) for match in previous_matches) + interval
             confirming_club_ids.update(

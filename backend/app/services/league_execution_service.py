@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.repository import league_repository, matches_repository
-from app.services.league_fixture_service import PENDING_STATUSES, _utc
+from app.services.league_fixture_service import PENDING_STATUSES, _utc, is_resolved_league_match
 from app.services.league_lineup_service import prepare_registration_lineup
 from app.services.match_builder_service import build_match
 
@@ -25,7 +25,7 @@ def prepare_league_round(db: Session, league_id: int, now: datetime) -> list[int
             current = [match for match in matches if match.league_round_id == round_.id]
             if not current:
                 raise AppError("LEAGUE_FIXTURE_INVALID", "La ronda no tiene partidos.")
-            if all(match.status == "FINISHED" for match in current):
+            if all(is_resolved_league_match(match) for match in current):
                 continue
 
             running = [match.match_id for match in current if match.status == "RUNNING"]

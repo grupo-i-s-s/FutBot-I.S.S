@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
 TEST_OPPONENT_CLUB_ID = 999
+CHECKPOINT_UNRECOVERABLE = "CHECKPOINT_UNRECOVERABLE"
 
 
 class Matches(Base):
