@@ -25,6 +25,9 @@ function resultText(state) {
         if (state.cancellationReason === 'CLUB_BUSY') {
             return 'El partido se canceló porque uno de los clubes ya estaba jugando otro partido.';
         }
+        if (state.cancellationReason === 'CHECKPOINT_UNRECOVERABLE') {
+            return 'El partido se canceló porque no se pudo recuperar el estado guardado. El marcador es parcial y el partido quedó sin resultado.';
+        }
         return 'Partido cancelado.';
     }
     const [local, visitor] = state.teams;
