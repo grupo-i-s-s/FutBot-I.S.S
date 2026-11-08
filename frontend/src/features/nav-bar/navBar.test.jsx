@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import NavBar from './navBar';
 import {updateMyClub} from '../my-club/api';
+import {SessionProvider} from '../session/SessionProvider.jsx';
 
 vi.mock('../my-club/components/ClubAvatar', () => ({
     default: ({avatar, clubName}) => (
@@ -39,7 +40,9 @@ function jsonResponse(body, status = 200) {
 function renderNavBar() {
     return render(
         <MemoryRouter initialEntries={['/mi-club']}>
-            <NavBar/>
+            <SessionProvider>
+                <NavBar/>
+            </SessionProvider>
         </MemoryRouter>,
     );
 }

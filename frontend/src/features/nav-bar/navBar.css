@@ -1,0 +1,89 @@
+.app-nav {
+    color: #164b35;
+    background: #f5f7f2;
+    border-bottom: 1px solid #dde6dd;
+}
+
+.app-nav-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    max-width: 1440px;
+    min-height: 80px;
+    margin-inline: auto;
+    padding: 12px clamp(16px, 3vw, 32px);
+}
+
+.app-nav-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 850;
+    letter-spacing: 2px;
+    white-space: nowrap;
+}
+
+.app-nav-club {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.app-nav-club > :first-child {
+    flex: none;
+}
+
+.app-nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-inline-start: auto;
+}
+
+.app-nav-action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #b9cdbd;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.app-nav-action:hover,
+.app-nav-action[aria-current='page'] {
+    background: #e5eee2;
+}
+
+.app-nav :is(a, button):focus-visible {
+    outline: 2px solid #164b35;
+    outline-offset: 2px;
+}
+
+.app-nav-action:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+.app-nav-error {
+    flex-basis: 100%;
+    color: #a61b1b;
+    font-size: 14px;
+}
+
+@media (max-width: 640px) {
+    .app-nav-links {
+        flex-basis: 100%;
+        margin-inline-start: 0;
+    }
+}
