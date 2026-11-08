@@ -18,7 +18,7 @@ class DtRead(BaseModel):
 
     id: int
     is_active: bool = Field(serialization_alias = "isActive")
-    active_behaviour_id: int | None = Field(serialization_alias = "activeBehaviourId")
+    behaviour_id: int | None = Field(serialization_alias = "activeBehaviourId")
 
 
 class DtUpdate(BaseModel):
