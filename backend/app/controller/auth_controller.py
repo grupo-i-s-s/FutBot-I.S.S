@@ -7,7 +7,8 @@ from app.schemas.auth_schemas import (
     LoginRequest,
     RegisterRequest,
     UserResponse,
-    VerifyEmailRequest
+    VerifyEmailRequest,
+    ResendVerificationRequest
 )
 from app.services import auth_service
 
@@ -80,3 +81,7 @@ def change_password(data: ChangePasswordRequest, db: Database, identity: Current
 @auth_router.post("/verify-email", response_model=UserResponse)
 def verify_email(data: VerifyEmailRequest, db: Database):
     return auth_service.verify_email(db, data)
+
+@auth_router.post("/resend-verification")
+def resend_verification(data: ResendVerificationRequest, db: Database):
+    return auth_service.resend_verification(db, data)

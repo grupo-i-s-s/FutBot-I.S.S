@@ -19,7 +19,8 @@ from app.schemas.auth_schemas import (
     LoginRequest,
     RegisterRequest,
     UserResponse,
-    VerifyEmailRequest
+    VerifyEmailRequest,
+    ResendVerificationRequest
 )
 from app.schemas.team_schemas import Lineup
 from app.security import (
@@ -372,6 +373,61 @@ def verify_email(db: Session, data: VerifyEmailRequest) -> UserResponse:
             raise duplicate_error("clubName") from exc
 
         raise
+
+    except Exception:
+        db.rollback()
+        raise
+
+def resend_verification(db: Session, data: ResendVerificationRequest) -> dict[str, str]:
+    email = str(data.email)
+    now = utc_now()
+
+    try:
+        pending = pending_email_verification_repository.get_by_email(db, email, lock=True)
+
+        if pending is None:
+            return {"message": "Si existe una verificación pendiente,se enviará un nuevo código."}
+
+        if pending.expires_at <= now:
+            pending_email_verification_repository.delete_by_email(db, email)
+            db.commit()
+            return {"message": "La solicitud venció. Iniciá el registro nuevamente."}
+
+        if now < pending.last_sent_at + timedelta(seconds=60):
+            raise AppError(
+                "EMAIL_VERIFICATION_RESEND_LIMIT",
+                "Esperá 60 segundos antes de pedir otro código.",
+            )
+
+        window_started_at = pending.resend_window_started_at
+        resend_count = pending.resend_count
+
+        if now >= window_started_at + timedelta(hours=1):
+            window_started_at = now
+            resend_count = 0
+
+        if resend_count >= 5:
+            raise AppError(
+                "EMAIL_VERIFICATION_RESEND_LIMIT",
+                "Alcanzaste el máximo de 5 reenvíos por hora.",
+            )
+
+        code = new_email_verification_code()
+
+        pending_email_verification_repository.update_for_resend(
+            db,
+            pending,
+            code_hash=hash_password(code),
+            expires_at=now + timedelta(minutes=10),
+            last_sent_at=now,
+            resend_window_started_at=window_started_at,
+            resend_count=resend_count + 1,
+        )
+
+        email_service.send_verification_code(email, code)
+        db.commit()
+
+        return {"message": "Si existe una verificación pendiente, se envió un nuevo código."}
 
     except Exception:
         db.rollback()
