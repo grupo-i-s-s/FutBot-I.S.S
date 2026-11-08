@@ -1,49 +1,141 @@
 import {afterEach, expect, it, vi} from 'vitest';
-import {cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
-import {MemoryRouter} from 'react-router';
+import {cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {MemoryRouter, useLocation} from 'react-router';
 import App from './App.jsx';
+
+const club = {id: 8, name: 'Club de pruebas', avatar: 'avatar-01.png', friendlyAvailable: true};
+const invalidSession = {error: {code: 'SESSION_INVALID', message: 'La sesión venció.'}};
 
 afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
 });
 
-function renderRoute(path, response, status = 200) {
-    const fetchMock = vi.fn().mockResolvedValue({
+function jsonResponse(body, status = 200) {
+    return {
         ok: status < 400,
         status,
-        json: async () => response,
+        json: async () => body,
+    };
+}
+
+function CurrentPath() {
+    const {pathname} = useLocation();
+    return <span hidden data-testid="current-path">{pathname}</span>;
+}
+
+function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
+    const fetchMock = vi.fn(async (url, options) => {
+        if (url === '/api/club/me') return getClub();
+        const respond = responses[url];
+        if (!respond) throw new Error(`Unexpected request: ${url}`);
+        return respond(options);
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter initialEntries={[path]}><App/></MemoryRouter>);
+    render(<MemoryRouter initialEntries={[path]}><App/><CurrentPath/></MemoryRouter>);
     return fetchMock;
 }
 
-it('opens the available leagues route and filters through the authenticated API', async () => {
+it('redirects an anonymous visit to a private URL to / without fetching the private page', async () => {
+    const fetchMock = renderRoute('/ligas-disponibles', {}, () => jsonResponse(invalidSession, 401));
+
+    expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/$/);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/club/me']);
+    const nav = within(screen.getByRole('navigation'));
+    expect(nav.getByRole('link', {name: 'Iniciar sesión'})).toBeInTheDocument();
+    expect(nav.getByRole('link', {name: 'Registrarse'})).toHaveAttribute('href', '/registro');
+    expect(nav.queryByRole('link', {name: 'Mi club'})).not.toBeInTheDocument();
+    expect(screen.getByRole('link', {name: /futbot/i})).toBeInTheDocument();
+
+    fireEvent.click(nav.getByRole('link', {name: 'Registrarse'}));
+    expect(await screen.findByRole('heading', {name: 'Registro Usuario'})).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/registro$/);
+});
+
+it('updates the navigation on login and logout', async () => {
+    let signedIn = false;
+    const fetchMock = renderRoute('/', {
+        '/api/auth/login': () => {
+            signedIn = true;
+            return jsonResponse({id: 1, email: 'club@example.com', clubId: club.id});
+        },
+        '/api/auth/logout': () => {
+            signedIn = false;
+            return jsonResponse(null, 204);
+        },
+        '/api/leagues': () => jsonResponse({items: []}),
+        '/api/friendly-matches': () => jsonResponse([]),
+    }, () => signedIn ? jsonResponse(club) : jsonResponse(invalidSession, 401));
+
+    await screen.findByRole('link', {name: 'Iniciar sesión'});
+    fireEvent.change(screen.getByLabelText('Email'), {target: {value: 'club@example.com'}});
+    fireEvent.change(screen.getByLabelText('Contraseña'), {target: {value: 'contraseña-de-prueba'}});
+    fireEvent.click(screen.getByRole('button', {name: /iniciar sesión/i}));
+
+    expect(await screen.findByRole('img', {name: `Escudo de ${club.name}`})).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/home$/));
+    expect(screen.getByText(club.name)).toBeInTheDocument();
+    expect(screen.getByRole('link', {name: /futbot/i})).toBeInTheDocument();
+    const nav = within(screen.getByRole('navigation'));
+    expect(nav.getByRole('link', {name: 'Mi club'})).toHaveAttribute('href', '/mi-club');
+    expect(nav.getByRole('link', {name: 'Amistosos'})).toHaveAttribute('href', '/partidos-disponibles');
+    expect(nav.getByRole('link', {name: 'Ligas'})).toHaveAttribute('href', '/ligas-disponibles');
+    expect(nav.queryByRole('link', {name: 'Registrarse'})).not.toBeInTheDocument();
+    fireEvent.click(nav.getByRole('button', {name: 'Cerrar sesión'}));
+
+    expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/$/);
+    expect(screen.getByRole('link', {name: 'Registrarse'})).toBeInTheDocument();
+    expect(screen.queryByText(club.name)).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', expect.objectContaining({method: 'POST'}));
+});
+
+it('redirects to / when a private request reports an expired session', async () => {
     const fetchMock = renderRoute('/ligas-disponibles', {
+        '/api/leagues': () => jsonResponse(invalidSession, 401),
+    });
+
+    expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/$/);
+    expect(screen.queryByRole('button', {name: 'Cerrar sesión'})).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/leagues', expect.anything());
+});
+
+it('opens the available leagues route and filters through the authenticated API', async () => {
+    const leagues = {
         items: [{
             id: 42, name: 'Liga integrada', registeredCount: 1, maxTeams: 8,
             availableSlots: 7, isMember: true, status: 'open',
-        }]
+        }],
+    };
+    const fetchMock = renderRoute('/ligas-disponibles', {
+        '/api/leagues': () => jsonResponse(leagues),
+        '/api/leagues?name=Liga+integrada': () => jsonResponse(leagues),
     });
     expect(await screen.findByText('Liga integrada')).toBeInTheDocument();
     expect(screen.getByText('Tu club ya está inscripto.')).toBeInTheDocument();
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/leagues');
-    expect(fetchMock.mock.calls[0][1].credentials).toBe('same-origin');
+    expect(fetchMock).toHaveBeenCalledWith('/api/leagues', expect.objectContaining({credentials: 'same-origin'}));
 
     fireEvent.change(screen.getByLabelText('Buscar por nombre'), {
         target: {value: '  Liga integrada  '},
     });
     fireEvent.submit(screen.getByLabelText('Buscar por nombre').closest('form'));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(fetchMock.mock.calls[1][0]).toBe('/api/leagues?name=Liga+integrada');
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/leagues?name=Liga+integrada', expect.anything()));
     expect(await screen.findByText('Liga integrada')).toBeInTheDocument();
 });
 
 it('retains the private league creation route and its request contract', async () => {
     const fetchMock = renderRoute('/crear-liga-privada', {
-        message: 'Liga creada exitosamente.',
-    }, 201);
+        '/api/leagues/private': () => jsonResponse({leagueId: 42, message: 'Liga creada exitosamente.'}, 201),
+        '/api/leagues/42/lobby': () => jsonResponse({
+            name: 'Liga privada integrada', status: 'open', isPrivate: true,
+            minTeams: 3, maxTeams: 8, registeredTeams: 1, remainingSlots: 7,
+            creatorClubId: club.id, isRegistered: true, clubs: [club],
+        }),
+        '/api/auth/me': () => jsonResponse({clubId: club.id}),
+    });
+    await screen.findByLabelText('Nombre de la liga');
     for (const [label, value] of [
         ['Nombre de la liga', 'Liga privada integrada'],
         ['Contraseña', 'clave-de-liga'],
@@ -54,9 +146,9 @@ it('retains the private league creation route and its request contract', async (
         fireEvent.change(screen.getByLabelText(label), {target: {value}});
     }
     fireEvent.submit(screen.getByRole('button', {name: 'Crear liga'}).closest('form'));
-    expect(await screen.findByRole('status')).toHaveTextContent('Liga creada exitosamente.');
-    const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toBe('/api/leagues/private');
+    expect(await screen.findByRole('heading', {name: /Liga privada integrada/})).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/leagues\/42\/lobby$/);
+    const [, options] = fetchMock.mock.calls.find(([url]) => url === '/api/leagues/private');
     expect(options.method).toBe('POST');
     expect(JSON.parse(options.body)).toEqual({
         name: 'Liga privada integrada', password: 'clave-de-liga',
@@ -68,16 +160,19 @@ it('retains the private league creation route and its request contract', async (
 
 it('retains the lobby route and displays the creator registration from develop', async () => {
     const fetchMock = renderRoute('/leagues/42/lobby', {
-        isPrivate: true, minTeams: 3, maxTeams: 8, remainingSlots: 7,
-        registeredTeams: 1, isRegistered: true,
-        creatorClub: {id: 7, name: 'Club creador'},
-        clubs: [{id: 7, name: 'Club creador'}],
+        '/api/leagues/42/lobby': () => jsonResponse({
+            isPrivate: true, minTeams: 3, maxTeams: 8, remainingSlots: 7,
+            registeredTeams: 1, isRegistered: true,
+            creatorClub: {id: 7, name: 'Club creador'},
+            clubs: [{id: 7, name: 'Club creador'}],
+        }),
+        '/api/auth/me': () => jsonResponse({clubId: club.id}),
     });
     expect(await screen.findByText('Club creador')).toBeInTheDocument();
     expect(screen.getByText('Privada')).toBeInTheDocument();
     expect(screen.getByText('Creador')).toBeInTheDocument();
     expect(screen.getByText('Tu club está inscripto.')).toBeInTheDocument();
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/leagues/42/lobby');
+    expect(fetchMock).toHaveBeenCalledWith('/api/leagues/42/lobby', expect.anything());
 });
 
 it.each([false, true])('joins a league from the listing and opens its lobby (private: %s)', async (isPrivate) => {
@@ -94,7 +189,8 @@ it.each([false, true])('joins a league from the listing and opens its lobby (pri
     };
     const fetchMock = vi.fn(async (url, options) => {
         let response;
-        if (url === '/api/leagues') response = {items: [league]};
+        if (url === '/api/club/me') response = club;
+        else if (url === '/api/leagues') response = {items: [league]};
         else if (url === '/api/auth/me') response = {clubId: 8};
         else if (url === '/api/team/default') response = {
             clubId: 8, lineUp: {formationId: 2, starters: slots.slice(0, 3), substitutes: slots.slice(3)},

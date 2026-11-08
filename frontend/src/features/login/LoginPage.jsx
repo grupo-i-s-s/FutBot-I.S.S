@@ -2,24 +2,32 @@ import {useState} from 'react';
 import {login} from './api';
 import './LoginPage.css';
 import {Link, useNavigate} from 'react-router';
+import {useSession} from '../session/SessionProvider.jsx';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const {refreshSession} = useSession();
     const navigate = useNavigate();
 
     async function handleSubmit(event) {
         event.preventDefault();
+        if (loading) return;
         setError('');
+        setLoading(true);
 
         try {
             await login(email, password);
+            void refreshSession();
             navigate('/home', {replace: true});
         } catch (err) {
             const fieldErrors = Object.values(err.fields ?? {}).join(' ');
 
             setError(fieldErrors || err.message || 'No se pudo iniciar sesión.');
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -59,8 +67,8 @@ export default function LoginPage() {
                         </input>
                     </div>
 
-                    <button type="submit" className="login-button">
-                        Iniciar Sesión
+                    <button type="submit" className="login-button" disabled={loading}>
+                        {loading ? 'Iniciando sesión…' : 'Iniciar Sesión'}
                     </button>
                     {error && <p role="alert">{error}</p>}
                     <Link to="/registro" className="Registro">Registrarme</Link>
