@@ -5,8 +5,9 @@ from dataclasses import asdict
 
 from primitives.behaviour_api.context import snapshot_from_dict
 from primitives.behaviour_api.registry import API_VERSION
-from primitives.behaviour_api.validation import ExecutionError, _restrict_worker, execute_once, execution_diagnostic, \
+from primitives.behaviour_api.validation import ExecutionError, _restrict_worker, execute_once, execution_diagnostic, execute_dt_once, \
     validate_static
+from dt_behaviour import DtObservation
 
 MAX_MESSAGE = 512 * 1024
 MAX_PROGRAMS = 6
@@ -55,13 +56,13 @@ def main() -> None:
 
             if operation == "load":
                 source = request["source"]
-
+                kind = request.get("kind", "PLAYER")
                 expected = hashlib.sha256(f"{API_VERSION}\0{source}".encode("utf-8")).hexdigest()
 
                 if key != expected:
                     raise ValueError("Identificador de programa inválido.")
 
-                diagnostics = validate_static(source)
+                diagnostics = validate_static(source, kind)
 
                 if diagnostics:
                     response.update(code="INVALID_PROGRAM", diagnostics=diagnostics,)
@@ -95,6 +96,18 @@ def main() -> None:
                     command=asdict(command),
                 )
 
+            elif operation == "decide_dt":
+                obs_data = request["observation"]
+                obs = DtObservation(**obs_data)
+
+                action = execute_dt_once(
+                    programs[key],
+                    obs,
+                )
+                response.update(
+                    ok=True,
+                    action={"tactical_changes": action.tactical_changes},
+                )
             else:
                 raise ValueError("Operación desconocida.")
 

@@ -831,3 +831,35 @@ def execute_once(
         snapshot,
         player_id,
     )
+
+
+def execute_dt_once(
+    compiled,
+    observation: DtObservation,
+) -> DtAction:
+    namespace = {
+        "__builtins__": {
+            "__import__": _safe_import,
+            "abs": abs,
+            "min": min,
+            "max": max,
+            "len": len,
+            "range": range,
+            "round": round,
+            "int": int,
+            "float": float,
+            "bool": bool,
+        }
+    }
+
+    exec(compiled, namespace)
+    action = namespace["decide"](observation)
+
+    diagnostics = validate_action(
+        action, 100, 60  
+    )
+
+    if diagnostics:
+        raise ExecutionError(diagnostics)
+
+    return action
