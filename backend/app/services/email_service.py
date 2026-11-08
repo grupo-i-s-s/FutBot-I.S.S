@@ -35,3 +35,18 @@ def send_email(recipient: str, subject: str, body: str) -> None:
             "EMAIL_DELIVERY_FAILED",
             "No se pudo enviar el correo. Intentá nuevamente más tarde.",
         ) from exc
+
+def send_verification_code(recipient: str, code: str) -> None:
+    subject = "Verificá tu correo en FutBot"
+    body = f"""Hola,
+
+Gracias por crear una cuenta en FutBot.
+
+Tu código de verificación es: {code}
+
+Ingresalo en la página de verificación dentro de los próximos 10 minutos.
+Si no solicitaste crear una cuenta, podés ignorar este mensaje.
+
+¡Te damos la bienvenida a FutBot!
+"""
+    send_email(recipient, subject, body)
