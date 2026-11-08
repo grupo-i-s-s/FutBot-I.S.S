@@ -40,7 +40,9 @@ def fixture(monkeypatch, now):
 
     repository.update_round_schedule.side_effect = update
     monkeypatch.setattr(service, "league_repository", repository)
-    return SimpleNamespace(league=league, rounds=rounds, matches=matches, repo=repository)
+    club_locks = Mock()
+    monkeypatch.setattr(service.matches_repository, "get_clubs_for_update", club_locks)
+    return SimpleNamespace(league=league, rounds=rounds, matches=matches, repo=repository, club_locks=club_locks)
 
 
 def test_fixture_returns_rounds_clubs_results_and_next_match_without_writing(db, fixture):
@@ -136,6 +138,7 @@ def test_last_finished_match_confirms_next_round_and_shifts_forecasts(db, fixtur
     writes = fixture.repo.update_round_schedule.call_count
     service.update_fixture_schedule(db, 1)
     assert fixture.repo.update_round_schedule.call_count == writes
+    fixture.club_locks.assert_called_once_with(db, (1, 2, 3, 4))
     db.commit.assert_not_called()
 
 
@@ -144,6 +147,7 @@ def test_incomplete_round_does_not_confirm_next_schedule(db, fixture, now):
     fixture.matches[0].finished_at = now + timedelta(hours=2)
     service.update_fixture_schedule(db, 1)
     fixture.repo.update_round_schedule.assert_not_called()
+    fixture.club_locks.assert_not_called()
 
 
 @pytest.mark.parametrize("already_confirmed", [False, True])

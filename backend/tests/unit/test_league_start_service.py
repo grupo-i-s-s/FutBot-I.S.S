@@ -74,6 +74,16 @@ def test_repeated_start_returns_same_league_without_generating_again(db, league)
     league.repo.create_standings.assert_called_once()
 
 
+def test_start_locks_all_registered_clubs_in_order_even_with_complete_lineups(db, league):
+    for registration in league.row.registrations:
+        registration.line_up = lineups.team_repository.get_by_club(db, registration.club_id).line_up
+    league.row.registrations.reverse()
+
+    service.start_league(db, 42, 1)
+
+    league.club_locks.assert_called_once_with(db, (1, 2, 3))
+
+
 @pytest.mark.parametrize("case, expected_status", [
     ("missing", 404), ("other_creator", 403), ("cancelled", 409),
     ("finished", 409), ("minimum", 409), ("incomplete", 409),

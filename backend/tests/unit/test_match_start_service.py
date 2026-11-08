@@ -12,13 +12,15 @@ from app.services import match_start_service as service
 @pytest.fixture
 def start(monkeypatch, now):
     row = SimpleNamespace(match_id=42, creator_id=1, visitor_id=7,
-                          status="SCHEDULED", init_date=now, sequence=3, snapshot=None)
+                          status="SCHEDULED", init_date=now, duration_ms=300_000, sequence=3, snapshot=None)
     snapshot = {"sequence": 3, "state": {"status": "WAITING", "teams": [{"id": 1}]}}
     repository = Mock()
     repository.get_clubs_for_update.return_value = [SimpleNamespace(id=1), SimpleNamespace(id=7)]
+    repository.get_active_test_match.return_value = None
     repository.clubs_have_running_match.return_value = False
     builder = Mock(return_value=object())
     monkeypatch.setattr(service, "matches_repository", repository)
+    monkeypatch.setattr(service, "find_league_schedule_conflict", Mock(return_value=None))
     monkeypatch.setattr(service, "build_match", builder)
     monkeypatch.setattr(service, "read_snapshot", Mock(return_value=snapshot))
     return SimpleNamespace(row=row, repo=repository, builder=builder, snapshot=snapshot)

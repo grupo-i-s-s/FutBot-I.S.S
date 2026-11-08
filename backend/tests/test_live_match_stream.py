@@ -13,6 +13,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models.auth_model import AuthSession, Club, User
 from app.models.behaviour_model import Behavior
+from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
@@ -24,7 +25,7 @@ from primitives.match_simulation import Match
 
 
 def seed_match_database(engine, duration_ms=700):
-    tables = [model.__table__ for model in (User, Club, AuthSession, Behavior, Player, DefaultTeam, Matches)]
+    tables = [model.__table__ for model in (User, Club, AuthSession, Behavior, Player, DefaultTeam, League, LeagueRound, Matches)]
     Base.metadata.create_all(engine, tables=tables)
     tokens = [new_session_token(), new_session_token()]
     now = datetime.now(timezone.utc)

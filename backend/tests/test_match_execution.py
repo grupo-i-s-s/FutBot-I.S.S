@@ -17,6 +17,7 @@ from app.errors import AppError
 from app.main import app
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
+from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
@@ -40,7 +41,7 @@ def database(monkeypatch, sqlite_match_dates):
     )
     # Persistencia real con sesiones independientes, sin requerir Docker.
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
-    tables = [model.__table__ for model in (User, Club, Behavior, Player, DefaultTeam, Matches)]
+    tables = [model.__table__ for model in (User, Club, Behavior, Player, DefaultTeam, League, LeagueRound, Matches)]
     Base.metadata.create_all(engine, tables=tables)
     with Session(engine) as db:
         for club_id in (1, 2):

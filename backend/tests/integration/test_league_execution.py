@@ -25,6 +25,13 @@ from primitives.behaviours import DEFAULT_CODES
 from primitives.match_simulation import Match
 
 
+def registered_lineup(db, club_id):
+    lineup = deepcopy(db.get(DefaultTeam, club_id).line_up)
+    lineup["starters"].reverse()
+    lineup["formationId"] = 2
+    return lineup
+
+
 @pytest.fixture
 def running_league(database, league_data, monkeypatch):
     data = league_data
@@ -58,10 +65,7 @@ def running_league(database, league_data, monkeypatch):
         league.round_interval = "CONTINUOUS"
         # Un orden distinto del catálogo permite detectar selección de jugadores incorrecta.
         for registration in league.registrations:
-            lineup = deepcopy(db.get(DefaultTeam, registration.club_id).line_up)
-            lineup["starters"].reverse()
-            lineup["formationId"] = 2
-            registration.line_up = lineup
+            registration.line_up = registered_lineup(db, registration.club_id)
         db.commit()
     return data, clock
 
@@ -70,7 +74,7 @@ def start(db, data, count=3):
     if count == 4:
         db.add(LeagueRegistration(
             league_id=data.id, club_id=data.clubs[3],
-            line_up=deepcopy(db.get(DefaultTeam, data.clubs[3]).line_up),
+            line_up=registered_lineup(db, data.clubs[3]),
         ))
         db.commit()
     league_service.start_league(db, data.id, data.clubs[0])
@@ -279,6 +283,54 @@ def test_overlapping_leagues_cannot_start_same_clubs_together(database, running_
         clubs = [id_ for match in running for id_ in (match.creator_id, match.visitor_id)]
         assert len(clubs) == len(set(clubs)) == 4
         assert not db.scalars(select(Matches).where(Matches.status == "CANCELLED")).all()
+
+
+@pytest.mark.skipif(not os.getenv("LEAGUE_TEST_DATABASE_URL"), reason="Requiere PostgreSQL")
+def test_confirmed_league_round_has_priority_over_concurrent_friendly(database, running_league):
+    data, clock = running_league
+    with Session(database) as db:
+        start(db, data, 4)
+        round_ = league_repository.get_fixture_rounds(db, data.id)[0]
+        assert round_.schedule_confirmed
+        first, second = league_repository.get_round_matches_for_update(db, round_.id)
+        round_match_ids = {first.match_id, second.match_id}
+        friendly = Matches(
+            creator_id=first.creator_id,
+            visitor_id=second.creator_id,
+            init_date=round_.scheduled_at,
+            status="SCHEDULED",
+        )
+        db.add(friendly)
+        db.flush()
+        friendly_id = friendly.match_id
+        db.commit()
+    barrier = Barrier(2)
+
+    def prepare_round():
+        with Session(database) as db:
+            barrier.wait(timeout=5)
+            return execution.prepare_league_round(db, data.id, clock[0])
+
+    def start_friendly():
+        barrier.wait(timeout=5)
+        return match_execution_service.run_persisted_match(friendly_id, duration_ms=300)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        league_result = pool.submit(prepare_round)
+        friendly_result = pool.submit(start_friendly)
+        assert set(league_result.result(timeout=10)) == round_match_ids
+        snapshot = friendly_result.result(timeout=10)
+        assert snapshot["state"]["status"] == "CANCELLED"
+        assert snapshot["state"]["cancellationReason"] == "LEAGUE_SCHEDULE_CONFLICT"
+
+    with Session(database) as db:
+        friendly = db.get(Matches, friendly_id)
+        assert (friendly.status, friendly.cancellation_reason) == ("CANCELLED", "LEAGUE_SCHEDULE_CONFLICT")
+        assert friendly.started_at is None
+        for match_id in round_match_ids:
+            match = db.get(Matches, match_id)
+            assert match.status == "RUNNING"
+            assert match.started_at == clock[0]
 
 
 @pytest.mark.skipif(not os.getenv("LEAGUE_TEST_DATABASE_URL"), reason="Requiere PostgreSQL")
