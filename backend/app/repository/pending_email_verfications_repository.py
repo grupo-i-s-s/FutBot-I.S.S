@@ -45,3 +45,26 @@ def create(
 
 def delete_by_email(db: Session, email: str) -> None:
     db.execute(delete(PendingEmailVerification).where(PendingEmailVerification.email == email))
+
+def update_for_resend(
+    db: Session,
+    pending: PendingEmailVerification,
+    *,
+    code_hash: str,
+    expires_at,
+    last_sent_at,
+    resend_window_started_at,
+    resend_count: int) -> None:
+    pending.code_hash = code_hash
+    pending.expires_at = expires_at
+    pending.last_sent_at = last_sent_at
+    pending.resend_window_started_at = resend_window_started_at
+    pending.resend_count = resend_count
+    pending.attempts = 0
+    db.flush()
+
+
+def increment_attempts(db: Session, pending: PendingEmailVerification,) -> int:
+    pending.attempts += 1
+    db.flush()
+    return pending.attempts
