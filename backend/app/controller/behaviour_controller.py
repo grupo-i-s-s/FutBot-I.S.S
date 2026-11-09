@@ -2,7 +2,7 @@ from fastapi import APIRouter, status
 from typing import Literal
 
 from app.dependencies import CurrentClub, Database
-from app.schemas.behaviour_schemas import BehaviourListResponse, BehaviourReadDetail
+from app.schemas.behaviour_schemas import BehaviourListResponse, BehaviourReadDetail, BehaviourUpdate
 from app.services import behaviour_service
 from app.schemas.behaviour_schemas import BehaviourCreate, BehaviourRead
 from app.schemas.behaviour_schemas import ( BehaviourValidateRequest, BehaviourValidateResponse)
@@ -38,4 +38,22 @@ def validate_behaviour( payload: BehaviourValidateRequest, club: CurrentClub) ->
     return BehaviourValidateResponse(
         valid=not diagnostics,
         diagnostics=diagnostics,
+    )
+
+@behaviour_router.put(
+    "/{behaviour_id}",
+    response_model=BehaviourReadDetail,
+    status_code=status.HTTP_200_OK,
+)
+def update_behaviour(
+    behaviour_id: int,
+    payload: BehaviourUpdate,
+    club: CurrentClub,
+    db: Database,
+):
+    return behaviour_service.update_behaviour(
+        db=db,
+        club_id=club.id,
+        behaviour_id=behaviour_id,
+        data=payload,
     )
