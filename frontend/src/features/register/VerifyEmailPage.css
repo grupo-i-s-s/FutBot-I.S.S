@@ -142,3 +142,13 @@
     text-decoration: none;
     cursor: pointer;
 }
+
+.verify-email-card__register {
+    margin: 16px 0 0;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.verify-email-card__register a {
+    color: #164b35;
+}
