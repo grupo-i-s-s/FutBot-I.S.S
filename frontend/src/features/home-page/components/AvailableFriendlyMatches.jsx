@@ -1,29 +1,14 @@
-import {Link} from 'react-router';
+import {Link, useLocation} from 'react-router';
 import {ArrowRight, Swords} from 'lucide-react';
+import {Button} from '@/components/ui/button';
+import {useFriendlyMatches} from '../../friendly-matches/hooks/useFriendlyMatches.js';
+import FriendlyMatchSearch from '../../friendly-matches/components/FriendlyMatchSearch.jsx';
 import '../homePage.css';
-import {getFriendlyMatches} from "../api.js";
-import {useEffect, useState} from "react";
 
 
 export default function AvailableFriendlyMatches() {
-    const [friendly_matches, setFriendlyMatches] = useState([]);
-    const [matchesLoaded, setMatchesLoaded] = useState(false);
-    const [error, setError] = useState('');
-
-    useEffect(() => {
-        async function cargarPartidos() {
-            try {
-                const partidos = await getFriendlyMatches();
-                setFriendlyMatches(partidos);
-                setMatchesLoaded(true);
-            } catch (error) {
-                setError(error.message);
-                console.error('No se pudieron cargar los amistosos:', error);
-            }
-        }
-
-        cargarPartidos();
-    }, []);
+    const search = useFriendlyMatches();
+    const location = useLocation();
 
 
     return (
@@ -36,12 +21,26 @@ export default function AvailableFriendlyMatches() {
                     <h2 id="home-matches-title">Amistosos disponibles</h2>
                 </div>
             </div>
-            {error && <p role="alert">{error}</p>}
-            {matchesLoaded && friendly_matches.length === 0 && (
-                <p role="status">No hay partidos disponibles.</p>
+            <Link to={`/partidos-disponibles${location.search}`} className="home-panel-link">
+                Ver mis amistosos y los disponibles
+                <ArrowRight size={17} aria-hidden="true"/>
+            </Link>
+            <Link to="/crear-partido" className="home-panel-link">
+                Crear Partido Amistoso
+                <ArrowRight size={17} aria-hidden="true"/>
+            </Link>
+            <FriendlyMatchSearch search={search}/>
+            {search.loading && <p role="status">Buscando amistosos…</p>}
+            {search.error && <p role="alert">{search.error}
+                <Button variant="outline" onClick={search.reload}>Reintentar búsqueda</Button>
+            </p>}
+            {!search.loading && !search.error && search.result.items.length === 0 && (
+                <p role="status">{search.result.total > 0 ? 'No hay partidos en esta página.'
+                    : search.creatorName ? `No se encontraron amistosos para "${search.creatorName}".`
+                        : 'No hay partidos disponibles.'}</p>
             )}
-            <ul className="home-list">
-                {friendly_matches.map((match) => (
+            <ul className="home-list" tabIndex={0} aria-label="Resultados de amistosos">
+                {!search.loading && !search.error && search.result.items.map((match) => (
                     <li key={match.matchId} className="home-list-card">
                         <div className="home-match-heading">
                             <span className="home-club-avatar" aria-hidden="true">
@@ -57,14 +56,6 @@ export default function AvailableFriendlyMatches() {
                     </li>
                 ))}
             </ul>
-            <Link to="/partidos-disponibles" className="home-panel-link">
-                Ver mis amistosos y los disponibles
-                <ArrowRight size={17} aria-hidden="true"/>
-            </Link>
-            <Link to="/crear-partido" className="home-panel-link">
-                Crear Partido Amistoso
-                <ArrowRight size={17} aria-hidden="true"/>
-            </Link>
         </aside>
     );
 }

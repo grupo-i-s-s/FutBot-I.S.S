@@ -3,6 +3,7 @@ import {act, cleanup, fireEvent, render, screen} from '@testing-library/react';
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router';
 import MatchesPage from './Matches.jsx';
 import MatchPage from './MatchPage.jsx';
+import AvailableFriendlyMatches from '../home-page/components/AvailableFriendlyMatches.jsx';
 
 vi.mock('./hooks/useMatchConnection.js', () => ({useMatchConnection: () => ({
     snapshot: null, connectionStatus: 'connected', error: '', retry: vi.fn(),
@@ -11,6 +12,7 @@ vi.mock('./hooks/useMatchConnection.js', () => ({useMatchConnection: () => ({
 const match = {matchId: 42, creatorClubName: 'River Norte', startDateTime: '2030-01-01T12:00:00Z'};
 const reply = (data, status = 200) => ({ok: status < 400, status, json: async () => data});
 const result = (items = [match], page = 1, total = 41) => ({items, total, page, pageSize: 20});
+const pages = ['/partidos-disponibles', '/home'];
 let fetchMock;
 let available;
 let join;
@@ -44,6 +46,7 @@ async function show(path = '/partidos-disponibles') {
         <Routes>
             <Route path="/partidos-disponibles" element={<MatchesPage/>}/>
             <Route path="/partidos/:matchId" element={<MatchPage/>}/>
+            <Route path="/home" element={<AvailableFriendlyMatches/>}/>
         </Routes>
         <Location/>
     </MemoryRouter>));
@@ -61,8 +64,8 @@ async function click(name) {
     await act(async () => fireEvent.click(screen.getByRole('button', {name})));
 }
 
-it('espera 300 ms, consulta al servidor y vuelve a la primera página al cambiar el nombre', async () => {
-    await show('/partidos-disponibles?creatorName=River&page=2');
+it.each(pages)('espera 300 ms y vuelve a la primera página al cambiar el nombre en %s', async path => {
+    await show(`${path}?creatorName=River&page=2`);
     expect(available.mock.calls[0][0].get('page')).toBe('2');
     await type('Ri');
     await tick(200);
@@ -75,11 +78,11 @@ it('espera 300 ms, consulta al servidor y vuelve a la primera página al cambiar
     expect(query.get('creatorName')).toBe('River Sur');
     expect(query.get('page')).toBe('1');
     expect(query.get('pageSize')).toBe('20');
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/friendly-matches/me')).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/friendly-matches/me')).toHaveLength(path === '/home' ? 0 : 1);
 });
 
-it('cambia de página conservando el filtro', async () => {
-    await show('/partidos-disponibles?creatorName=River');
+it.each(pages)('cambia de página conservando el filtro en %s', async path => {
+    await show(`${path}?creatorName=River`);
     expect(screen.getByRole('button', {name: 'Anterior'})).toBeDisabled();
     await click('Siguiente');
     expect(screen.getByText('Página 2 · 41 amistosos')).toBeInTheDocument();
@@ -88,9 +91,9 @@ it('cambia de página conservando el filtro', async () => {
     expect(available.mock.calls.at(-1)[0].get('page')).toBe('1');
 });
 
-it('distingue la búsqueda sin coincidencias y vuelve al listado completo al limpiar', async () => {
+it.each(pages)('distingue la búsqueda sin coincidencias y permite limpiar en %s', async path => {
     available.mockImplementation(query => reply(query.get('creatorName') ? result([], 1, 0) : result()));
-    await show();
+    await show(path);
     await type('Sin rival');
     await tick();
     expect(screen.getByText('No se encontraron amistosos para "Sin rival".')).toBeInTheDocument();
@@ -101,10 +104,11 @@ it('distingue la búsqueda sin coincidencias y vuelve al listado completo al lim
     expect(screen.getByText('River Norte')).toBeInTheDocument();
 });
 
-it.each([200, 500])('descarta una respuesta anterior tardía con estado %s', async status => {
+it.each(pages.flatMap(path => [200, 500].map(status => [path, status])))(
+    'descarta una respuesta anterior tardía en %s con estado %s', async (path, status) => {
     let complete;
     available.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
-    await show();
+    await show(path);
     const signal = available.mock.calls[0][1].signal;
     await type('River');
     expect(signal.aborted).toBe(true);
@@ -117,17 +121,17 @@ it.each([200, 500])('descarta una respuesta anterior tardía con estado %s', asy
     expect(screen.getByText('River Norte')).toBeInTheDocument();
 });
 
-it('permite repetir la misma búsqueda después de un error de red', async () => {
+it.each(pages)('permite repetir la misma búsqueda después de un error de red en %s', async path => {
     available.mockRejectedValueOnce(new TypeError('network'));
-    await show('/partidos-disponibles?creatorName=River');
+    await show(`${path}?creatorName=River`);
     expect(screen.getByRole('alert')).toHaveTextContent('No se pudo conectar');
     await click('Reintentar búsqueda');
     expect(screen.getByText('River Norte')).toBeInTheDocument();
     expect(available).toHaveBeenCalledTimes(2);
 });
 
-it('normaliza espacios sin dejar la búsqueda cargando cuando el filtro es el mismo', async () => {
-    await show('/partidos-disponibles?creatorName=River');
+it.each(pages)('normaliza espacios sin dejar la búsqueda cargando en %s', async path => {
+    await show(`${path}?creatorName=River`);
     await type(' River ');
     await tick();
     expect(screen.queryByText('Buscando amistosos…')).not.toBeInTheDocument();
@@ -163,6 +167,21 @@ it.each(['join', 'view'])('recupera el filtro y la página al volver del partido
     expect(back).toHaveAttribute('href', path);
     await act(async () => fireEvent.click(back));
     expect(screen.getByTestId('url')).toHaveTextContent(path);
+    expect(screen.getByLabelText('Buscar por nombre del club')).toHaveValue('River');
+    expect(screen.getByText('Página 2 · 41 amistosos')).toBeInTheDocument();
+});
+
+it('conserva el contexto desde la portada al listado y al volver del partido', async () => {
+    const query = '?creatorName=River&page=2';
+    await show(`/home${query}`);
+    const listing = screen.getByRole('link', {name: 'Ver mis amistosos y los disponibles'});
+    expect(listing).toHaveAttribute('href', `/partidos-disponibles${query}`);
+    await act(async () => fireEvent.click(listing));
+    expect(screen.getByLabelText('Buscar por nombre del club')).toHaveValue('River');
+    expect(screen.getByText('Página 2 · 41 amistosos')).toBeInTheDocument();
+    await click('Unirse');
+    await act(async () => fireEvent.click(screen.getByRole('link', {name: 'Volver a amistosos'})));
+    expect(screen.getByTestId('url')).toHaveTextContent(`/partidos-disponibles${query}`);
     expect(screen.getByLabelText('Buscar por nombre del club')).toHaveValue('River');
     expect(screen.getByText('Página 2 · 41 amistosos')).toBeInTheDocument();
 });
