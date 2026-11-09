@@ -22,7 +22,7 @@ def start(monkeypatch, now):
     monkeypatch.setattr(service, "matches_repository", repository)
     monkeypatch.setattr(service, "find_league_schedule_conflict", Mock(return_value=None))
     monkeypatch.setattr(service, "build_match", builder)
-    monkeypatch.setattr(service, "read_snapshot", Mock(return_value=snapshot))
+    monkeypatch.setattr(service, "snapshot_from_match", Mock(return_value=snapshot))
     return SimpleNamespace(row=row, repo=repository, builder=builder, snapshot=snapshot)
 
 
@@ -82,7 +82,7 @@ def test_cancellation_publishes_new_sequence_without_mutating_previous_snapshot(
     assert start.row.snapshot["sequence"] == 4
     assert start.snapshot == before
     assert start.row.snapshot is not start.snapshot
-    service.read_snapshot.assert_called_once_with(db, 42, 1)
+    service.snapshot_from_match.assert_called_once_with(db, start.row)
     start.repo.expire_pending_substitutions.assert_called_once_with(db, 42)
     db.flush.assert_called_once()
     db.commit.assert_not_called()
