@@ -135,6 +135,19 @@ def _execute(
             elif stop_event.wait(delay):
                 return snapshot
 
+            # Aceptar comandos y cerrar la pausa usan el mismo bloqueo.
+            # Todo cambio admitido se aplica antes de avanzar el reloj de la pausa.
+            row = matches_repository.get_by_id_for_update(db, match_id)
+            if row is None:
+                raise AppError("MATCH_NOT_FOUND", "El partido fue eliminado durante la ejecución.")
+            if row.status == "CANCELLED":
+                snapshot = row.snapshot
+                db.rollback()
+                clear_requests(match_id)
+                return snapshot
+            if simulation.paused:
+                apply_planned_substitutions(db, match_id, simulation)
+
             batch = pending_requests(match_id)
 
             for request in batch:
@@ -160,20 +173,6 @@ def _execute(
 
                 if simulation.finished:
                     break
-
-            row = matches_repository.get_by_id_for_update(db, match_id)
-
-            if row is None:
-                raise AppError(
-                    "MATCH_NOT_FOUND",
-                    "El partido fue eliminado durante la ejecución.",
-                )
-
-            if row.status == "CANCELLED":
-                snapshot = row.snapshot
-                db.rollback()
-                clear_requests(match_id)
-                return snapshot
 
             snapshot = _persist(db, row, simulation)
 

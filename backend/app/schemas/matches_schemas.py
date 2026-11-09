@@ -23,6 +23,10 @@ class PlannedSubstitutionRequest(InputSchema):
         return self
 
 
+class SubstitutionRequest(PlannedSubstitutionRequest):
+    pause_id: str = Field(alias="pauseId", min_length=1, pattern=r"\S")
+
+
 class CreateFriendlyMatchRequest(InputSchema):
     start_datetime: datetime = Field(..., alias="startDateTime")
     model_config = ConfigDict(populate_by_name=True)
