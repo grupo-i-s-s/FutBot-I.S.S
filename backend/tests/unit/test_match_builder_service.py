@@ -1,4 +1,6 @@
 import pytest
+import json
+from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -6,6 +8,7 @@ from app.errors import AppError
 from app.services import match_builder_service as service
 from primitives.behaviour_api.registry import API_VERSION
 from primitives.behaviours import BehaviourMode, DEFAULT_CODES, LEGACY_CODE
+from primitives.match_simulation import Match
 
 
 @pytest.fixture
@@ -217,4 +220,63 @@ def test_missing_match_or_opponent_is_rejected_before_loading_teams(db, teams, m
     with pytest.raises(AppError) as error:
         service.build_match(db, 42)
     assert error.value.code == code
+    teams.saved.get_by_club.assert_not_called()
+
+
+def test_builder_captures_both_benches_without_putting_them_on_field(db, teams):
+    match = service.build_match(db, 42)
+    assert [p.id for p in match.local_team.substitutes] == [71, 73, 75]
+    assert [p.id for p in match.visitor_team.substitutes] == [91, 93, 95]
+    assert [p.behaviour_id for p in match.local_team.substitutes] == [700, 700, 700]
+    assert len(match.world.players) == 6
+    assert set(match.player_bodies) == {74, 70, 72, 94, 90, 92}
+
+
+def test_bench_configuration_is_frozen_and_recovers_from_json_checkpoint(db, teams):
+    source = "def decide(observation):\n    return ir_a_pelota()\n"
+    teams.behaviours[7][0].code = source
+    teams.behaviours[7][0].version = 4
+    match = service.build_match(db, 42)
+    checkpoint = json.loads(json.dumps(match.checkpoint()))
+    teams.behaviours[7][0].code = DEFAULT_CODES["Ofensivo"]
+    teams.behaviours[7][0].version = 5
+    teams.lineups[7]["substitutes"].reverse()
+    teams.players[7][1].name = "Nombre nuevo"
+
+    restored = Match.from_checkpoint(checkpoint)
+    assert checkpoint["version"] == 6
+    assert restored.local_team.substitutes == match.local_team.substitutes
+    assert restored.visitor_team.substitutes == match.visitor_team.substitutes
+    assert [p.id for p in restored.local_team.substitutes] == [71, 73, 75]
+    assert all(p.behaviour_code == source and p.behaviour_version == 4
+               for p in restored.local_team.substitutes)
+    assert restored.local_team.substitutes[0].name == "Jugador 7-1"
+    assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
+
+
+def test_legacy_checkpoint_recovers_without_inventing_a_bench(db, teams):
+    checkpoint = json.loads(json.dumps(service.build_match(db, 42).checkpoint()))
+    checkpoint["version"] = 4
+    for key in ("local_team", "visitor_team"):
+        del checkpoint[key]["substitutes"]
+    restored = Match.from_checkpoint(checkpoint)
+    assert restored.local_team.substitutes == ()
+    assert restored.visitor_team.substitutes == ()
+    assert [p.id for p in restored.player_profiles] == [74, 70, 72, 94, 90, 92]
+
+
+@pytest.mark.parametrize("field, foreign_id", [("playerId", 91), ("behaviourId", 900)])
+def test_builder_rejects_a_bench_selection_from_the_other_club(db, teams, field, foreign_id):
+    teams.lineups[7]["substitutes"][0][field] = foreign_id
+    with pytest.raises(AppError) as error:
+        service.build_match(db, 42)
+    assert error.value.code == "MATCH_INVALID_LINEUP"
+
+
+def test_league_bench_comes_from_its_registration_not_the_default_team(db, teams):
+    lineups = deepcopy(teams.lineups)
+    lineups[7]["substitutes"].reverse()
+    registrations = {club_id: SimpleNamespace(line_up=lineup) for club_id, lineup in lineups.items()}
+    match = service.build_match(db, 42, league_teams=registrations)
+    assert [p.id for p in match.local_team.substitutes] == [75, 73, 71]
     teams.saved.get_by_club.assert_not_called()
