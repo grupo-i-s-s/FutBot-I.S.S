@@ -1,25 +1,39 @@
-import React, {useEffect, useState} from 'react';
-import { getLeagueRanking } from './api.js';
-import './LeagueRanking.css';
+import React, { useEffect, useState } from 'react';
+import './LeagueRanking.css'; // Reutilizamos los mismos estilos si aplican
 
-export default function LeagueRanking({leagueId}) {
-    const[rankData, setRankData] = useState([]);
-    
+export default function GlobalRanking() {
+    const [rankData, setRankData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
     useEffect(() => {
-                    async function rank() {
-                        const rank = await getLeagueRanking(leagueId);  
-                        setRankData(rank)
+        async function fetchGlobalRanking() {
+            try {
+                const response = await fetch("http://localhost:8000/ranking-global", {
+                    credentials: "include",
+                    headers: {
+                        "x-futbot-request": "1"
                     }
-                    rank()    
-                    }, [leagueId]);
+                });
+                if (!response.ok) throw new Error("No se pudo cargar el ranking global.");
+                const data = await response.json();
+                setRankData(data.items);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchGlobalRanking();
+    }, []);
+
+    if (loading) return <div className="lobby-card text-center p-6">Cargando ranking global...</div>;
+    if (error) return <div className="lobby-card text-center p-6 text-red-500">{error}</div>;
 
     return (
         <div className="lobby-card">
-            <h2>Ranking de la Liga</h2>
-            
-            {/* 2. Estructura de la tabla */}
+            <h2>Ranking Global</h2>
             <div className="ranking-table">
-                {/* Encabezados */}
                 <div className="ranking-header">
                     <span className="col-pos">#</span>
                     <span className="col-club">Club</span>
@@ -31,20 +45,24 @@ export default function LeagueRanking({leagueId}) {
                     <span className="col-stat">DG</span>
                 </div>
 
-                {/* 3. Filas de datos (Iteración) */}
                 <div className="ranking-body">
                     {rankData.map((club, index) => (
-                        <div className="ranking-row" key={club.id}>
+                        <div className="ranking-row" key={index}>
                             <span className="col-pos">{index + 1}</span>
-                            <span className="col-club">{club.nombre}</span>
-                            <span className="col-stat font-bold">{club.puntos}</span>
-                            <span className="col-stat">{club.pj}</span>
-                            <span className="col-stat">{club.pg}</span>
-                            <span className="col-stat">{club.pe}</span>
-                            <span className="col-stat">{club.pp}</span>
+                            <span className="col-club">{club.name}</span>
+                            <span className="col-stat font-bold">{club.points}</span>
+                            <span className="col-stat">{club.played}</span>
+                            <span className="col-stat">{club.wins}</span>
+                            <span className="col-stat">{club.draws}</span>
+                            <span className="col-stat">{club.losses}</span>
                             <span className="col-stat">{club.dg}</span>
                         </div>
                     ))}
+                    {rankData.length === 0 && (
+                        <div className="p-4 text-center text-gray-400">
+                            Todavía no hay registros en el ranking global.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
