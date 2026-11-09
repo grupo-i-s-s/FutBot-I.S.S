@@ -15,7 +15,7 @@ from primitives.behaviour_api.actions import Command
 from primitives.behaviour_api.context import PlayerView, TickSnapshot, distance
 from primitives.behaviour_api.queries import Queries, DtQueries
 from primitives.behaviour_api.registry import build_registry, build_dt_registry
-from dt_behaviour import DtAction, DtObservation
+from primitives.dt_behaviour import DtAction, DtObservation
 
 
 def _diagnostic(code: str, message: str, line: int = 1, column: int = 1) -> dict:
@@ -508,7 +508,7 @@ def _validation_worker(kind: str = "PLAYER") -> None:
             }
 
             exec(program, namespace)
-            
+
             action = namespace["decide"](obs_prueba)
             diagnostics = validate_action(action, 100, 60)
             if not diagnostics:

@@ -1,5 +1,5 @@
 from primitives.behaviour_api.context import PRESSURE_RADIUS, PlayerView, Point, TickSnapshot, distance
-
+from primitives.dt_behaviour import DtObservation
 
 class Queries:
     def __init__(self, snapshot: TickSnapshot, player_id: int):

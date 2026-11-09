@@ -25,7 +25,7 @@ from primitives.behaviour_api.validation import (
     normalize_action,
     validate_static,
 )
-from dt_behaviour import DtObservation, resolve_dt_behaviour, dt_decide
+from primitives.dt_behaviour import DtObservation, resolve_dt_behaviour, dt_decide
 
 width = 100.0
 height = 60.0
@@ -263,7 +263,8 @@ class Match:
                 "teams": [
                     {"id": team.club_id, "name": team.name, "avatar": team.avatar,
                      "side": self.team_side(team.club_id),
-                     "score": self.scorer[score_key], "color": color}
+                     "score": self.scorer[score_key], "color": color,
+                     "dtActive": team.dt_active}
                     for team, score_key, color in (
                         (self.local_team, "LOCAL", "#2563eb"),
                         (self.visitor_team, "VISITANTE", "#dc2626"),
