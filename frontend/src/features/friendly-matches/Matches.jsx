@@ -7,6 +7,7 @@ import {friendlyMatchError} from './scheduleConflict.js';
 import {useFriendlyMatches} from './hooks/useFriendlyMatches.js';
 import FriendlyMatchSearch from './components/FriendlyMatchSearch.jsx';
 import './Matches.css';
+import {routePath, routes} from '@/routes.js';
 
 const statusLabels = {
     WAITING: 'Esperando rival',
@@ -31,7 +32,7 @@ export default function MatchesPage() {
     const search = useFriendlyMatches(refresh);
     const navigate = useNavigate();
     const location = useLocation();
-    const returnTo = location.pathname + location.search;
+    const returnTo = location.pathname + location.search + location.hash;
 
     useEffect(() => {
         const controller = new AbortController();
@@ -60,7 +61,7 @@ export default function MatchesPage() {
         setJoinError('');
         try {
             const response = await joinFriendlyMatch(matchId);
-            navigate('/partidos/' + response.matchId, {state: {returnTo}});
+            navigate(routePath(routes.match, {matchId: response.matchId}), {state: {returnTo}});
         } catch (error) {
             setJoinError(friendlyMatchError(error, 'No se pudo completar la inscripción al partido.'));
             setRefresh((value) => value + 1);
@@ -106,7 +107,7 @@ export default function MatchesPage() {
                                         </div>
                                         <Link
                                             className="join-button"
-                                            to={`/partidos/${partido.matchId}`}
+                                            to={routePath(routes.match, {matchId: partido.matchId})}
                                             state={{returnTo}}
                                             aria-label={`Ver partido ${partido.matchId}`}
                                         >

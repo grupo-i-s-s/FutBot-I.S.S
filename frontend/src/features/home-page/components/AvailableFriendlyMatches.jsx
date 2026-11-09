@@ -4,6 +4,7 @@ import {Button} from '@/components/ui/button';
 import {useFriendlyMatches} from '../../friendly-matches/hooks/useFriendlyMatches.js';
 import FriendlyMatchSearch from '../../friendly-matches/components/FriendlyMatchSearch.jsx';
 import '../homePage.css';
+import {routes} from '@/routes.js';
 
 
 export default function AvailableFriendlyMatches() {
@@ -21,11 +22,11 @@ export default function AvailableFriendlyMatches() {
                     <h2 id="home-matches-title">Amistosos disponibles</h2>
                 </div>
             </div>
-            <Link to={`/partidos-disponibles${location.search}`} className="home-panel-link">
+            <Link to={{pathname: routes.friendlyMatches, search: location.search, hash: location.hash}} className="home-panel-link">
                 Ver mis amistosos y los disponibles
                 <ArrowRight size={17} aria-hidden="true"/>
             </Link>
-            <Link to="/crear-partido" className="home-panel-link">
+            <Link to={routes.createMatch} className="home-panel-link">
                 Crear Partido Amistoso
                 <ArrowRight size={17} aria-hidden="true"/>
             </Link>

@@ -14,6 +14,7 @@ import MatchBreakNotice, {
 import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx';
 import PlannedSubstitutionPanel from './components/PlannedSubstitutionPanel.jsx';
 import { activateMatchDt } from './matchApi.js';
+import {routes} from '@/routes.js';
 
 const connectionLabels = {
     loading: 'Cargando partido...', connecting: 'Conectando...', reconnecting: 'Reconectando...',
@@ -125,7 +126,7 @@ export default function MatchPage() {
                         <p className="match-eyebrow">{isBehaviourTest ? '' : 'AMISTOSO'}</p>
                         <h1>{isBehaviourTest ? 'Prueba de comportamientos' : 'El partido'}</h1>
                     </div>
-                    <Link to={isBehaviourTest ? '/behaviours' : location.state?.returnTo ?? '/partidos-disponibles'}>
+                    <Link to={isBehaviourTest ? routes.behaviours : location.state?.returnTo ?? routes.friendlyMatches}>
                         {isBehaviourTest ? 'Volver a comportamientos' : 'Volver a amistosos'}
                     </Link>
                 </header>

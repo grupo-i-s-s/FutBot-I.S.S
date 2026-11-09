@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
 
 class InputSchema(BaseModel):
@@ -43,13 +43,6 @@ class FriendlyMatchResponse(BaseModel):
     start_datetime: datetime = Field(serialization_alias="startDateTime")
 
 
-class FriendlyMatchListResponse(BaseModel):
-    items: list[FriendlyMatchResponse]
-    total: int
-    page: int
-    page_size: int = Field(serialization_alias="pageSize")
-
-
 class ClubFriendlyMatchResponse(FriendlyMatchResponse):
     visitor_club_name: str | None = Field(serialization_alias="visitorClubName")
     status: str
@@ -71,3 +64,24 @@ class MatchStateResponse(BaseModel):
 class LiveRequests(BaseModel):
     player_id: int
     behaviour_id: int
+
+
+class LiveRequestCreate(LiveRequests):
+    model_config = ConfigDict(extra="forbid")
+
+    player_id: int = Field(alias="playerId", gt=0)
+    behaviour_id: int = Field(alias="behaviourId", gt=0)
+
+
+class LiveRequestResponse(BaseModel):
+    queued: bool
+    request_id: str = Field(alias="requestId")
+
+
+class MatchDtUpdate(InputSchema):
+    dt_active: StrictBool = Field(alias="dtActive")
+
+
+class MatchDtResponse(BaseModel):
+    message: str
+    dt_active: bool = Field(serialization_alias="dtActive")

@@ -29,20 +29,17 @@ export function matchStreamUrl(matchId) {
 
 export function changeBehaviour(matchId, playerId, behaviourId) {
     const id = validateMatchId(matchId);
-    
-    return request(`/matches/${id}/live_request`, {
+
+    return request(`/matches/${id}/live-requests`, {
         method: 'POST',
-        body:{
-            player_id: playerId,
-            behaviour_id: behaviourId
-        }
+        body: {playerId, behaviourId},
     });
 }
 
 export function activateMatchDt(matchId, active) {
     const id = validateMatchId(matchId);
-    return request(`/friendly-matches/${id}/dt`, {
+    return request(`/matches/${id}/dt`, {
         method: 'POST',
-        body: { dt_active: active }
+        body: {dtActive: active},
     });
 }
