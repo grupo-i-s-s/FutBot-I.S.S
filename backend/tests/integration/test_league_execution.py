@@ -122,6 +122,9 @@ def test_scheduler_finishes_all_rounds_offline_and_resumes_saved_match(database,
                 expected = [selection["playerId"] for selection in registration.line_up["starters"]]
                 assert captured_players[:len(expected)] == expected
                 original = deepcopy(registration.line_up)
+                captured_lineups = deepcopy(row.lineup_snapshot)
+                assert captured_lineups["leagueId"] == data.id
+                assert captured_lineups["teams"][str(row.creator_id)]["lineUp"] == original
                 # Un reinicio debe conservar el checkpoint aunque la alineación ya haya cambiado.
                 registration.line_up = []
                 db.commit()
@@ -130,6 +133,7 @@ def test_scheduler_finishes_all_rounds_offline_and_resumes_saved_match(database,
             assert final["sequence"] > partial["sequence"]
             assert [player["id"] for player in final["state"]["players"]] == captured_players
             with Session(database) as db:
+                assert db.get(Matches, ids[0]).lineup_snapshot == captured_lineups
                 registration = league_repository.get_registration(db, data.id, current[0].creator_id)
                 registration.line_up = original
                 db.commit()
@@ -272,7 +276,10 @@ def test_invalid_second_match_rolls_back_entire_round(database, running_league, 
             execution.prepare_league_round(db, data.id, clock[0])
     with Session(database) as db:
         matches = league_repository.get_fixture_matches(db, data.id)
-        assert all(match.status == "SCHEDULED" and match.runtime_state is None for match in matches)
+        assert all(
+            match.status == "SCHEDULED" and match.runtime_state is None and match.lineup_snapshot is None
+            for match in matches
+        )
         monkeypatch.setattr(execution, "build_match", builder)
         assert len(execution.prepare_league_round(db, data.id, clock[0])) == 2
 

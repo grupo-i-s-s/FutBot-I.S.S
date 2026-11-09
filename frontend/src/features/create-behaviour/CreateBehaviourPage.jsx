@@ -112,7 +112,7 @@ export default function CreateBehaviourPage({ kind = 'PLAYER' }) {
                 await createDtBehaviour(name.trim(), code);
                 navigate('/mi-club', {
                     replace: true,
-                    state: { notice: 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.' },
+                    state: { tab: 'dt', notice: 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.' },
                 });
             } else {
                 await createBehaviour(name, code);
@@ -131,7 +131,7 @@ export default function CreateBehaviourPage({ kind = 'PLAYER' }) {
 
     return (
         <div className="max-w-4xl mx-auto p-6 flex flex-col">
-            {isDt && <Link to="/mi-club" className="mb-4 text-sm underline">Volver a Mi club</Link>}
+            {isDt && <Link to="/mi-club" state={{tab: 'dt'}} className="mb-4 text-sm underline">Volver a Mi club</Link>}
             <h2 className="text-2xl font-bold mb-6 text-gray-800">
                 {isDt ? 'Crear comportamiento del DT' : 'Crear Comportamiento'}
             </h2>

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.errors import AppError
 from app.repository import league_repository, matches_repository
 from app.services.league_fixture_service import PENDING_STATUSES, _utc, is_resolved_league_match
-from app.services.league_lineup_service import prepare_registration_lineup
+from app.services.league_lineup_service import capture_registration_lineup
 from app.services.match_builder_service import build_match
 
 logger = logging.getLogger(__name__)
@@ -50,17 +50,27 @@ def prepare_league_round(db: Session, league_id: int, now: datetime) -> list[int
                 return []
 
             registrations = {row.club_id: row for row in league.registrations}
+            lineups = {}
             for club_id in club_ids:
-                registration = registrations[club_id]
-                if isinstance(registration.line_up, list):
-                    prepare_registration_lineup(
-                        db, registration, league.creator_club_id, allow_legacy_reorder=True,
-                    )
+                lineups[str(club_id)] = capture_registration_lineup(
+                    db,
+                    registrations[club_id],
+                    league.creator_club_id,
+                    allow_legacy_reorder=True,
+                )
             simulations = [
                 build_match(db, match.match_id, league_teams=registrations) for match in current
             ]
             league_repository.update_round_schedule(db, round_, current, now, True)
             for match, simulation in zip(current, simulations, strict=True):
+                match.league_id = league.id
+                match.lineup_snapshot = {
+                    "leagueId": league.id,
+                    "teams": {
+                        str(club_id): lineups[str(club_id)]
+                        for club_id in (match.creator_id, match.visitor_id)
+                    },
+                }
                 snapshot = simulation.snapshot(match.sequence + 1, now.isoformat())
                 matches_repository.save_progress(db, match, simulation, snapshot, now)
             db.commit()

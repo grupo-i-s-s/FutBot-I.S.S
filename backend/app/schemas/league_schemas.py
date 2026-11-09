@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import Enum
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StrictInt, model_validator
 from typing import Optional
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from app.schemas.team_schemas import Lineup
 
@@ -176,3 +177,16 @@ class LeagueFixtureRead(BaseModel):
     league_id: int = Field(serialization_alias="leagueId")
     rounds: list[LeagueFixtureRoundRead]
     next_match: LeagueNextMatchRead | None = Field(serialization_alias="nextMatch")
+
+
+class LeagueLineupUpdate(Lineup):
+    expected_version: StrictInt = Field(alias="expectedVersion", ge=0)
+
+
+class LeagueLineupRead(BaseModel):
+    league_id: int = Field(serialization_alias="leagueId")
+    league_name: str = Field(serialization_alias="leagueName")
+    club_id: int = Field(serialization_alias="clubId")
+    version: int
+    editable: bool
+    line_up: Lineup | None = Field(serialization_alias="lineUp")

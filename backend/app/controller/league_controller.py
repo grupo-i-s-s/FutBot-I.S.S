@@ -11,11 +11,21 @@ from app.schemas.league_schemas import (
     LeagueJoinRequest,
     StartLeagueResponse,
     LeagueFixtureRead,
+    LeagueLineupRead,
+    LeagueLineupUpdate,
 )
-from app.services import league_fixture_service, league_service
+from app.services import league_fixture_service, league_service, league_lineup_service
 
 league_router = APIRouter(prefix="/leagues", tags=["leagues"])
 
+@league_router.get("/{id}/lineup", response_model=LeagueLineupRead)
+def get_league_lineup(id: int, club: CurrentClub, db: Database):
+    return league_lineup_service.get_lineup(db, id, club.id)
+
+
+@league_router.put("/{id}/lineup", response_model=LeagueLineupRead)
+def update_league_lineup( id: int, data: LeagueLineupUpdate, club: CurrentClub, db: Database):
+    return league_lineup_service.update_lineup(db, id, club.id, data)
 
 @league_router.get("/{id}/fixture", response_model=LeagueFixtureRead)
 def get_league_fixture(id: int, club: CurrentClub, db: Database):

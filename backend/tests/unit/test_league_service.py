@@ -218,6 +218,18 @@ def test_leave_rejects_without_removing_registration(db, leagues, now, case, sta
     db.commit.assert_not_called()
 
 
+def test_creator_leaving_deletes_league_without_removing_only_their_registration(db, leagues):
+    leagues.row.creator_club_id = 7
+
+    result = service.leave_league(db, 42, 7)
+
+    assert result["league_id"] == 42
+    leagues.repo.delete_league.assert_called_once_with(db, leagues.row)
+    leagues.repo.get_registration.assert_not_called()
+    leagues.repo.delete_registration.assert_not_called()
+    db.commit.assert_called_once()
+
+
 def test_leave_removes_only_current_club_registration(db, leagues):
     registration = SimpleNamespace(club_id=7)
     leagues.repo.get_registration.return_value = registration

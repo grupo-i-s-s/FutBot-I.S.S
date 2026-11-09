@@ -19,7 +19,7 @@ afterEach(() => {
 
 function Destination() {
     const location = useLocation();
-    return <p>{location.state?.notice ?? 'Catálogo de jugadores'}</p>;
+    return <p data-tab={location.state?.tab}>{location.state?.notice ?? 'Catálogo de jugadores'}</p>;
 }
 
 function renderEditor(kind) {
@@ -48,7 +48,7 @@ it('valida la plantilla del DT y guarda el comportamiento en su catálogo', asyn
 
     fireEvent.change(screen.getByLabelText('Nombre del comportamiento'), {target: {value: 'Mi táctica'}});
     fireEvent.click(screen.getByRole('button', {name: 'Guardar Comportamiento'}));
-    expect(await screen.findByText(/Comportamiento del DT creado/)).toBeInTheDocument();
+    expect(await screen.findByText(/Comportamiento del DT creado/)).toHaveAttribute('data-tab', 'dt');
     expect(fetchMock.mock.calls[1][0]).toBe('/api/dt/behaviours');
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({name: 'Mi táctica', code});
 });

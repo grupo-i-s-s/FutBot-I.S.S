@@ -24,6 +24,7 @@ import {SessionProvider, useSession} from './features/session/SessionProvider.js
 import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
 import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
+import LeagueLineupPage from './features/league-lineup/LeagueLineupPage.jsx';
 
 function SessionLoading() {
     return <main className="mx-auto max-w-md px-4 py-8">
@@ -75,6 +76,7 @@ export default function App() {
                     <Route path="/crear-liga" element={<CrearLiga />} />
                     <Route path="/crear-liga-privada" element={<CreatePrivateLeague />} />
                     <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
+                    <Route path="/leagues/:id/lineup" element={<LeagueLineupPage />} />
                     <Route path="/behaviours" element={<BehaviourList />} />
                     <Route path="/crear-comportamiento" element={<CreateBehaviourPage />} />
                     <Route path="/crear-comportamiento-dt" element={<CreateBehaviourPage key="dt" kind="DT" />} />

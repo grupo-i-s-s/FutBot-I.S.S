@@ -96,9 +96,10 @@ describe('Configuración de formación del club', () => {
         const editor = await teamEditor();
         const select = await editor.findByLabelText('Formación');
         expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
-            'Mi equipo', 'Jugadores', 'Comportamientos', 'Ligas inscriptas',
+            'Mi equipo', 'DT', 'Jugadores', 'Comportamientos', 'Ligas inscriptas',
         ]);
         expect(screen.getByRole('tab', {name: 'Mi equipo', selected: true})).toBeInTheDocument();
+        expect(editor.queryByRole('form', {name: 'Configuración del DT'})).not.toBeInTheDocument();
         expect(editor.getByRole('heading', {name: 'Titulares'})).toBeVisible();
         expect(editor.getByRole('heading', {name: 'Suplentes'})).toBeVisible();
         const player = editor.getByRole('combobox', {name: 'Jugador del lugar 1'});
@@ -193,13 +194,13 @@ describe('Configuración de formación del club', () => {
 
     it('confirma la creación y el guardado del DT con toasts de Mi club', async () => {
         const notice = 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.';
-        const entry = {pathname: '/mi-club', state: {notice}};
+        const entry = {pathname: '/mi-club', state: {tab: 'dt', notice}};
         const updatedDt = {isActive: true, activeBehaviourId: 42};
         listDtBehaviours.mockResolvedValue({items: [{id: 42, name: 'Cuidar el resultado'}]});
         updateDtSettings.mockResolvedValue(updatedDt);
         render(<MemoryRouter initialEntries={[entry]}><MyClubPage/></MemoryRouter>);
 
-        const editor = await teamEditor();
+        const editor = within(await screen.findByRole('tabpanel', {name: 'DT'}));
         expect(await saveToast(notice)).toBeVisible();
         const select = await editor.findByLabelText('Comportamiento del DT');
         fireEvent.change(select, {target: {value: '42'}});
@@ -208,6 +209,11 @@ describe('Configuración de formación del club', () => {
 
         expect(updateDtSettings).toHaveBeenCalledWith(updatedDt);
         expect(await saveToast('Configuración del DT guardada.')).toBeVisible();
+
+        fireEvent.click(screen.getByRole('tab', {name: 'Mi equipo'}));
+        fireEvent.click(screen.getByRole('tab', {name: 'DT'}));
+        expect(editor.getByLabelText('Comportamiento del DT')).toHaveValue('42');
+        expect(editor.getByRole('switch', {name: 'Activar DT para próximos partidos'})).toBeChecked();
     });
 
     it('mantiene el borrador al cambiar de pestaña y paginar el plantel', async () => {

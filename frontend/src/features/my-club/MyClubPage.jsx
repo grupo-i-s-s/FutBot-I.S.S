@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { toast } from 'sonner';
-import { Brain, CircleAlert, Shirt, Trophy, Users } from 'lucide-react';
+import { Brain, CircleAlert, ClipboardList, Shirt, Trophy, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +23,7 @@ const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-6xl space-y-6 py-8 sm:
 const SAVE_TOAST_ID = 'my-club-save';
 const CLUB_TABS = [
     {value: 'team', label: 'Mi equipo', icon: Shirt},
+    {value: 'dt', label: 'DT', icon: ClipboardList},
     {value: 'players', label: 'Jugadores', icon: Users},
     {value: 'behaviours', label: 'Comportamientos', icon: Brain},
     {value: 'leagues', label: 'Ligas inscriptas', icon: Trophy},
@@ -115,7 +116,7 @@ export default function MyClubPage() {
             <main className={PAGE_CLASSES}>
                 <ClubHeader club={club} onSettingsClick={() => setIsSettingsOpen(true)} />
 
-                <Tabs defaultValue="team" className="w-full min-w-0 gap-4">
+                <Tabs defaultValue={state?.tab === 'dt' ? 'dt' : 'team'} className="w-full min-w-0 gap-4">
                     <TabsList
                         aria-label="Secciones de Mi club"
                         className="w-full gap-2 rounded-xl border bg-card p-2 shadow-sm group-data-horizontal/tabs:h-16"
@@ -132,13 +133,16 @@ export default function MyClubPage() {
                         ))}
                     </TabsList>
 
-                    <TabsContent value="team" keepMounted className="space-y-4">
+                    <TabsContent value="team" keepMounted>
                         <TeamSettings
                             key={club.id}
                             clubId={club.id}
                             behaviours={behaviours}
                             onSaveSuccess={showSaveToast}
                         />
+                    </TabsContent>
+
+                    <TabsContent value="dt" keepMounted>
                         <DtSettings key={`dt-${club.id}`} dt={club.dt} onSaveSuccess={showSaveToast} />
                     </TabsContent>
 

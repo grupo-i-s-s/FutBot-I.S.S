@@ -36,7 +36,10 @@ function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
     return fetchMock;
 }
 
-it.each(['/ligas-disponibles', '/liga-cancelada', '/clubes', '/club/42', '/crear-comportamiento-dt'])('redirects anonymous visits to %s to /', async (path) => {
+it.each([
+    '/ligas-disponibles', '/liga-cancelada', '/clubes', '/club/42',
+    '/crear-comportamiento-dt', '/leagues/42/lineup',
+])('redirects anonymous visits to %s to /', async (path) => {
     const fetchMock = renderRoute(path, {}, () => jsonResponse(invalidSession, 401));
 
     expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
@@ -183,21 +186,33 @@ it('retains the private league creation route and its request contract', async (
     });
 });
 
-it('retains the lobby route and displays the creator registration from develop', async () => {
+it('displays the creator registration and opens the lineup from the league lobby', async () => {
     const fetchMock = renderRoute('/leagues/42/lobby', {
         '/api/leagues/42/lobby': () => jsonResponse({
+            name: 'Liga integrada', status: 'open',
             isPrivate: true, minTeams: 3, maxTeams: 8, remainingSlots: 7,
             registeredTeams: 1, isRegistered: true,
             creatorClub: {id: 7, name: 'Club creador'},
             clubs: [{id: 7, name: 'Club creador'}],
         }),
         '/api/auth/me': () => jsonResponse({clubId: club.id}),
+        '/api/leagues/42/lineup': () => jsonResponse({
+            leagueId: 42, leagueName: 'Liga integrada', clubId: club.id,
+            editable: true, version: 0, lineUp: null,
+        }),
+        '/api/players?page=1&limit=100': () => jsonResponse({items: [], totalPages: 1}),
+        '/api/behaviours?kind=PLAYER': () => jsonResponse({items: []}),
+        '/api/catalogs/formations': () => jsonResponse({items: []}),
     });
     expect(await screen.findByText('Club creador')).toBeInTheDocument();
     expect(screen.getByText('Privada')).toBeInTheDocument();
     expect(screen.getByText('Creador')).toBeInTheDocument();
     expect(screen.getByText('Tu club está inscripto.')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/leagues/42/lobby', expect.anything());
+
+    fireEvent.click(screen.getByRole('link', {name: 'Ver plantel'}));
+    expect(await screen.findByRole('heading', {name: 'Plantel de Liga integrada'})).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/leagues\/42\/lineup$/);
 });
 
 it('shows the cancellation page when an authenticated club opens a deleted league lobby', async () => {
