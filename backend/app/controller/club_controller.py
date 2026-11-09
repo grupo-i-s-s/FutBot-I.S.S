@@ -9,7 +9,7 @@ from app.schemas.club_schemas import (
     ClubRead,
     ClubUpdate,
 )
-from app.schemas.pagination import Page
+from app.schemas.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page, validate_page_offset
 from app.services import club_services as club_service
 from typing import Annotated
 
@@ -23,8 +23,9 @@ def get_clubs(
     db: Database,
     name: str | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 20,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
 ):
+    validate_page_offset(page, page_size)
     result = club_service.list_clubs(db, name=name, user_id=identity.user_id, page=page, page_size=page_size)
     return Page[ClubPublicRead](items=result.items, page=page, page_size=page_size, total=result.total)
 
@@ -37,9 +38,10 @@ def get_legacy_clubs(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[
         int,
-        Query(alias="pageSize", ge=1, le=100),
-    ] = 20,
+        Query(alias="pageSize", ge=1, le=MAX_PAGE_SIZE),
+    ] = DEFAULT_PAGE_SIZE,
 ):
+    validate_page_offset(page, page_size)
     return club_service.list_clubs(
         db,
         name=name,

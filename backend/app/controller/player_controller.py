@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status, Query
 
 from app.dependencies import CurrentClub, Database
-from app.schemas.pagination import Page
+from app.schemas.pagination import MAX_PAGE_SIZE, Page, validate_page_offset
 from app.schemas.player import (
     PlayerBehaviourUpdate,
     PlayerCreate,
@@ -18,11 +18,12 @@ def list_players(
     club: CurrentClub,
     db: Database,
     page: int = Query(1, ge=1, description="Número de página"),
-    page_size: int | None = Query(None, alias="pageSize", ge=1, le=100),
-    limit: int = Query(9, ge=1, deprecated=True),
+    page_size: int | None = Query(None, alias="pageSize", ge=1, le=MAX_PAGE_SIZE),
+    limit: int = Query(9, ge=1, le=MAX_PAGE_SIZE, deprecated=True),
     search: str | None = Query(None, min_length=1),
 ):
     size = page_size if page_size is not None else limit
+    validate_page_offset(page, size)
     players, total = player_service.get_players(db=db, club_id=club.id, page=page, limit=size, search=search)
     result = Page[PlayerRead](items=players, page=page, page_size=size, total=total)
     if page_size is not None:

@@ -2,8 +2,22 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field, computed_field
 
+from app.errors import AppError
 
+
+DEFAULT_PAGE_SIZE = 20
+MAX_PAGE_SIZE = 100
+MAX_PAGE_OFFSET = 2**63 - 1  # PostgreSQL recibe OFFSET como bigint.
 Item = TypeVar("Item")
+
+
+def validate_page_offset(page: int, page_size: int) -> None:
+    if (page - 1) * page_size > MAX_PAGE_OFFSET:
+        raise AppError(
+            "VALIDATION_ERROR",
+            "Revisá los datos ingresados.",
+            {"page": "El número de página supera el máximo permitido para ese tamaño de página."},
+        )
 
 
 class Page(BaseModel, Generic[Item]):

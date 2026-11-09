@@ -12,6 +12,7 @@ from app.schemas.league_schemas import (
     LeagueListResponse,
     LeagueRead,
 )
+from app.schemas.pagination import DEFAULT_PAGE_SIZE
 from app.schemas.team_schemas import Lineup
 from app.security import hash_password, verify_password
 from app.services.league_lineup_service import (
@@ -331,7 +332,7 @@ def list_leagues(
     normalized_name = name.strip() if name is not None else None
     if page is not None or limit is not None:
         page = 1 if page is None else page
-        limit = 20 if limit is None else limit
+        limit = DEFAULT_PAGE_SIZE if limit is None else limit
     leagues, total = league_repository.get_available_leagues(
         db, club_id, name=normalized_name, page=page, limit=limit,
     )

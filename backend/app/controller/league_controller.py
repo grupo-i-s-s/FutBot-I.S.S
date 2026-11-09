@@ -15,7 +15,7 @@ from app.schemas.league_schemas import (
     LeagueLineupRead,
     LeagueLineupUpdate,
 )
-from app.schemas.pagination import Page
+from app.schemas.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page, validate_page_offset
 from app.services import league_fixture_service, league_service, league_lineup_service
 
 league_router = APIRouter(prefix="/leagues", tags=["leagues"])
@@ -120,10 +120,12 @@ def get_leagues(
         db: Database,
         name: str | None = None,
         page: int | None = Query(None, ge=1),
-        page_size: int | None = Query(None, alias="pageSize", ge=1, le=100),
-        limit: int | None = Query(None, ge=1, le=100, deprecated=True),
+        page_size: int | None = Query(None, alias="pageSize", ge=1, le=MAX_PAGE_SIZE),
+        limit: int | None = Query(None, ge=1, le=MAX_PAGE_SIZE, deprecated=True),
 ):
     size = page_size if page_size is not None else limit
+    if page is not None:
+        validate_page_offset(page, size if size is not None else DEFAULT_PAGE_SIZE)
     result = league_service.list_leagues(db=db, club_id=club.id, name=name, page=page, limit=size)
     if page_size is None:
         return result

@@ -13,7 +13,7 @@ from app.schemas.matches_schemas import (
     JoinMatchResponse,
     MatchStateResponse,
 )
-from app.schemas.pagination import Page
+from app.schemas.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page, validate_page_offset
 from app.services import matches_service
 
 matches_router = APIRouter(prefix="/friendly-matches", tags=["friendly-matches"])
@@ -32,8 +32,9 @@ def create_friendly_match(
 def list_friendly_matches(
     db: Database, club: CurrentClub, creator_name: str | None = Query(default=None, alias="creatorName"),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, alias="pageSize", ge=1, le=100),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, alias="pageSize", ge=1, le=MAX_PAGE_SIZE),
 ):
+    validate_page_offset(page, page_size)
     return Page[FriendlyMatchResponse](
         **matches_service.list_available(db, club.id, creator_name=creator_name, page=page, page_size=page_size)
     )
