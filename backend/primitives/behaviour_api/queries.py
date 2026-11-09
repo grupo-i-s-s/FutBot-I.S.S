@@ -123,6 +123,7 @@ class Queries:
     def closest_opponent(self) -> Point | None:
         return self._closest_position(self._opponents())
 
+
 class DtQueries:
     def __init__(self, observation: DtObservation):
         self.obs = observation
@@ -136,12 +137,11 @@ class DtQueries:
     def losing(self) -> bool:
         return self.obs.my_goals < self.obs.rival_goals
 
-    def time_played(self) -> bool:
-        return self.obs.time_played / 60                # Lo paso a segundos para que sea mas facil para el usuario
-    
+    def time_played(self) -> float:
+        return self.obs.time_played
+
     def losing_by(self, goals: int) -> bool:
-            return (self.obs.rival_goals - self.obs.my_goals >= goals)
+        return self.obs.rival_goals - self.obs.my_goals >= goals
 
     def winning_by(self, goals: int) -> bool:
-            return (self.obs.my_goals - self.obs.rival_goals >= goals)
-    
+        return self.obs.my_goals - self.obs.rival_goals >= goals

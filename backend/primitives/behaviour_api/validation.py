@@ -5,7 +5,7 @@ import signal
 import subprocess
 import sys
 import resource
-from dataclasses import fields
+from dataclasses import fields, replace
 from math import isfinite
 from pathlib import Path
 from types import SimpleNamespace
@@ -86,36 +86,35 @@ def validate_imports(tree: ast.Module, kind: str = "PLAYER") -> list[dict]:
     if kind == "DT":
         allowed_imports = {
             "dt_behaviour": {"DtAction", "DtObservation"},
+            "primitives.dt_behaviour": {"DtAction", "DtObservation"},
             "primitives.behaviours": {"BehaviourMode"},
         }
     else:
         allowed_imports = {"primitives.behaviours": {"Action", "Observation"}}
-        diagnostics = []
+    diagnostics = []
 
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                invalid = True
-            elif isinstance(node, ast.ImportFrom):
-                invalid = (
-                    node.level != 0
-                    or node.module not in allowed_imports
-                    or any(
-                        name.name not in allowed_imports[node.module]
-                        for name in node.names
-                    )
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            invalid = True
+        elif isinstance(node, ast.ImportFrom):
+            invalid = (
+                node.level != 0
+                or node.module not in allowed_imports
+                or any(
+                    name.name not in allowed_imports[node.module]
+                    for name in node.names
                 )
-            else:
-                continue
+            )
+        else:
+            continue
 
-            if invalid:
-                diagnostics.append(
-                    {
-                        "line": node.lineno,
-                        "column": node.col_offset + 1,
-                        "code": "IMPORT_NOT_ALLOWED",
-                        "message": ("La importacion no es valida."),
-                    }
+        if invalid:
+            diagnostics.append(
+                _diagnostic(
+                    "IMPORT_NOT_ALLOWED", "La importación no es válida.",
+                    node.lineno, node.col_offset + 1,
                 )
+            )
 
     return diagnostics
 
@@ -136,34 +135,6 @@ def is_valid_target(target, width: float, height: float) -> bool:
 
 
 def validate_action(action: object, width: float, height: float) -> list[dict]:
-    if isinstance(action, DtAction):
-        if not isinstance(action.tactical_changes, list):
-            return [
-                _diagnostic("INVALID_DT_ACTION", "tactical_changes debe ser una lista.")
-            ]
-
-        for cambio in action.tactical_changes:
-            if (
-                type(cambio) is not dict
-                or "player_id" not in cambio
-                or "mode" not in cambio
-            ):
-                return [
-                    _diagnostic(
-                        "INVALID_TACTICAL_CHANGE",
-                        "Cada cambio debe tener player_id y mode.",
-                    )
-                ]
-
-            if type(cambio["mode"]) is not BehaviourMode:
-                return [
-                    _diagnostic(
-                        "INVALID_BEHAVIOUR_MODE",
-                        "El modo debe ser un BehaviourMode (BALANCED, OFFENSIVE, DEFENSIVE).",
-                    )
-                ]
-        return []
-
     if type(action) not in (Action, Command):
         return [
             _diagnostic(
@@ -216,6 +187,50 @@ def validate_action(action: object, width: float, height: float) -> list[dict]:
     return []
 
 
+def validate_dt_action(action: object, observation: DtObservation) -> list[dict]:
+    if (
+        type(action) is not DtAction
+        or type(action.tactical_changes) is not list
+        or type(action.substitutions) is not list
+    ):
+        return [_diagnostic("INVALID_DT_ACTION", "El DT debe devolver una DtAction con listas de cambios.")]
+
+    players = set(observation.players_id)
+    changed_players = set()
+    for change in action.tactical_changes:
+        if type(change) is not dict or change.keys() != {"player_id", "mode"}:
+            return [_diagnostic("INVALID_TACTICAL_CHANGE", "Cada cambio debe tener player_id y mode.")]
+
+        player_id = change["player_id"]
+        if type(player_id) is not int or player_id not in players or player_id in changed_players:
+            return [_diagnostic("INVALID_TACTICAL_CHANGE", "Indicá un jugador de tu equipo en cancha una sola vez.")]
+        changed_players.add(player_id)
+
+        if type(change["mode"]) is not BehaviourMode:
+            return [_diagnostic("INVALID_BEHAVIOUR_MODE", "Usá BehaviourMode.BALANCED, OFFENSIVE o DEFENSIVE.")]
+
+    if not action.substitutions:
+        return []
+
+    if not observation.can_substitute or len(action.substitutions) != 1:
+        return [_diagnostic("INVALID_DT_SUBSTITUTION", "Solo se permite un cambio de jugador durante una pausa habilitada.")]
+
+    change = action.substitutions[0]
+    if type(change) is not dict or change.keys() != {"outgoing_player_id", "incoming_player_id"}:
+        return [_diagnostic("INVALID_DT_SUBSTITUTION", "La sustitución necesita outgoing_player_id e incoming_player_id.")]
+
+    outgoing = change["outgoing_player_id"]
+    incoming = change["incoming_player_id"]
+    if (
+        type(outgoing) is not int or outgoing not in players
+        or type(incoming) is not int or incoming not in observation.substitutes_id
+        or outgoing == incoming
+    ):
+        return [_diagnostic("INVALID_DT_SUBSTITUTION", "El saliente debe estar en cancha y el entrante en el banco de tu equipo.")]
+
+    return []
+
+
 def validate_access(tree: ast.Module, kind: str = "PLAYER") -> list[dict]:
     allowed = (
         ast.Module,
@@ -255,7 +270,8 @@ def validate_access(tree: ast.Module, kind: str = "PLAYER") -> list[dict]:
         ast.cmpop,
     )
     if kind == "DT":
-        readable = {field.name for field in fields(DtObservation)}
+        allowed += (ast.Dict, ast.ListComp, ast.comprehension)
+        readable = {field.name for field in fields(DtObservation)} | set(BehaviourMode.__members__)
     else:
         readable = {field.name for field in fields(Observation)}
     forbidden = {
@@ -404,7 +420,7 @@ def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
             Action=Action, Observation=Observation, BehaviourMode=BehaviourMode
         )
 
-    elif name == "dt_behaviour":
+    elif name in {"dt_behaviour", "primitives.dt_behaviour"}:
         if any(item not in {"DtAction", "DtObservation"} for item in fromlist):
             raise ImportError("Importación no permitida desde dt_behaviour.")
         return SimpleNamespace(DtAction=DtAction, DtObservation=DtObservation)
@@ -464,6 +480,19 @@ def _samples():
                 yield queries, observation
 
 
+def _dt_samples():
+    for score in (0, 1, 2):
+        for time, pause_index in ((0, None), (30, 1), (45, 2), (60, 3), (90, None)):
+            observation = DtObservation(
+                time_played=time, my_goals=score, rival_goals=1,
+                players_id=[1, 2, 3], substitutes_id=[4, 5, 6], pause_index=pause_index,
+            )
+            yield observation
+            yield replace(observation, substitutes_id=[])
+            if pause_index is not None:
+                yield replace(observation, can_substitute=True)
+
+
 def _validation_worker(kind: str = "PLAYER") -> None:
     source = sys.stdin.read(65_537)
 
@@ -486,33 +515,9 @@ def _validation_worker(kind: str = "PLAYER") -> None:
         program = compile(source, "<behaviour>", "exec")
 
         if kind == "DT":
-            obs_prueba = DtObservation(
-                time_played=10, my_goals=1, rival_goals=0, players_id=[1, 2, 3]
-            )
-            queries = DtQueries(obs_prueba)
-            query_registry = build_dt_registry(queries)
-            namespace = {
-                "__builtins__": {
-                    "__import__": _safe_import,
-                    "abs": abs,
-                    "min": min,
-                    "max": max,
-                    "len": len,
-                    "range": range,
-                    "round": round,
-                    "int": int,
-                    "float": float,
-                    "bool": bool,
-                },
-                **query_registry,
-            }
-
-            exec(program, namespace)
-
-            action = namespace["decide"](obs_prueba)
-            diagnostics = validate_action(action, 100, 60)
-            if not diagnostics:
-                diagnostics = []
+            for observation in _dt_samples():
+                execute_dt_once(program, observation)
+            diagnostics = []
         else:
 
             for queries, observation in _samples():
@@ -542,6 +547,8 @@ def _validation_worker(kind: str = "PLAYER") -> None:
             else:
                 diagnostics = []
 
+    except ExecutionError as error:
+        diagnostics = error.diagnostics
     except MemoryError:
         diagnostics = [
             _diagnostic(
@@ -573,7 +580,7 @@ def validate_runtime(code: str, kind: str = "PLAYER") -> list[dict]:
     bootstrap = (
         "import sys; sys.path.insert(0, sys.argv[1]); "
         "from primitives.behaviour_api.validation import _validation_worker;"
-        f"_validation_worker('{kind}')"
+        "_validation_worker(sys.argv[2])"
     )
 
     try:
@@ -585,6 +592,7 @@ def validate_runtime(code: str, kind: str = "PLAYER") -> list[dict]:
                 "-c",
                 bootstrap,
                 str(Path(__file__).resolve().parents[2]),
+                kind,
             ],
             input=code,
             capture_output=True,
@@ -855,11 +863,14 @@ def execute_dt_once(
     }
 
     exec(compiled, namespace)
-    action = namespace["decide"](observation)
-
-    diagnostics = validate_action(
-        action, 100, 60  
+    program_observation = replace(
+        observation,
+        players_id=observation.players_id.copy(),
+        substitutes_id=observation.substitutes_id.copy(),
     )
+    action = namespace["decide"](program_observation)
+
+    diagnostics = validate_dt_action(action, observation)
 
     if diagnostics:
         raise ExecutionError(diagnostics)
