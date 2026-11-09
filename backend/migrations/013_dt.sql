@@ -1,0 +1,17 @@
+BEGIN;
+
+CREATE TABLE dt_behaviours (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(30) NOT NULL,
+    code TEXT NOT NULL
+);
+
+CREATE TABLE dt (
+    id SERIAL PRIMARY KEY,
+    club_id INTEGER NOT NULL UNIQUE REFERENCES clubs(id) ON DELETE CASCADE,
+    is_active BOOLEAN NOT NULL DEFAULT false,
+    behaviour_id INTEGER REFERENCES dt_behaviours(id) ON DELETE SET NULL
+);
+
+COMMIT;
