@@ -44,7 +44,6 @@ it.each([leagueConflict, {
     fields: {conflictStart, conflictEnd},
 }])('muestra la franja ocupada al unirse a un amistoso ($code)', async error => {
     vi.stubGlobal('fetch', vi.fn(async (url) => {
-        if (url === '/api/friendly-matches/me') return jsonResponse([]);
         if (url === '/api/friendly-matches/42/join') return jsonResponse({error}, 409);
         return jsonResponse({
             items: [{matchId: 42, creatorClubName: 'Club local', startDateTime: conflictStart}],

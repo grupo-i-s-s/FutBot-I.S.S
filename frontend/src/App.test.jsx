@@ -90,7 +90,8 @@ it.each(['/home', '/login'])('redirects %s to the authenticated home with its fi
         }),
     });
 
-    expect(await screen.findByLabelText('Buscar por nombre del club')).toHaveValue('River');
+    const listing = await screen.findByRole('link', {name: 'Ver amistosos disponibles'});
+    expect(listing).toHaveAttribute('href', `/partidos-disponibles${search}${hash}`);
     const location = screen.getByTestId('current-path');
     expect(location).toHaveTextContent(/^\/inicio$/);
     expect(location).toHaveAttribute('data-search', search);

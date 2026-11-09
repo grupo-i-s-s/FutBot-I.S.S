@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { Brain, CircleAlert, ClipboardList, Shirt, Trophy, Users } from 'lucide-react';
+import { Brain, CircleAlert, ClipboardList, Shirt, Swords, Trophy, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,6 +13,7 @@ import ClubSettingsDialog from './components/ClubSettingsDialog';
 import DtSettings from './components/DtSettings';
 import TeamSettings from './components/TeamSettings';
 import LeagueList from './components/LeagueList';
+import MyFriendlyMatches from './components/MyFriendlyMatches';
 import PlayerList from './components/PlayerList';
 import { useMyClub } from './hooks/useMyClub';
 import { updateMyClub } from './api';
@@ -27,10 +28,16 @@ const CLUB_TABS = [
     {value: 'behaviours', label: 'Comportamientos', icon: Brain},
     {value: 'dt', label: 'DT', icon: ClipboardList},
     {value: 'leagues', label: 'Ligas inscriptas', icon: Trophy},
+    {value: 'amistosos', label: 'Mis amistosos', icon: Swords},
 ];
 
 export default function MyClubPage() {
-    const { key: locationKey, state } = useLocation();
+    const { key: locationKey, state, search, hash } = useLocation();
+    const navigate = useNavigate();
+    const searchParams = new URLSearchParams(search);
+    const requestedTab = searchParams.get('tab');
+    const activeTab = CLUB_TABS.find(({value}) => value === requestedTab)?.value
+        ?? (state?.tab === 'dt' ? 'dt' : 'team');
     const mounted = useRef(false);
     const [page, setPage] = useState(1);
     const {
@@ -57,6 +64,12 @@ export default function MyClubPage() {
 
     function showSaveToast(message) {
         if (mounted.current) toast.success(message, {id: SAVE_TOAST_ID});
+    }
+
+    function handleTabChange(value) {
+        if (value === 'team') searchParams.delete('tab');
+        else searchParams.set('tab', value);
+        navigate({search: searchParams.toString(), hash}, {replace: true});
     }
 
     async function handleSettingsSave(changes) {
@@ -116,16 +129,16 @@ export default function MyClubPage() {
             <main className={PAGE_CLASSES}>
                 <ClubHeader club={club} onSettingsClick={() => setIsSettingsOpen(true)} />
 
-                <Tabs defaultValue={state?.tab === 'dt' ? 'dt' : 'team'} className="w-full min-w-0 gap-4">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full min-w-0 gap-4">
                     <TabsList
                         aria-label="Secciones de Mi club"
-                        className="w-full gap-2 rounded-xl border bg-card p-2 shadow-sm group-data-horizontal/tabs:h-16"
+                        className="w-full justify-start gap-2 overflow-x-auto rounded-xl border bg-card p-2 shadow-sm group-data-horizontal/tabs:h-16"
                     >
                         {CLUB_TABS.map(({value, label, icon: Icon}) => (
                             <TabsTrigger
                                 key={value}
                                 value={value}
-                                className="gap-2 rounded-lg px-3 font-semibold text-foreground/80 hover:bg-accent data-active:bg-primary data-active:text-primary-foreground data-active:hover:bg-primary data-active:hover:text-primary-foreground dark:data-active:bg-primary dark:data-active:text-primary-foreground"
+                                className="min-w-max gap-2 rounded-lg px-3 font-semibold text-foreground/80 hover:bg-accent data-active:bg-primary data-active:text-primary-foreground data-active:hover:bg-primary data-active:hover:text-primary-foreground dark:data-active:bg-primary dark:data-active:text-primary-foreground"
                             >
                                 <Icon className="size-[18px]" aria-hidden="true" />
                                 {label}
@@ -165,6 +178,10 @@ export default function MyClubPage() {
 
                     <TabsContent value="leagues">
                         <LeagueList leagues={leagues} />
+                    </TabsContent>
+
+                    <TabsContent value="amistosos">
+                        <MyFriendlyMatches />
                     </TabsContent>
                 </Tabs>
 

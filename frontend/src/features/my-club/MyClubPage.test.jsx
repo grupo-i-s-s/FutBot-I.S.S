@@ -1,8 +1,9 @@
 import {act, cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
-import {MemoryRouter} from 'react-router';
+import {Link, MemoryRouter, Route, Routes, useLocation} from 'react-router';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import MyClubPage from './MyClubPage';
+import {listMyFriendlyMatches} from '../friendly-matches/api.js';
 import {
     getDefaultTeam, getFormations, getMyClub, getPlayersByIds, listBehaviours, listDtBehaviours,
     listMyLeagues, listPlayers, updateDefaultTeam, updateDtSettings, updateMyClub,
@@ -15,6 +16,8 @@ vi.mock('./api', () => ({
     listBehaviours: vi.fn(), listMyLeagues: vi.fn(), listPlayers: vi.fn(),
     listDtBehaviours: vi.fn(), updateDtSettings: vi.fn(),
 }));
+
+vi.mock('../friendly-matches/api.js', () => ({listMyFriendlyMatches: vi.fn()}));
 
 const club = {id: 7, name: 'Club de prueba', avatar: 'shield', friendlyAvailable: true};
 const behaviours = [{id: 10, name: 'Equilibrado'}, {id: 11, name: 'Ofensivo'}];
@@ -59,6 +62,11 @@ async function chooseComboboxOption(input, query, name) {
     expect(input).toHaveValue(name);
 }
 
+function MatchReturnLink() {
+    const {state} = useLocation();
+    return <Link to={state.returnTo}>Volver a amistosos</Link>;
+}
+
 describe('Configuración de formación del club', () => {
     beforeEach(() => {
         vi.resetAllMocks();
@@ -96,7 +104,7 @@ describe('Configuración de formación del club', () => {
         const editor = await teamEditor();
         const select = await editor.findByLabelText('Formación');
         expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
-            'Mi equipo', 'Jugadores', 'Comportamientos', 'DT', 'Ligas inscriptas',
+            'Mi equipo', 'Jugadores', 'Comportamientos', 'DT', 'Ligas inscriptas', 'Mis amistosos',
         ]);
         expect(screen.getByRole('tab', {name: 'Mi equipo', selected: true})).toBeInTheDocument();
         expect(editor.queryByRole('form', {name: 'Configuración del DT'})).not.toBeInTheDocument();
@@ -150,6 +158,43 @@ describe('Configuración de formación del club', () => {
         expect(screen.queryByText('Equipo guardado correctamente.')).not.toBeInTheDocument();
         expect(reopened.getByRole('combobox', {name: 'Jugador del lugar 1'})).toHaveValue('Jugador 10');
         expect(reopened.getByRole('combobox', {name: 'Comportamiento del lugar 1'})).toHaveValue('Ofensivo');
+    });
+
+    it('carga Mis amistosos al seleccionar la pestaña y vuelve a ella desde un partido', async () => {
+        listMyFriendlyMatches.mockResolvedValue([{
+            matchId: 22,
+            creatorClubName: 'Club rival',
+            visitorClubName: club.name,
+            startDateTime: '2026-11-09T21:30:00Z',
+            status: 'SCHEDULED',
+            isCreator: false,
+        }]);
+        render(
+            <MemoryRouter initialEntries={['/mi-club']}>
+                <Routes>
+                    <Route path="/mi-club" element={<MyClubPage />} />
+                    <Route path="/partidos/:matchId" element={<MatchReturnLink />} />
+                </Routes>
+            </MemoryRouter>,
+        );
+        const tab = await screen.findByRole('tab', {name: 'Mis amistosos'});
+        expect(listMyFriendlyMatches).not.toHaveBeenCalled();
+        fireEvent.click(tab);
+
+        const matches = within(await screen.findByRole('tabpanel', {name: 'Mis amistosos'}));
+        const match = await matches.findByRole('link', {name: 'Ver partido 22'});
+        expect(match).toHaveAttribute('href', '/partidos/22');
+        expect(matches.getByText('Club rival vs. Club de prueba')).toBeVisible();
+        expect(matches.getByText('Programado')).toBeVisible();
+        expect(matches.getByText('Tu club es visitante')).toBeVisible();
+        expect(listMyFriendlyMatches).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(match);
+        const back = screen.getByRole('link', {name: 'Volver a amistosos'});
+        expect(back).toHaveAttribute('href', '/mi-club?tab=amistosos');
+        fireEvent.click(back);
+        expect(await screen.findByRole('tab', {name: 'Mis amistosos', selected: true})).toBeVisible();
+        expect(await screen.findByRole('link', {name: 'Ver partido 22'})).toBeVisible();
     });
 
     it('intercambia un titular y un suplente con sus comportamientos y guarda los seis lugares en orden', async () => {

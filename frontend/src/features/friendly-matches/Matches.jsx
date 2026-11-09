@@ -1,62 +1,32 @@
-import {useEffect, useState} from 'react';
+import {useState} from 'react';
+import {CalendarDays, CircleAlert, LogIn, Plus, RefreshCw, Swords} from 'lucide-react';
 import {Link, useLocation, useNavigate} from 'react-router';
-import {Button} from '@/components/ui/button';
-import {Card} from '@/components/ui/card';
-import {joinFriendlyMatch, listMyFriendlyMatches} from './api';
-import {friendlyMatchError} from './scheduleConflict.js';
-import {useFriendlyMatches} from './hooks/useFriendlyMatches.js';
-import FriendlyMatchSearch from './components/FriendlyMatchSearch.jsx';
-import './Matches.css';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
+import {Avatar, AvatarFallback} from '@/components/ui/avatar';
+import {Button, buttonVariants} from '@/components/ui/button';
+import {Card, CardContent} from '@/components/ui/card';
+import {Empty, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
+import {Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item';
+import {Skeleton} from '@/components/ui/skeleton';
 import {routePath, routes} from '@/routes.js';
-
-const statusLabels = {
-    WAITING: 'Esperando rival',
-    WAITING_OPPONENT: 'Esperando rival',
-    SCHEDULED: 'Programado',
-    RUNNING: 'En juego',
-    FINISHED: 'Finalizado',
-    CANCELLED: 'Cancelado',
-};
-
-function formatDate(value) {
-    return new Date(value).toLocaleString('es-AR');
-}
+import {joinFriendlyMatch} from './api.js';
+import FriendlyMatchSearch, {FriendlyMatchPagination} from './components/FriendlyMatchSearch.jsx';
+import {useFriendlyMatches} from './hooks/useFriendlyMatches.js';
+import {friendlyMatchError} from './scheduleConflict.js';
 
 export default function MatchesPage() {
-    const [misPartidos, setMisPartidos] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState('');
     const [joinError, setJoinError] = useState('');
     const [joiningId, setJoiningId] = useState(null);
-    const [refresh, setRefresh] = useState(0);
-    const search = useFriendlyMatches(refresh);
+    const search = useFriendlyMatches();
     const navigate = useNavigate();
     const location = useLocation();
     const returnTo = location.pathname + location.search + location.hash;
-
-    useEffect(() => {
-        const controller = new AbortController();
-
-        async function cargarPartidos() {
-            setLoading(true);
-            setLoadError('');
-            try {
-                const propios = await listMyFriendlyMatches(controller.signal);
-                if (controller.signal.aborted) return;
-                setMisPartidos(propios);
-            } catch (error) {
-                if (!controller.signal.aborted) setLoadError(error.message);
-            } finally {
-                if (!controller.signal.aborted) setLoading(false);
-            }
-        }
-
-        cargarPartidos();
-        return () => controller.abort();
-    }, [refresh]);
+    const joining = joiningId !== null;
+    const {items, total} = search.result;
 
     async function handleJoinMatch(matchId) {
-        if (joiningId !== null) return;
+        if (joining) return;
+
         setJoiningId(matchId);
         setJoinError('');
         try {
@@ -64,93 +34,136 @@ export default function MatchesPage() {
             navigate(routePath(routes.match, {matchId: response.matchId}), {state: {returnTo}});
         } catch (error) {
             setJoinError(friendlyMatchError(error, 'No se pudo completar la inscripción al partido.'));
-            setRefresh((value) => value + 1);
+            search.reload();
         } finally {
             setJoiningId(null);
         }
     }
 
     return (
-        <main className="Friendly-Matches">
-            <Card className="main-card">
-                <h1 className="page-title">Amistosos</h1>
-                <Button
-                    variant="outline"
-                    disabled={loading || search.loading || joiningId !== null}
-                    onClick={() => setRefresh((value) => value + 1)}
-                >
-                    {loadError ? 'Reintentar' : 'Actualizar'}
-                </Button>
-                {loading && <p role="status">Cargando partidos…</p>}
-                {loadError && <p role="alert">{loadError}</p>}
-                {joinError && <p role="alert">{joinError}</p>}
-
-                {!loading && !loadError && (
-                    <>
-                        <section className="matches-section" aria-labelledby="my-matches-title">
-                            <h2 id="my-matches-title">Mis amistosos</h2>
-                            {misPartidos.length === 0 && (
-                                <p role="status">Todavía no creaste ni te uniste a un amistoso.</p>
-                            )}
-                            <div className="container">
-                                {misPartidos.map((partido) => (
-                                    <div key={partido.matchId} className="match-box">
-                                        <div className="match-details">
-                                            <span className="match-title">
-                                                {partido.creatorClubName} vs. {partido.visitorClubName ?? 'Esperando rival'}
-                                            </span>
-                                            <span className="match-date">{formatDate(partido.startDateTime)}</span>
-                                            <span className="match-date">
-                                                {statusLabels[partido.status] ?? partido.status}
-                                                {' · '}{partido.isCreator ? 'Creado por tu club' : 'Tu club es visitante'}
-                                            </span>
-                                        </div>
-                                        <Link
-                                            className="join-button"
-                                            to={routePath(routes.match, {matchId: partido.matchId})}
-                                            state={{returnTo}}
-                                            aria-label={`Ver partido ${partido.matchId}`}
-                                        >
-                                            Ver partido
-                                        </Link>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
-                    </>
-                )}
-                <section className="matches-section" aria-labelledby="available-matches-title">
-                    <h2 id="available-matches-title">Amistosos disponibles</h2>
-                    <FriendlyMatchSearch search={search} disabled={joiningId !== null}/>
-                    {search.loading && <p role="status">Buscando amistosos…</p>}
-                    {search.error && <p role="alert">{search.error}
-                        <Button variant="outline" onClick={search.reload}>Reintentar búsqueda</Button>
-                    </p>}
-                    {!search.loading && !search.error && search.result.items.length === 0 && (
-                        <p role="status">{search.result.total > 0 ? 'No hay partidos en esta página.'
-                            : search.creatorName ? `No se encontraron amistosos para "${search.creatorName}".`
-                                : 'No hay partidos disponibles.'}</p>
-                    )}
-                    <div className="container">
-                        {!search.loading && !search.error && search.result.items.map((partido) => (
-                            <div key={partido.matchId} className="match-box">
-                                <div className="match-details">
-                                    <span className="match-title">{partido.creatorClubName}</span>
-                                    <span className="match-date">{formatDate(partido.startDateTime)}</span>
-                                </div>
-                                <Button
-                                    className="join-button"
-                                    disabled={joiningId !== null}
-                                    onClick={() => handleJoinMatch(partido.matchId)}
-                                >
-                                    {joiningId === partido.matchId ? 'Uniéndose…' : 'Unirse'}
-                                </Button>
-                            </div>
-                        ))}
+        <main className="mx-auto w-[calc(100%_-_32px)] max-w-6xl space-y-6 py-8 sm:py-12">
+            <Card>
+                <CardContent className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex min-w-0 items-center gap-4">
+                        <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                            <Swords className="size-6" aria-hidden="true"/>
+                        </span>
+                        <div className="space-y-1">
+                            <h1 className="text-2xl font-bold sm:text-3xl">Amistosos</h1>
+                            <p className="text-muted-foreground">Buscá un rival para tu club o creá un partido.</p>
+                        </div>
                     </div>
-                </section>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                            to={{pathname: routes.myClub, search: '?tab=amistosos'}}
+                            className={buttonVariants({variant: 'outline', size: 'lg'})}
+                        >
+                            Mis amistosos
+                        </Link>
+                        <Link to={routes.createMatch} className={buttonVariants({size: 'lg'})}>
+                            <Plus data-icon="inline-start" aria-hidden="true"/>
+                            Crear amistoso
+                        </Link>
+                    </div>
+                </CardContent>
             </Card>
+
+            <section aria-labelledby="available-matches-title">
+                <Card>
+                    <CardContent className="space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h2 id="available-matches-title" className="text-lg font-bold">Amistosos disponibles</h2>
+                            <Button type="button" variant="outline" disabled={search.loading || joining}
+                                    onClick={search.reload}>
+                                <RefreshCw data-icon="inline-start" aria-hidden="true"/>
+                                Actualizar
+                            </Button>
+                        </div>
+                        <FriendlyMatchSearch search={search} disabled={joining}/>
+
+                        {joinError && (
+                            <Alert variant="destructive">
+                                <CircleAlert aria-hidden="true"/>
+                                <AlertTitle>No pudiste unirte al partido</AlertTitle>
+                                <AlertDescription>{joinError}</AlertDescription>
+                            </Alert>
+                        )}
+
+                        {search.loading && (
+                            <div role="status">
+                                <span className="sr-only">Buscando amistosos…</span>
+                                <div className="space-y-2.5" aria-hidden="true">
+                                    <Skeleton className="h-16 w-full"/>
+                                    <Skeleton className="h-16 w-full"/>
+                                    <Skeleton className="h-16 w-full"/>
+                                </div>
+                            </div>
+                        )}
+
+                        {search.error && (
+                            <Alert variant="destructive">
+                                <CircleAlert aria-hidden="true"/>
+                                <AlertTitle>No se pudieron cargar los amistosos</AlertTitle>
+                                <AlertDescription>{search.error}</AlertDescription>
+                                <div className="col-start-2 pt-2">
+                                    <Button type="button" variant="outline" onClick={search.reload}>Reintentar búsqueda</Button>
+                                </div>
+                            </Alert>
+                        )}
+
+                        {!search.loading && !search.error && (
+                            items.length === 0 ? (
+                                <Empty className="border" role="status">
+                                    <EmptyHeader>
+                                        <EmptyMedia variant="icon"><Swords aria-hidden="true"/></EmptyMedia>
+                                        <EmptyTitle>{total > 0 ? 'No hay partidos en esta página.'
+                                            : search.creatorName ? `No se encontraron amistosos para "${search.creatorName}".`
+                                                : 'No hay partidos disponibles.'}</EmptyTitle>
+                                    </EmptyHeader>
+                                </Empty>
+                            ) : (
+                                <ul className="space-y-2.5" aria-label="Resultados de amistosos">
+                                    {items.map(match => (
+                                        <Item key={match.matchId} render={<li/>} variant="outline" className="flex-nowrap gap-3">
+                                            <ItemMedia aria-hidden="true">
+                                                <Avatar size="lg">
+                                                    <AvatarFallback className="bg-primary/10 font-semibold text-primary">
+                                                        {match.creatorClubName.charAt(0).toLocaleUpperCase('es-AR')}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </ItemMedia>
+                                            <ItemContent className="min-w-0">
+                                                <ItemTitle id={`friendly-club-${match.matchId}`}
+                                                           className="line-clamp-none font-semibold wrap-anywhere">
+                                                    {match.creatorClubName}
+                                                </ItemTitle>
+                                                <ItemDescription className="flex items-center gap-1.5">
+                                                    <CalendarDays className="size-3.5 shrink-0" aria-hidden="true"/>
+                                                    <time dateTime={match.startDateTime}>
+                                                        {new Date(match.startDateTime).toLocaleString('es-AR', {
+                                                            dateStyle: 'medium', timeStyle: 'short',
+                                                        })}
+                                                    </time>
+                                                </ItemDescription>
+                                            </ItemContent>
+                                            <ItemActions>
+                                                <Button type="button" size="lg" disabled={joining}
+                                                        aria-describedby={`friendly-club-${match.matchId}`}
+                                                        onClick={() => handleJoinMatch(match.matchId)}>
+                                                    <LogIn data-icon="inline-start" aria-hidden="true"/>
+                                                    {joiningId === match.matchId ? 'Uniéndose…' : 'Unirse'}
+                                                </Button>
+                                            </ItemActions>
+                                        </Item>
+                                    ))}
+                                </ul>
+                            )
+                        )}
+
+                        {!search.error && <FriendlyMatchPagination search={search} disabled={joining}/>}
+                    </CardContent>
+                </Card>
+            </section>
         </main>
     );
 }

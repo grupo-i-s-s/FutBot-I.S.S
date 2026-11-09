@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import {useLocation, useNavigate} from 'react-router';
 import {listFriendlyMatches} from '../api.js';
 
-export function useFriendlyMatches(refresh = 0) {
+export function useFriendlyMatches() {
     const {pathname, search, hash, state} = useLocation();
     const navigate = useNavigate();
     const params = new URLSearchParams(search);
@@ -33,7 +33,7 @@ export function useFriendlyMatches(refresh = 0) {
             .catch(cause => { if (!controller.signal.aborted) setError(cause.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [creatorName, page, refresh, version]);
+    }, [creatorName, page, version]);
 
     function update(nextName, nextPage) {
         clearTimeout(timer.current);

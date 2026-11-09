@@ -298,6 +298,7 @@
 
 .home-matches .home-list {
     max-height: 280px;
+    margin-top: 12px;
     overflow-y: auto;
 }
 
