@@ -7,14 +7,14 @@ from app.models.matches_model import Matches, TEST_OPPONENT_CLUB_ID
 from app.repository import matches_repository
 from app.services.match_builder_service import build_match
 from app.services.match_schedule_service import LEAGUE_SCHEDULE_CONFLICT, find_league_schedule_conflict
-from app.services.match_snapshot_service import read_snapshot, with_closed_match_pauses
+from app.services.match_snapshot_service import snapshot_from_match, with_closed_match_pauses
 from primitives.match_simulation import Match
 
 PENDING_STATUSES = ("WAITING", "WAITING_OPPONENT", "SCHEDULED")
 
 
 def cancel_match(db: Session, match: Matches, reason: str, now: datetime) -> None:
-    snapshot = deepcopy(read_snapshot(db, match.match_id, match.creator_id))
+    snapshot = deepcopy(snapshot_from_match(db, match))
 
     snapshot["sequence"] = match.sequence + 1
     snapshot["sentAt"] = now.isoformat()

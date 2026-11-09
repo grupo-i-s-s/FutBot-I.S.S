@@ -98,12 +98,8 @@ def with_closed_match_pauses(snapshot: dict) -> dict:
     return {**snapshot, "state": {**state, **updates}} if updates else snapshot
 
 
-def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
-    match = matches_repository.get_by_id(db, match_id)
-    if match is None:
-        raise AppError("MATCH_NOT_FOUND", "El partido no existe.")
-    if club_id not in (match.creator_id, match.visitor_id):
-        raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
+def snapshot_from_match(db: Session, match: Matches) -> dict:
+    """Lee el estado completo para operaciones internas, como la cancelación."""
     if match.snapshot is not None:
         snapshot = _with_match_control(match.snapshot, match)
         if snapshot["state"].get("status") == "CANCELLED":
@@ -112,6 +108,36 @@ def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
     if match.status not in ("WAITING", "WAITING_OPPONENT", "SCHEDULED"):
         raise AppError("MATCH_STATE_INVALID", "Falta el snapshot persistido del partido.")
     return empty_match_snapshot(db, match, datetime.now(timezone.utc))
+
+
+def _with_visible_substitutions(snapshot: dict, club_id: int) -> dict:
+    state = snapshot["state"]
+    lineups = state.get("lineups", [])
+    events = state.get("events", [])
+    visible_lineups = [
+        {**lineup, "pendingSubstitution": None}
+        if lineup.get("clubId") != club_id and lineup.get("pendingSubstitution") is not None else lineup
+        for lineup in lineups
+    ]
+    visible_events = [
+        event for event in events
+        if event.get("type") != "SUBSTITUTION_REJECTED" or event.get("clubId") == club_id
+    ]
+    updates = {}
+    if visible_lineups != lineups:
+        updates["lineups"] = visible_lineups
+    if len(visible_events) != len(events):
+        updates["events"] = visible_events
+    return {**snapshot, "state": {**state, **updates}} if updates else snapshot
+
+
+def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
+    match = matches_repository.get_by_id(db, match_id)
+    if match is None:
+        raise AppError("MATCH_NOT_FOUND", "El partido no existe.")
+    if club_id not in (match.creator_id, match.visitor_id):
+        raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
+    return _with_visible_substitutions(snapshot_from_match(db, match), club_id)
 
 
 def empty_match_snapshot(db: Session, match, now: datetime, *, status: str = "WAITING") -> dict:

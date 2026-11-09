@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import suppress
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Response, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
@@ -25,7 +25,8 @@ SESSION_CHECK_SECONDS = 15
 
 
 @match_stream_router.get("/{match_id}")
-def get_match_snapshot(match_id: int, db: Database, club: CurrentClub):
+def get_match_snapshot(match_id: int, db: Database, club: CurrentClub, response: Response):
+    response.headers["Cache-Control"] = "private, no-store"
     return read_snapshot(db, match_id, club.id)
 
 
