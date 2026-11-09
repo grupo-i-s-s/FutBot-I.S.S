@@ -386,7 +386,7 @@ def resend_verification(db: Session, data: ResendVerificationRequest) -> dict[st
         pending = pending_email_verification_repository.get_by_email(db, email, lock=True)
 
         if pending is None:
-            return {"message": "Si existe una verificación pendiente,se enviará un nuevo código."}
+            return {"message": "Mail no válido para verificar. Registrate nuevamente."}
 
         if pending.expires_at <= now:
             pending_email_verification_repository.delete_by_email(db, email)
