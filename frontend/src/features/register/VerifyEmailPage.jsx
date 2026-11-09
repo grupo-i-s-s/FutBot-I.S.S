@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { resendVerification, verifyEmail } from './api.js';
-import './RegisterPage.css';
+import './VerifyEmailPage.css';
 
 export default function VerifyEmailPage() {
     const location = useLocation();
@@ -46,52 +46,58 @@ export default function VerifyEmailPage() {
     }
 
     return (
-        <main className="register-page">
-            <h1 className="main-page-title">¡Bienvenido a FutBot!</h1>
-            <section className="user_register-card">
-                <h2 className="register-title">Verificar correo</h2>
+        <main className="verify-email-page">
+            <div className="verify-email-page__content">
+                <h1 className="verify-email-page__brand">¡Bienvenido a FutBot!</h1>
+                <section className="verify-email-card">
 
-                {verified ? (
-                    <>
-                        <p role="status">{message}</p>
-                        <Link to="/login" className="Registro">Iniciar sesión</Link>
-                    </>
-                ) : (
-                    <form onSubmit={handleVerify}>
-                        <p>Se ha enviado un código de 6 digitos a la cuenta <strong>{email}</strong>, revisa la sección recibidos y la carpeta de spam.</p>
-                        <div className="formulary-box">
-                            <input
-                                id="verification-code"
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                pattern="[0-9]{6}"
-                                maxLength={6}
-                                value={code}
-                                placeholder="Ingrese el código"
-                                onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
-                                required
-                            />
-                        </div>
+                    {verified ? (
+                        <>
+                            <p role="status">{message}</p>
+                            <Link to="/login" className="verify-email-card__login">
+                                Ir a iniciar sesión <span aria-hidden="true">→</span>
+                            </Link>
+                        </>
+                    ) : (
+                        <form onSubmit={handleVerify}>
+                            <h2> Verificación </h2>
+                            <p>Se ha enviado un código de 6 digitos a la cuenta <strong>{email}</strong>, revisa la sección recibidos y la carpeta de spam.</p>
+                            <div className="formulary-box">
+                                <input
+                                    id="verification-code"
+                                    type="text"
+                                    inputMode="numeric"
+                                    autoComplete="one-time-code"
+                                    pattern="[0-9]{6}"
+                                    maxLength={6}
+                                    value={code}
+                                    placeholder="Ingrese el código"
+                                    onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
+                                    required
+                                />
+                            </div>
+                            <div className="formulary-buttons">
+                                <button className="register-button" type="submit" disabled={loading}>
+                                    {loading ? 'Verificando…' : 'Verificar correo'}
+                                </button>
 
-                        <button className="register-button" type="submit" disabled={loading}>
-                            {loading ? 'Verificando…' : 'Verificar correo'}
-                        </button>
+                                <button
+                                    className="register-button"
+                                    type="button"
+                                    onClick={handleResend}
+                                    disabled={loading || !email}
+                                >
+                                    Reenviar código
+                                </button>
+                            </div>
 
-                        <button
-                            className="register-button"
-                            type="button"
-                            onClick={handleResend}
-                            disabled={loading || !email}
-                        >
-                            Reenviar código
-                        </button>
 
-                        {error && <p role="alert">{error}</p>}
-                        {message && <p role="status">{message}</p>}
-                    </form>
-                )}
-            </section>
+                            {error && <p role="alert">{error}</p>}
+                            {message && <p role="status">{message}</p>}
+                        </form>
+                    )}
+                </section>
+            </div>
         </main>
     );
 }
