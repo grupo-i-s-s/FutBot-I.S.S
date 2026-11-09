@@ -17,6 +17,7 @@ def start(monkeypatch, now):
     repository = Mock()
     repository.get_clubs_for_update.return_value = [SimpleNamespace(id=1), SimpleNamespace(id=7)]
     repository.clubs_have_running_match.return_value = False
+    repository.get_active_test_match.return_value = None
     builder = Mock(return_value=object())
     monkeypatch.setattr(service, "matches_repository", repository)
     monkeypatch.setattr(service, "build_match", builder)
