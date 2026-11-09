@@ -19,6 +19,8 @@ class Simulation:
         self.steps = []
         self.close_calls = 0
         self.behaviour_changes = []
+        self.pause_index = 0
+        self.paused = False
 
     def snapshot(self, sequence, sent_at):
         return {"sequence": sequence, "sentAt": sent_at,

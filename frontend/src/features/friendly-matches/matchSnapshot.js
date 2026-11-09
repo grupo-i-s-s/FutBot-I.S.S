@@ -39,6 +39,31 @@ function validBreakState(state) {
     return state.breakIndex === 1 || state.breakIndex === 3;
 }
 
+function validSubstitutionState(state) {
+    if (state.events !== undefined && (!Array.isArray(state.events)
+        || !state.events.every(event => event && typeof event.eventId === 'string' && typeof event.type === 'string'))) return false;
+    if (!Object.hasOwn(state, 'lineups') && !Object.hasOwn(state, 'nextPause')) return true;
+    const next = state.nextPause;
+    if (next !== null && (!next || typeof next.pauseId !== 'string' || ![1, 2, 3].includes(next.number))) return false;
+    if (!Array.isArray(state.lineups) || state.lineups.length !== state.teams?.length) return false;
+    if (new Set(state.lineups.map(team => team?.clubId)).size !== state.lineups.length) return false;
+    return state.lineups.every(team => {
+        if (!team || !state.teams.some(t => t.id === team.clubId)
+            || ![0, 1].includes(team.remainingSubstitutions)
+            || !Array.isArray(team.starters) || !Array.isArray(team.substitutes)) return false;
+        const roster = [...team.starters, ...team.substitutes];
+        if (!roster.every(p => p && integer(p.playerId) && p.playerId > 0 && typeof p.name === 'string')
+            || new Set(roster.map(p => p.playerId)).size !== roster.length) return false;
+        const active = state.players.filter(p => p.teamId === team.clubId);
+        if (active.length !== team.starters.length || !active.every(p => team.starters.some(t => t.playerId === p.id))) return false;
+        const pending = team.pendingSubstitution;
+        return pending === null || (pending && pending.status === 'PENDING'
+            && pending.pauseId === next?.pauseId && typeof pending.commandId === 'string'
+            && team.starters.some(p => p.playerId === pending.outPlayerId)
+            && team.substitutes.some(p => p.playerId === pending.inPlayerId));
+    });
+}
+
 // HTTP y WebSocket comparten contrato. Validar antes de dibujar evita mezclar
 // partidos o interpretar una versión incompatible como posiciones válidas.
 export function validateSnapshot(snapshot, matchId) {
@@ -67,6 +92,6 @@ export function validateSnapshot(snapshot, matchId) {
         && (state.status !== 'WAITING' || (players.length === 0 && state.ball === null))
         && (!['RUNNING', 'FINISHED'].includes(state.status)
             || (teams.length === 2 && state.ball !== null && teams.every((team) => players.filter((player) => player.teamId === team.id).length === 3)));
-    if (!valid) throw new Error('El servidor envió un estado de partido incompatible.');
+    if (!valid || !validSubstitutionState(state)) throw new Error('El servidor envió un estado de partido incompatible.');
     return snapshot;
 }

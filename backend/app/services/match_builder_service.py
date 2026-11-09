@@ -53,7 +53,7 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
     profiles = []
 
     # Este orden asigna cada titular a su puesto de la formación.
-    for selection in lineup.starters:
+    for selection in lineup.starters + lineup.substitutes:
         player = players.get(selection.player_id)
         behaviour = behaviours.get(selection.behaviour_id)
 
@@ -110,7 +110,8 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
     return Team(
         club_id=club_id,
         name=name,
-        players=tuple(profiles),
+        players=tuple(profiles[:len(lineup.starters)]),
+        substitutes=tuple(profiles[len(lineup.starters):]),
         formation_id=lineup.formation_id,
         avatar=avatar,
     )

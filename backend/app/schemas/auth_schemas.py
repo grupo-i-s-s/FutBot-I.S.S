@@ -78,3 +78,21 @@ class UserResponse(BaseModel):
     club_id: int = Field(
         serialization_alias="clubId",
     )
+
+class VerifyEmailRequest(InputSchema):
+    email: EmailStr = Field(max_length=254)
+    code: str = Field(pattern=r"^\d{6}$")
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value):
+        return str(value).lower()
+
+
+class ResendVerificationRequest(InputSchema):
+    email: EmailStr = Field(max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value):
+        return str(value).lower()

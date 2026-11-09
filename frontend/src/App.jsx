@@ -19,13 +19,14 @@ import CreateBehaviourPage from './features/create-behaviour/CreateBehaviourPage
 import BehaviourList from './features/behaviours/components/BehaviourList.jsx';
 import LeagueListPage from './features/list-leagues/LeagueListPage.jsx';
 import NavBar from './features/nav-bar/navBar.jsx';
+import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
 import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
 import LeagueLineupPage from './features/league-lineup/LeagueLineupPage.jsx';
 
 export default function App() {
     const { pathname } = useLocation();
-    const mostrarNavBar = !['/', '/home', '/login', '/registro'].includes(pathname);
+    const mostrarNavBar = !['/', '/home', '/login', '/registro', '/verificar-email'].includes(pathname);
 
     return (
         <>
@@ -52,9 +53,10 @@ export default function App() {
                 <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
                 <Route path="/behaviours" element={<BehaviourList />} />
                 <Route path="/crear-comportamiento" element={<CreateBehaviourPage />} />
+                <Route path="/verificar-email" element={<VerifyEmailPage />} />
                 <Route path="/clubes" element={<ClubsListPage />} />
                 <Route path="*" element={<NotFoundPage />} />
-                <Route path="/club/:clubId" element={<ClubProfilePage/>}/>
+                <Route path="/club/:clubId" element={<ClubProfilePage />} />
                 <Route path="/leagues/:id/lineup" element={<LeagueLineupPage/>}/>
             </Routes>
         </>
