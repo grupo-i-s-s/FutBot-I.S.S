@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getMyClub, listBehaviours } from '../my-club/api.js';
@@ -69,6 +69,7 @@ function MatchDtControl({ matchId, team, running, connected }) {
 
 export default function MatchPage() {
     const { matchId } = useParams();
+    const location = useLocation();
     const { snapshot, connectionStatus, error, retry } = useMatchConnection(matchId);
     const [myClubId, setMyClubId] = useState(null);
     const [behaviours, setBehaviours] = useState([]);
@@ -124,7 +125,7 @@ export default function MatchPage() {
                         <p className="match-eyebrow">{isBehaviourTest ? '' : 'AMISTOSO'}</p>
                         <h1>{isBehaviourTest ? 'Prueba de comportamientos' : 'El partido'}</h1>
                     </div>
-                    <Link to={isBehaviourTest ? '/behaviours' : '/partidos-disponibles'}>
+                    <Link to={isBehaviourTest ? '/behaviours' : location.state?.returnTo ?? '/partidos-disponibles'}>
                         {isBehaviourTest ? 'Volver a comportamientos' : 'Volver a amistosos'}
                     </Link>
                 </header>
