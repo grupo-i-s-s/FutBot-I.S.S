@@ -4,6 +4,7 @@ import {
     fireEvent,
     render,
     screen,
+    within,
 } from '@testing-library/react';
 import {Link, MemoryRouter} from 'react-router';
 import {
@@ -179,14 +180,38 @@ it('reinicia la página al filtrar y restaura el listado al limpiar', async () =
         'No se encontraron clubes con el nombre "inexistente".',
     )).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('searchbox'), {
-        target: {value: ''},
-    });
-    await advance();
+    await click('Limpiar');
 
+    expect(screen.getByRole('searchbox')).toHaveValue('');
     expect(lastQuery().get('name')).toBeNull();
     expect(lastQuery().get('page')).toBe('1');
     expect(screen.getByText('Club página 1')).toBeInTheDocument();
+});
+
+it('muestra el último error de búsqueda en el toast y permite reintentar', async () => {
+    request.mockResolvedValueOnce(listing([]));
+    request.mockRejectedValueOnce(new Error('No se pudo conectar con el servidor.'));
+    request.mockRejectedValueOnce(new Error('La búsqueda volvió a fallar.'));
+    request.mockResolvedValueOnce(listing([club(1, 'River')]));
+
+    await open();
+    fireEvent.change(screen.getByRole('searchbox'), {target: {value: 'River'}});
+    await click('Buscar');
+    await advance(50);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo conectar con el servidor.');
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(notifications.getByText('No se pudieron cargar los clubes')).toBeVisible();
+
+    await click('Reintentar');
+    await advance(50);
+    await advance(250);
+    expect(notifications.getByText('La búsqueda volvió a fallar.')).toBeVisible();
+    expect(notifications.queryByText('No se pudo conectar con el servidor.')).not.toBeInTheDocument();
+
+    await click('Reintentar');
+    expect(lastQuery().get('name')).toBe('River');
+    expect(screen.getByRole('link', {name: 'Ver perfil de River'})).toBeVisible();
 });
 
 it('ignora una respuesta vieja de la búsqueda', async () => {
@@ -357,12 +382,20 @@ it.each([
     }
 });
 
-it('permite reintentar la carga del perfil', async () => {
+it('avisa si falla el reintento del perfil y permite volver a cargarlo', async () => {
     request
+        .mockRejectedValueOnce({status: 0})
         .mockRejectedValueOnce({status: 0})
         .mockResolvedValueOnce(profile(1, 'Recuperado'));
 
     await open('/clubes/1');
+    await click('Reintentar');
+    await advance(50);
+
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(notifications.getByText('No se pudo cargar el club')).toBeVisible();
+    expect(notifications.getByText('No se pudo conectar con el servidor.')).toBeVisible();
+
     await click('Reintentar');
 
     expect(screen.getByRole('heading', {
