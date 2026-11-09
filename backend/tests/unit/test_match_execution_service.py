@@ -57,6 +57,7 @@ def execution(monkeypatch, db, now, freeze_time):
     repo.save_progress.side_effect = save
     monkeypatch.setattr(service, "matches_repository", repo)
     monkeypatch.setattr(service, "prepare_match_start", Mock(return_value=simulation))
+    monkeypatch.setattr(service, "process_match_for_global_ranking", Mock())
     monkeypatch.setattr(service, "Match", Mock())
     service.Match.from_checkpoint.return_value = simulation
     monkeypatch.setattr(service, "monotonic", Mock(return_value=0))
@@ -83,6 +84,7 @@ def test_finished_league_match_updates_fixture_before_committing(db, execution, 
     def update(db, round_id):
         assert round_id == 7
         assert execution.row.status == "FINISHED"
+        service.process_match_for_global_ranking.assert_called_once_with(db, execution.row)
         assert db.commit.call_count == 1
 
     update_schedule = Mock(side_effect=update)

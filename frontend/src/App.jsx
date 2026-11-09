@@ -19,6 +19,7 @@ import CreateBehaviourPage from './features/create-behaviour/CreateBehaviourPage
 import BehaviourList from './features/behaviours/components/BehaviourList.jsx';
 import LeagueListPage from './features/list-leagues/LeagueListPage.jsx';
 import NavBar from './features/nav-bar/navBar.jsx';
+import GlobalRanking from './features/global-ranking/globalRanking.jsx';
 import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
 import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
@@ -57,10 +58,11 @@ export default function App() {
                 <Route path="/crear-comportamiento-dt" element={<CreateBehaviourPage key="dt" kind="DT" />} />
                 <Route path="/verificar-email" element={<VerifyEmailPage />} />
                 <Route path="/clubes" element={<ClubsListPage />} />
-                <Route path="*" element={<NotFoundPage />} />
                 <Route path="/club/:clubId" element={<ClubProfilePage />} />
-                <Route path="/leagues/:id/lineup" element={<LeagueLineupPage/>}/>
                 <Route path="/recuperar-contrasena" element={<PasswordResetPage />} />
+                <Route path="/leagues/:id/lineup" element={<LeagueLineupPage />} />
+                <Route path="/ranking-global" element={<GlobalRanking />} />
+                <Route path="*" element={<NotFoundPage />} />
             </Routes>
         </>
     );

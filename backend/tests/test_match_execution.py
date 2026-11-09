@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 from types import SimpleNamespace
@@ -18,14 +18,17 @@ from app.main import app
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
 from app.models.dt_model import Dt, DtBehaviour
+from app.models.league_model import League
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.planned_substitution_model import PlannedSubstitution
+from app.models.stats_model import Stats
 from app.models.team_model import DefaultTeam
 from app.repository import matches_repository
 from app.services import match_execution_service as execution
 from app.services.match_snapshot_service import read_snapshot
 from app.services.match_stream_services import StreamAccess
+from app.services.stats_service import process_match_for_global_ranking
 from primitives import match_simulation
 from primitives.behaviours import DEFAULT_CODES
 
@@ -43,7 +46,7 @@ def database(monkeypatch, sqlite_match_dates):
     # Persistencia real con sesiones independientes, sin requerir Docker.
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     tables = [model.__table__ for model in (
-        User, Club, Behavior, Player, DefaultTeam, Matches, PlannedSubstitution, Dt, DtBehaviour,
+        User, Club, Behavior, Player, DefaultTeam, League, Matches, PlannedSubstitution, Dt, DtBehaviour, Stats,
     )]
     Base.metadata.create_all(engine, tables=tables)
     with Session(engine) as db:
@@ -51,6 +54,7 @@ def database(monkeypatch, sqlite_match_dates):
             db.add(User(id=club_id, email=f"club{club_id}@test.com", password_hash="unused"))
             db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}",
                         avatar=f"avatar-{club_id:02d}.png"))
+            db.add(Stats(club_id=club_id))
             db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
                             code=DEFAULT_CODES["Equilibrado"], kind="PLAYER", version=1,
                             validation_status="VALID"))
@@ -107,6 +111,31 @@ def test_executor_persists_result_and_second_call_does_not_play_again(database, 
     with Session(database) as db:
         row = db.get(Matches, 42)
         assert row.sequence == sequence and row.finished_at == finished_at
+        local, visitor = db.scalars(select(Stats).order_by(Stats.club_id)).all()
+        assert (local.played, local.points, local.losses, local.gF, local.gA) == (1, 0, 1, 0, 6)
+        assert (visitor.played, visitor.points, visitor.wins, visitor.gF, visitor.gA) == (1, 3, 1, 6, 0)
+
+
+@pytest.mark.parametrize("match_type, expected_points", [("public", 3), ("private", 0), ("bot", 0)])
+def test_ranking_respects_match_type_without_a_league_round(database, match_type, expected_points):
+    with Session(database) as db:
+        match = db.get(Matches, 42)
+        match.local_score = 2
+        match.visitor_score = 0
+        if match_type == "bot":
+            match.visitor_id = 999
+        else:
+            league = League(
+                name="Liga anterior", min_teams=3, max_teams=3, round_interval="DAILY",
+                start_datetime=datetime.now(timezone.utc), is_private=match_type == "private",
+            )
+            db.add(league)
+            db.flush()
+            match.league_id = league.id
+
+        process_match_for_global_ranking(db, match)
+
+        assert db.scalar(select(Stats.points).where(Stats.club_id == match.creator_id)) == expected_points
 
 
 def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monkeypatch):
@@ -170,6 +199,7 @@ def test_persistence_failure_never_publishes_uncommitted_final_state(database, m
         assert snapshot["sequence"] == 1
         assert snapshot["state"]["status"] == "RUNNING"
         assert snapshot["state"]["clockMs"] == 0
+        assert list(db.scalars(select(Stats.played).order_by(Stats.club_id))) == [0, 0]
 
 
 def test_waiting_read_and_access_checks_do_not_start_match(database):

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.errors import AppError
+from app.models.stats_model import Stats
 from app.schemas.auth_schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, VerifyEmailRequest, ResendVerificationRequest
 from app.services import auth_service as service
 
@@ -11,11 +12,11 @@ from app.services import auth_service as service
 @pytest.fixture
 def auth(monkeypatch, now):
     mocks = SimpleNamespace(
-        users=Mock(), sessions=Mock(), behaviours=Mock(), players=Mock(), teams=Mock(), dt=Mock(),
+        users=Mock(), clubs=Mock(), sessions=Mock(), behaviours=Mock(), players=Mock(), teams=Mock(), dt=Mock(),
         hash_password=Mock(return_value="encoded-password"),
         verify=Mock(return_value=True), hash_token=Mock(return_value="hashed-token"), pending=Mock(), email=Mock())
     for name, value in {
-        "user_repository": mocks.users, "session_repository": mocks.sessions,
+        "user_repository": mocks.users, "club_repository": mocks.clubs, "session_repository": mocks.sessions,
         "behaviour_repository": mocks.behaviours, "player_repository": mocks.players,
         "dt_repository": mocks.dt,
         "team_repository": mocks.teams, "hash_password": mocks.hash_password,
@@ -29,6 +30,7 @@ def auth(monkeypatch, now):
     )
     mocks.users.get_by_id.return_value = mocks.users.get_by_email.return_value
     mocks.users.get_club.return_value = SimpleNamespace(id=7)
+    mocks.clubs.get_by_name.return_value = None
     mocks.sessions.get_active.return_value = SimpleNamespace(user_id=1)
     return mocks
 
@@ -67,6 +69,7 @@ def test_registration_creates_pending_request_and_sends_code(db, auth, registrat
     )
     auth.users.create_user.assert_not_called()
     auth.dt.create_dt.assert_not_called()
+    db.add.assert_not_called()
     db.commit.assert_called_once()
 
 
@@ -140,6 +143,10 @@ def test_verify_email_creates_account_and_deletes_pending_request(db, auth, regi
     )
     auth.dt.create_default_dt_behaviours.assert_called_once_with(db, 1)
     auth.dt.create_dt.assert_called_once_with(db, 7, 9)
+    db.add.assert_called_once()
+    stats = db.add.call_args.args[0]
+    assert isinstance(stats, Stats)
+    assert stats.club_id == result.club_id
     auth.pending.delete_by_email.assert_called_once_with(db, "user@example.com")
     db.commit.assert_called_once()
 

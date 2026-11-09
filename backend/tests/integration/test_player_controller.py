@@ -187,7 +187,7 @@ def test_get_players_returns_players_from_service(monkeypatch):
     monkeypatch.setattr(
         player_service,
         "get_players",
-        lambda db, club_id: players,
+        lambda db, club_id, page, limit, search: (players, len(players)),
     )
 
     response = get_players()
@@ -210,13 +210,19 @@ def test_get_players_returns_empty_list_when_club_has_no_players(monkeypatch):
     monkeypatch.setattr(
         player_service,
         "get_players",
-        lambda db, club_id: [],
+        lambda db, club_id, page, limit, search: ([], 0),
     )
 
     response = get_players()
 
     assert response.status_code == 200
-    assert response.json() == {"items": []}
+    assert response.json() == {
+        "items": [],
+        "total": 0,
+        "page": 1,
+        "limit": 9,
+        "totalPages": 1,
+    }
 
 
 def test_get_players_requires_session():
@@ -244,9 +250,12 @@ def test_get_players_only_returns_players_from_current_club(monkeypatch):
         )
     ]
 
-    def fake_get_players(db, club_id):
+    def fake_get_players(db, club_id, page, limit, search):
         assert club_id == 1
-        return club_players
+        assert page == 1
+        assert limit == 9
+        assert search is None
+        return club_players, len(club_players)
 
     monkeypatch.setattr(player_service, "get_players", fake_get_players)
 
@@ -280,7 +289,7 @@ def test_get_players_includes_created_player(monkeypatch):
     monkeypatch.setattr(
         player_service,
         "get_players",
-        lambda db, club_id: [created_player],
+        lambda db, club_id, page, limit, search: ([created_player], 1),
     )
 
     create_response = post_player({
