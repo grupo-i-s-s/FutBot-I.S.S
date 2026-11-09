@@ -14,6 +14,10 @@ export function planSubstitution(matchId, body, signal) {
     return request(`/matches/${validateMatchId(matchId)}/planned-substitution`, {method: 'PUT', body, signal});
 }
 
+export function requestSubstitution(matchId, body, signal) {
+    return request(`/matches/${validateMatchId(matchId)}/substitutions`, {method: 'POST', body, signal});
+}
+
 export function matchStreamUrl(matchId) {
     const id = validateMatchId(matchId);
 
