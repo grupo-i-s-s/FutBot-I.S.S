@@ -284,3 +284,27 @@ def update_behaviour( db: Session, club_id: int, behaviour_id: int, data: Behavi
     except Exception:
         db.rollback()
         raise
+
+#Consulta para saber si el comportamiento esta en uso.
+def get_behaviour_usage(
+    db: Session,
+    club_id: int,
+    behaviour_id: int,
+) -> dict:
+    behaviour = behaviour_repository.get_behaviour_by_id(
+        db, club_id, behaviour_id
+    )
+    if behaviour is None:
+        raise AppError(
+            "BEHAVIOUR_NOT_FOUND",
+            "No se encontró el comportamiento.",
+        )
+
+    references = _get_behaviour_references(
+        db, club_id, behaviour_id
+    )
+
+    return {
+        "inUse": bool(references),
+        "references": references,
+    }

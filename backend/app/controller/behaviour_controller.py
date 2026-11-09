@@ -57,3 +57,10 @@ def update_behaviour(
         behaviour_id=behaviour_id,
         data=payload,
     )
+
+@behaviour_router.get("/{behaviour_id}/usage")
+def get_behaviour_usage( behaviour_id: int, club: CurrentClub, db: Database):
+    return behaviour_service.get_behaviour_usage(
+        db=db,
+        club_id=club.id,
+        behaviour_id=behaviour_id)
