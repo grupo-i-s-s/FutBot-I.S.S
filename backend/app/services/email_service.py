@@ -50,3 +50,16 @@ Si no solicitaste crear una cuenta, podés ignorar este mensaje.
 ¡Te damos la bienvenida a FutBot!
 """
     send_email(recipient, subject, body)
+
+def send_password_reset_code(recipient: str, code: str) -> None:
+    send_email(
+        recipient,
+        "Recuperá tu contraseña en FutBot",
+        f"""Hola,
+
+Tu código para recuperar la contraseña de FutBot es: {code}
+
+Vence en 10 minutos y sólo se puede utilizar una vez.
+Este código no sirve para verificar el email.
+""",
+    )
