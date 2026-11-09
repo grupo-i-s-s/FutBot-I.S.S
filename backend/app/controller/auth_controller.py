@@ -7,6 +7,8 @@ from app.schemas.auth_schemas import (
     LoginRequest,
     RegisterRequest,
     UserResponse,
+    VerifyEmailRequest,
+    ResendVerificationRequest
 )
 from app.services import auth_service
 
@@ -34,8 +36,7 @@ def clear_session_cookie(response: Response) -> None:
         samesite="lax"
     )
 
-
-@auth_router.post("/register", response_model=UserResponse, status_code=201)
+@auth_router.post("/register", status_code=202)
 def register(data: RegisterRequest, db: Database):
     return auth_service.register(db, data)
 
@@ -76,3 +77,11 @@ def change_password(data: ChangePasswordRequest, db: Database, identity: Current
     clear_session_cookie(response)
 
     return response
+
+@auth_router.post("/verify-email", response_model=UserResponse)
+def verify_email(data: VerifyEmailRequest, db: Database):
+    return auth_service.verify_email(db, data)
+
+@auth_router.post("/resend-verification")
+def resend_verification(data: ResendVerificationRequest, db: Database):
+    return auth_service.resend_verification(db, data)
