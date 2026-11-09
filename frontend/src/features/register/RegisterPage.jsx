@@ -1,7 +1,8 @@
 import './RegisterPage.css';
-import {useState} from 'react';
-import {register} from './api';
-import {Link} from 'react-router';
+import { useState } from 'react';
+import { register } from './api';
+import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
 
 
 export default function RegisterPage() {
@@ -12,6 +13,7 @@ export default function RegisterPage() {
     const [clubName, setClubName] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const navigate = useNavigate();
 
     async function handleSubmit(event) {
         event.preventDefault();
@@ -20,7 +22,7 @@ export default function RegisterPage() {
 
         try {
             await register(email, clubName, password, repeatPassword);
-            setSuccess('Cuenta registrada. Ya podés iniciar sesión.');
+            navigate('/verificar-email', { state: { email } });
         } catch (err) {
             const fields = Object.values(err.fields || {});
             setError(
