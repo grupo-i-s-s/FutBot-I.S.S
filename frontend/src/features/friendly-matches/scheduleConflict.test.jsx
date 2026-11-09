@@ -1,7 +1,8 @@
-import {cleanup, fireEvent, render, screen} from '@testing-library/react';
-import {MemoryRouter, Route, Routes} from 'react-router';
+import {act, cleanup, fireEvent, render, screen, within} from '@testing-library/react';
+import {MemoryRouter, Route, Routes, useLocation} from 'react-router';
+import {toast} from 'sonner';
 import {afterEach, expect, it, vi} from 'vitest';
-import CreateFriendlyMatch from './Create_friendly_match.jsx';
+import App from '../../App.jsx';
 import MatchPage from './MatchPage.jsx';
 import MatchesPage from './Matches.jsx';
 import {SessionProvider} from '../session/SessionProvider.jsx';
@@ -21,21 +22,121 @@ function jsonResponse(body, status = 200) {
     return {ok: status < 400, status, json: async () => body};
 }
 
+function CurrentPath() {
+    return <span hidden data-testid="current-path">{useLocation().pathname}</span>;
+}
+
+function renderCreateApp(createMatch, entry = '/partidos-disponibles') {
+    vi.stubGlobal('fetch', async (url, options) => {
+        if (url === '/api/clubs/me') return jsonResponse({id: 1, name: 'Club local'});
+        if (url === '/api/behaviours') return jsonResponse({items: []});
+        if (url === '/api/friendly-matches' && options.method === 'POST') return createMatch(url, options);
+        if (url.startsWith('/api/friendly-matches?')) return jsonResponse({items: [], total: 0, page: 2, pageSize: 20});
+        if (url.startsWith('/api/leagues?')) return jsonResponse({items: []});
+        if (url === '/api/matches/42') return new Promise(() => {});
+        throw new Error(`Unexpected request: ${url}`);
+    });
+    render(<MemoryRouter initialEntries={[entry]}><App/><CurrentPath/></MemoryRouter>);
+}
+
+async function openCreateDialog(trigger = 'Crear amistoso', triggerRole = 'button') {
+    fireEvent.click(await screen.findByRole(triggerRole, {name: trigger}));
+    return await screen.findByRole('dialog', {name: 'Crear amistoso'});
+}
+
+function notifications() {
+    return within(screen.getByRole('region', {name: /^Notificaciones/}));
+}
+
 afterEach(() => {
     cleanup();
+    toast.dismiss();
     vi.unstubAllGlobals();
 });
 
 it('muestra la franja ocupada en hora local al crear un amistoso', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({error: leagueConflict}, 409)));
-    render(<MemoryRouter><CreateFriendlyMatch/></MemoryRouter>);
+    renderCreateApp(() => jsonResponse({error: leagueConflict}, 409));
 
-    const input = screen.getByLabelText('Horario para comenzar el partido');
+    const form = within(await openCreateDialog());
+    const input = form.getByLabelText('Fecha y hora de inicio');
     fireEvent.change(input, {target: {value: '2040-06-12T20:00'}});
-    fireEvent.click(screen.getByRole('button', {name: 'Crear Partido'}));
+    fireEvent.click(form.getByRole('button', {name: 'Crear amistoso'}));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/franja ocupada es .*20:00.*20:06/);
+    expect(await form.findByRole('alert')).toHaveTextContent(/franja ocupada es .*20:00.*20:06/);
     expect(input).toHaveValue('2040-06-12T20:00');
+    expect(await notifications().findByText('No se pudo crear el amistoso')).toBeVisible();
+    expect(notifications().getByText(/franja ocupada es .*20:00.*20:06/)).toBeVisible();
+});
+
+it('rechaza un horario pasado antes de enviar el formulario', async () => {
+    const createMatch = vi.fn();
+    renderCreateApp(createMatch);
+
+    const form = within(await openCreateDialog());
+    const input = form.getByLabelText('Fecha y hora de inicio');
+    fireEvent.change(input, {target: {value: '2000-01-01T12:00'}});
+    fireEvent.submit(input.form);
+
+    expect(form.getByRole('alert')).toHaveTextContent(/futura/);
+    expect(input).toHaveValue('2000-01-01T12:00');
+    expect(createMatch).not.toHaveBeenCalled();
+    expect(notifications().queryByText('No se pudo crear el amistoso')).not.toBeInTheDocument();
+});
+
+const availableMatches = '/partidos-disponibles?creatorName=River&page=2#amistosos';
+
+it.each([
+    {
+        entry: availableMatches,
+        trigger: 'Crear amistoso',
+        triggerRole: 'button',
+    },
+    {
+        entry: '/inicio?creatorName=River&page=2#amistosos',
+        trigger: 'Crear Partido Amistoso',
+        triggerRole: 'link',
+    },
+])('crea un amistoso una sola vez desde $entry y vuelve al listado', async ({entry, trigger, triggerRole}) => {
+    const pending = Promise.withResolvers();
+    const createMatch = vi.fn(() => pending.promise);
+    renderCreateApp(createMatch, entry);
+
+    const dialog = await openCreateDialog(trigger, triggerRole);
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/partidos-disponibles$/);
+    const form = within(dialog);
+    const input = form.getByLabelText('Fecha y hora de inicio');
+    fireEvent.change(input, {target: {value: '2040-06-12T20:00'}});
+    fireEvent.click(form.getByRole('button', {name: 'Crear amistoso'}));
+    fireEvent.submit(input.form);
+
+    expect(createMatch).toHaveBeenCalledExactlyOnceWith('/api/friendly-matches', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({startDateTime: conflictStart}),
+    }));
+    expect(form.getByRole('button', {name: /^Creando/})).toBeDisabled();
+    expect(form.getByRole('button', {name: 'Cancelar'})).toBeDisabled();
+    fireEvent.keyDown(dialog, {key: 'Escape'});
+    expect(dialog).toBeVisible();
+
+    await act(async () => pending.resolve(jsonResponse({matchId: 42}, 201)));
+    expect(await screen.findByRole('heading', {name: 'El partido'})).toBeVisible();
+    expect(await notifications().findByText('Amistoso creado')).toBeVisible();
+    const back = screen.getByRole('link', {name: 'Volver a amistosos'});
+    expect(back).toHaveAttribute('href', availableMatches);
+    fireEvent.click(back);
+    expect(await screen.findByRole('heading', {name: 'Amistosos', level: 1})).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('searchbox')).toHaveValue('River');
+});
+
+it('redirige el acceso anterior de creación al listado sin abrir el formulario', async () => {
+    const createMatch = vi.fn();
+    renderCreateApp(createMatch, '/crear-partido');
+
+    expect(await screen.findByRole('button', {name: 'Crear amistoso'})).toBeVisible();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/partidos-disponibles$/);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(createMatch).not.toHaveBeenCalled();
 });
 
 it.each([leagueConflict, {
@@ -44,7 +145,6 @@ it.each([leagueConflict, {
     fields: {conflictStart, conflictEnd},
 }])('muestra la franja ocupada al unirse a un amistoso ($code)', async error => {
     vi.stubGlobal('fetch', vi.fn(async (url) => {
-        if (url === '/api/friendly-matches/me') return jsonResponse([]);
         if (url === '/api/friendly-matches/42/join') return jsonResponse({error}, 409);
         return jsonResponse({
             items: [{matchId: 42, creatorClubName: 'Club local', startDateTime: conflictStart}],

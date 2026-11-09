@@ -79,14 +79,15 @@ los enlaces dinámicos desde `src/routes.js`.
 | --- | --- |
 | `/login` | `/iniciar-sesion` |
 | `/home` | `/inicio` |
-| `/behaviours`, `/behaviours/:behaviourId` | `/comportamientos`, `/comportamientos/:behaviourId` |
+| `/comportamientos`, `/comportamientos/:behaviourId`, `/crear-comportamiento`, `/behaviours`, `/behaviours/:behaviourId` | `/mi-club?tab=behaviours` |
 | `/club/:clubId` | `/clubes/:clubId` |
 | `/leagues/:id/join`, `/inscripcion-liga?leagueId=:id` | `/ligas/:id/inscripcion` |
 | `/leagues/:id/lobby` | `/ligas/:id/sala-de-espera` |
 | `/leagues/:id/lineup` | `/ligas/:id/plantel` |
 
 Las redirecciones de compatibilidad conservan los parámetros de consulta,
-el fragmento y el estado de navegación. Las rutas privadas requieren sesión
+el fragmento y el estado de navegación, salvo los enlaces de comportamientos,
+que abren directamente la pestaña del club. Las rutas privadas requieren sesión
 y llevan a `/` cuando la sesión es anónima.
 
 ## 3. Estructura al agregar funcionalidades

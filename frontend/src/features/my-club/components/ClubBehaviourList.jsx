@@ -1,11 +1,61 @@
-import {Link} from 'react-router';
-import {buttonVariants} from '@/components/ui/button';
+import {useEffect, useRef, useState} from 'react';
+import {useNavigate} from 'react-router';
+import {LoaderCircle, Play} from 'lucide-react';
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Empty, EmptyDescription, EmptyHeader, EmptyTitle} from '@/components/ui/empty';
-import {Item, ItemContent, ItemDescription, ItemFooter, ItemTitle} from '@/components/ui/item';
+import {Item, ItemActions, ItemContent, ItemDescription, ItemFooter, ItemTitle} from '@/components/ui/item';
 import {routePath, routes} from '@/routes.js';
+import {createBehaviourTestMatch} from '../../behaviours/api.js';
+import BehaviourDetailDialog from '../../behaviours/components/BehaviourDetailDialog.jsx';
+import BehaviourEdit from '../../behaviours/components/BehaviourEdit.jsx';
+import DeleteBehaviourButton from '../../behaviours/components/DeleteBehaviourButton.jsx';
+import CreateBehaviourDialog from '../../create-behaviour/CreateBehaviourDialog.jsx';
 
-export default function ClubBehaviourList({behaviours}) {
+export default function ClubBehaviourList({behaviours, onCreated, onUpdated, onDeleted}) {
+    const navigate = useNavigate();
+    const testRequest = useRef(null);
+    const [creatingTest, setCreatingTest] = useState(false);
+
+    useEffect(() => () => testRequest.current?.abort(), []);
+
+    function handleCreated(behaviour) {
+        onCreated(behaviour);
+        toast.success('Comportamiento creado', {description: behaviour.name});
+    }
+
+    function handleUpdated(behaviour) {
+        onUpdated(behaviour);
+        toast.success('Comportamiento actualizado', {description: behaviour.name});
+    }
+
+    function handleDeleted(behaviour) {
+        onDeleted(behaviour.id);
+        toast.success('Comportamiento eliminado', {description: behaviour.name});
+    }
+
+    async function handleTest() {
+        if (testRequest.current) return;
+        const controller = new AbortController();
+        testRequest.current = controller;
+        setCreatingTest(true);
+
+        try {
+            const {matchId} = await createBehaviourTestMatch({signal: controller.signal});
+            if (controller.signal.aborted) return;
+            toast.success('Partido de prueba creado');
+            navigate(routePath(routes.match, {matchId}), {state: {behaviourTest: true}});
+        } catch (error) {
+            if (!controller.signal.aborted) {
+                toast.error('No se pudo iniciar la prueba', {description: error.message});
+            }
+        } finally {
+            testRequest.current = null;
+            if (!controller.signal.aborted) setCreatingTest(false);
+        }
+    }
+
     return (
         <Card>
             <CardHeader className="flex flex-wrap items-start justify-between gap-3">
@@ -13,9 +63,15 @@ export default function ClubBehaviourList({behaviours}) {
                     <CardTitle className="text-lg font-bold">Comportamientos</CardTitle>
                     <CardDescription>Catálogo de comportamientos de tu club.</CardDescription>
                 </div>
-                <Link to={routes.behaviours} className={buttonVariants({variant: 'outline', size: 'sm'})}>
-                    Gestionar comportamientos
-                </Link>
+                <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
+                    <CreateBehaviourDialog onCreated={handleCreated}/>
+                    <Button type="button" variant="outline" onClick={handleTest} disabled={creatingTest}>
+                        {creatingTest
+                            ? <LoaderCircle data-icon="inline-start" className="animate-spin" aria-hidden="true"/>
+                            : <Play data-icon="inline-start" aria-hidden="true"/>}
+                        {creatingTest ? 'Creando partido…' : 'Probar comportamiento'}
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 {behaviours.length === 0 ? (
@@ -36,13 +92,11 @@ export default function ClubBehaviourList({behaviours}) {
                                     </ItemDescription>
                                 </ItemContent>
                                 <ItemFooter>
-                                    <Link
-                                        to={routePath(routes.behaviourDetail, {behaviourId: behaviour.id})}
-                                        className={buttonVariants({variant: 'outline', size: 'sm'})}
-                                        aria-label={`Ver detalle de ${behaviour.name}`}
-                                    >
-                                        Ver detalle
-                                    </Link>
+                                    <BehaviourDetailDialog behaviour={behaviour}/>
+                                    <ItemActions className="gap-1">
+                                        <BehaviourEdit behaviour={behaviour} onUpdated={handleUpdated}/>
+                                        <DeleteBehaviourButton behaviour={behaviour} onDeleted={handleDeleted}/>
+                                    </ItemActions>
                                 </ItemFooter>
                             </Item>
                         ))}

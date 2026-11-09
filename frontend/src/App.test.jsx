@@ -1,13 +1,28 @@
 import {afterEach, expect, it, vi} from 'vitest';
 import {cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {createMemoryRouter, RouterProvider, useLocation} from 'react-router';
+import {toast} from 'sonner';
 import App from './App.jsx';
+
+vi.mock('./features/friendly-matches/hooks/useMatchConnection.js', () => ({
+    useMatchConnection: () => ({snapshot: null, connectionStatus: 'loading', error: ''}),
+}));
 
 const club = {id: 8, name: 'Club de pruebas', avatar: 'avatar-01.png', friendlyAvailable: true};
 const invalidSession = {error: {code: 'SESSION_INVALID', message: 'La sesión venció.'}};
+const emptyList = () => jsonResponse({items: []});
+const myClubResponses = {
+    '/api/behaviours': emptyList,
+    '/api/clubs/me/leagues': emptyList,
+    '/api/clubs/me/dt/behaviours': emptyList,
+    '/api/players?page=1&pageSize=9': () => jsonResponse({items: [], total: 0, totalPages: 1}),
+    '/api/clubs/me/default-team': () => jsonResponse(null),
+    '/api/catalogs/formations': emptyList,
+};
 
 afterEach(() => {
     cleanup();
+    toast.dismiss();
     vi.unstubAllGlobals();
 });
 
@@ -48,7 +63,7 @@ function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
 
 it.each([
     '/ligas-disponibles', '/liga-cancelada', '/clubes', '/clubes/42',
-    '/crear-comportamiento-dt', '/ligas/42/plantel', '/leagues/42/lineup', '/ranking-global',
+    '/comportamientos', '/crear-comportamiento-dt', '/ligas/42/plantel', '/leagues/42/lineup', '/ranking-global',
 ])('redirects anonymous visits to %s to /', async (path) => {
     const fetchMock = renderRoute(path, {}, () => jsonResponse(invalidSession, 401));
 
@@ -62,8 +77,49 @@ it.each([
     expect(within(screen.getByRole('banner')).queryByRole('link', {name: /futbot/i})).not.toBeInTheDocument();
 
     fireEvent.click(nav.getByRole('link', {name: 'Registrarse'}));
-    expect(await screen.findByRole('heading', {name: 'Registro Usuario'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading', {name: 'Registrá tu club'})).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/registro$/);
+});
+
+it.each([
+    '/comportamientos', '/comportamientos/42', '/crear-comportamiento', '/behaviours', '/behaviours/42',
+])('redirects %s to the club catalogue without opening a page or dialog', async (path) => {
+    const fetchMock = renderRoute(path, myClubResponses);
+
+    expect(await screen.findByRole('tab', {name: 'Comportamientos', selected: true})).toBeVisible();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/mi-club$/);
+    expect(screen.getByTestId('current-path')).toHaveAttribute('data-search', '?tab=behaviours');
+    expect(screen.getByRole('button', {name: 'Crear nuevo comportamiento'})).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/behaviours/42');
+});
+
+it('retries a failed behaviour test and returns to the club catalogue from the match', async () => {
+    const createTest = vi.fn()
+        .mockReturnValueOnce(jsonResponse({error: {message: 'El equipo no está completo.'}}, 409))
+        .mockReturnValueOnce(jsonResponse({matchId: 42}, 201));
+    renderRoute('/mi-club?tab=behaviours', {
+        ...myClubResponses,
+        '/api/friendly-matches/behaviour-test': createTest,
+    });
+
+    const button = await screen.findByRole('button', {name: 'Probar comportamiento'});
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(await notifications.findByText('No se pudo iniciar la prueba')).toBeVisible();
+    expect(notifications.getByText('El equipo no está completo.')).toBeVisible();
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+
+    const returnLink = await screen.findByRole('link', {name: 'Volver a comportamientos'});
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/partidos\/42$/);
+    expect(await notifications.findByText('Partido de prueba creado')).toBeVisible();
+    expect(createTest).toHaveBeenCalledTimes(2);
+    expect(createTest).toHaveBeenLastCalledWith(expect.objectContaining({method: 'POST'}));
+    expect(returnLink).toHaveAttribute('href', '/mi-club?tab=behaviours');
+    fireEvent.click(returnLink);
+    expect(await screen.findByRole('tab', {name: 'Comportamientos', selected: true})).toBeVisible();
 });
 
 it('redirects the old login URL without losing the query, anchor or navigation state', async () => {
@@ -90,7 +146,8 @@ it.each(['/home', '/login'])('redirects %s to the authenticated home with its fi
         }),
     });
 
-    expect(await screen.findByLabelText('Buscar por nombre del club')).toHaveValue('River');
+    const listing = await screen.findByRole('link', {name: 'Ver amistosos disponibles'});
+    expect(listing).toHaveAttribute('href', `/partidos-disponibles${search}${hash}`);
     const location = screen.getByTestId('current-path');
     expect(location).toHaveTextContent(/^\/inicio$/);
     expect(location).toHaveAttribute('data-search', search);
@@ -111,16 +168,19 @@ it('lets an anonymous club verify its email after registering', async () => {
     await screen.findByRole('link', {name: 'Registrarse'});
     fireEvent.change(screen.getByLabelText('Nombre del Club'), {target: {value: 'Nuevo club'}});
     fireEvent.change(screen.getByLabelText('Email'), {target: {value: email}});
-    fireEvent.change(screen.getByPlaceholderText('Contraseña'), {target: {value: 'contraseña-de-prueba'}});
-    fireEvent.change(screen.getByPlaceholderText('Confimar-contraseña'), {target: {value: 'contraseña-de-prueba'}});
+    fireEvent.change(screen.getByLabelText('Contraseña', {exact: true}), {target: {value: 'contraseña-de-prueba'}});
+    fireEvent.change(screen.getByLabelText('Confirmar contraseña', {exact: true}), {target: {value: 'contraseña-de-prueba'}});
     fireEvent.click(screen.getByRole('button', {name: 'Registrar Club'}));
 
     expect(await screen.findByText(email)).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/verificar-email$/);
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(await notifications.findByText('Código de verificación enviado')).toBeVisible();
     fireEvent.change(screen.getByPlaceholderText('Ingrese el código'), {target: {value: '123456'}});
     fireEvent.click(screen.getByRole('button', {name: 'Verificar correo'}));
 
     expect(await screen.findByRole('link', {name: 'Ir a iniciar sesión'})).toHaveAttribute('href', '/iniciar-sesion');
+    expect(await notifications.findByText('Correo verificado')).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith('/api/auth/verify-email', expect.objectContaining({method: 'POST'}));
 });
 
@@ -146,6 +206,8 @@ it('updates the navigation on login and logout', async () => {
 
     expect(await screen.findByRole('img', {name: `Escudo de ${club.name}`})).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/inicio$/));
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(await notifications.findByText('Sesión iniciada')).toBeVisible();
     expect(screen.getByText(club.name)).toBeInTheDocument();
     expect(within(screen.getByRole('banner')).queryByRole('link', {name: /futbot/i})).not.toBeInTheDocument();
     const nav = within(screen.getByRole('navigation'));

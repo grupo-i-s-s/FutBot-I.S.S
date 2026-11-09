@@ -1,11 +1,10 @@
-import { Plus, Users, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router';
+import { Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { buttonVariants } from '@/components/ui/button';
-import {routes} from '@/routes.js';
+import CreatePlayerDialog from '@/features/create-players/CreatePlayerDialog.jsx';
 
 const PACSS_ATTRIBUTES = [
     ['Power', 'power'],
@@ -17,7 +16,7 @@ const PACSS_ATTRIBUTES = [
 
 export default function PlayerList({
     players, currentPage, totalPages, totalPlayers,
-    onPageChange, loading, error, onRetry,
+    onPageChange, loading, error, onRetry, onPlayerCreated,
 }) {
     return (
         <Card>
@@ -29,10 +28,7 @@ export default function PlayerList({
                 {totalPlayers != null && <CardDescription>{totalPlayers} jugadores en el plantel</CardDescription>}
 
                 <CardAction className="flex flex-col items-stretch gap-2">
-                    <Link to={routes.createPlayer} className={buttonVariants({size: 'sm'})}>
-                        <Plus className="size-4" aria-hidden="true"/>
-                        Crear Nuevo jugador
-                    </Link>
+                    <CreatePlayerDialog onCreated={onPlayerCreated} />
                 </CardAction>
             </CardHeader>
 

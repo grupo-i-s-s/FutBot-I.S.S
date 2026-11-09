@@ -298,6 +298,7 @@
 
 .home-matches .home-list {
     max-height: 280px;
+    margin-top: 12px;
     overflow-y: auto;
 }
 
@@ -352,7 +353,7 @@
 /* Tablet: bienvenida arriba y paneles abajo */
 
 @media (max-width: 1100px) {
-    .home-grid {
+    .home-layout {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         grid-template-areas:
             "bienvenida bienvenida"
@@ -363,5 +364,17 @@
 
     .home-welcome {
         padding-bottom: 30px;
+    }
+}
+
+@media (max-width: 640px) {
+    .futbot-home {
+        padding-inline: 16px;
+    }
+
+    .home-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "bienvenida" "ligas" "amistosos";
+        padding-block: 24px;
     }
 }

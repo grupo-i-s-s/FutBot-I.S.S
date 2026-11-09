@@ -12,13 +12,8 @@ export const routes = {
     clubProfile: '/clubes/:clubId',
     globalRanking: '/ranking-global',
     friendlyMatches: '/partidos-disponibles',
-    createMatch: '/crear-partido',
     match: '/partidos/:matchId',
-    createPlayer: '/crear-jugador',
     changePassword: '/cambiar-contrasena',
-    behaviours: '/comportamientos',
-    behaviourDetail: '/comportamientos/:behaviourId',
-    createBehaviour: '/crear-comportamiento',
     createDtBehaviour: '/crear-comportamiento-dt',
     leagues: '/ligas-disponibles',
     cancelledLeague: '/liga-cancelada',
@@ -28,3 +23,5 @@ export const routes = {
     leagueLobby: '/ligas/:id/sala-de-espera',
     leagueLineup: '/ligas/:id/plantel',
 };
+
+export const myClubBehavioursPath = `${routes.myClub}?tab=behaviours`;

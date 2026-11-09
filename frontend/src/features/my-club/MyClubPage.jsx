@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { Brain, CircleAlert, ClipboardList, Shirt, Trophy, Users } from 'lucide-react';
+import { Brain, CircleAlert, ClipboardList, Shirt, Swords, Trophy, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Toaster } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClubBehaviourList from './components/ClubBehaviourList';
 import ClubHeader from './components/ClubHeader';
@@ -13,6 +12,7 @@ import ClubSettingsDialog from './components/ClubSettingsDialog';
 import DtSettings from './components/DtSettings';
 import TeamSettings from './components/TeamSettings';
 import LeagueList from './components/LeagueList';
+import MyFriendlyMatches from './components/MyFriendlyMatches';
 import PlayerList from './components/PlayerList';
 import { useMyClub } from './hooks/useMyClub';
 import { updateMyClub } from './api';
@@ -20,6 +20,7 @@ import { updateMyClub } from './api';
 
 
 const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-6xl space-y-6 py-8 sm:py-12';
+const ROSTER_PAGE_SIZE = 9;
 const SAVE_TOAST_ID = 'my-club-save';
 const CLUB_TABS = [
     {value: 'team', label: 'Mi equipo', icon: Shirt},
@@ -27,16 +28,23 @@ const CLUB_TABS = [
     {value: 'behaviours', label: 'Comportamientos', icon: Brain},
     {value: 'dt', label: 'DT', icon: ClipboardList},
     {value: 'leagues', label: 'Ligas inscriptas', icon: Trophy},
+    {value: 'amistosos', label: 'Mis amistosos', icon: Swords},
 ];
 
 export default function MyClubPage() {
-    const { key: locationKey, state } = useLocation();
+    const { key: locationKey, state, search, hash } = useLocation();
+    const navigate = useNavigate();
+    const searchParams = new URLSearchParams(search);
+    const requestedTab = searchParams.get('tab');
+    const activeTab = CLUB_TABS.find(({value}) => value === requestedTab)?.value
+        ?? (state?.tab === 'dt' ? 'dt' : 'team');
     const mounted = useRef(false);
     const [page, setPage] = useState(1);
     const {
         status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub,
         rosterLoading, rosterError, reloadRoster,
-    } = useMyClub(page, 9);
+        addCatalogueBehaviour, updateCatalogueBehaviour, removeCatalogueBehaviour,
+    } = useMyClub(page, ROSTER_PAGE_SIZE);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const [isSaving, setIsSaving] = useState(false);
@@ -57,6 +65,18 @@ export default function MyClubPage() {
 
     function showSaveToast(message) {
         if (mounted.current) toast.success(message, {id: SAVE_TOAST_ID});
+    }
+
+    function handleTabChange(value) {
+        if (value === 'team') searchParams.delete('tab');
+        else searchParams.set('tab', value);
+        navigate({search: searchParams.toString(), hash}, {replace: true});
+    }
+
+    function handlePlayerCreated() {
+        const targetPage = totalPlayers == null ? page : Math.ceil((totalPlayers + 1) / ROSTER_PAGE_SIZE);
+        if (targetPage === page) reloadRoster();
+        else setPage(targetPage);
     }
 
     async function handleSettingsSave(changes) {
@@ -112,84 +132,83 @@ export default function MyClubPage() {
     }
 
     return (
-        <>
-            <main className={PAGE_CLASSES}>
-                <ClubHeader club={club} onSettingsClick={() => setIsSettingsOpen(true)} />
+        <main className={PAGE_CLASSES}>
+            <ClubHeader club={club} onSettingsClick={() => setIsSettingsOpen(true)} />
 
-                <Tabs defaultValue={state?.tab === 'dt' ? 'dt' : 'team'} className="w-full min-w-0 gap-4">
-                    <TabsList
-                        aria-label="Secciones de Mi club"
-                        className="w-full gap-2 rounded-xl border bg-card p-2 shadow-sm group-data-horizontal/tabs:h-16"
-                    >
-                        {CLUB_TABS.map(({value, label, icon: Icon}) => (
-                            <TabsTrigger
-                                key={value}
-                                value={value}
-                                className="gap-2 rounded-lg px-3 font-semibold text-foreground/80 hover:bg-accent data-active:bg-primary data-active:text-primary-foreground data-active:hover:bg-primary data-active:hover:text-primary-foreground dark:data-active:bg-primary dark:data-active:text-primary-foreground"
-                            >
-                                <Icon className="size-[18px]" aria-hidden="true" />
-                                {label}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full min-w-0 gap-4">
+                <TabsList
+                    aria-label="Secciones de Mi club"
+                    className="w-full justify-start gap-2 overflow-x-auto rounded-xl border bg-card p-2 shadow-sm group-data-horizontal/tabs:h-16"
+                >
+                    {CLUB_TABS.map(({value, label, icon: Icon}) => (
+                        <TabsTrigger
+                            key={value}
+                            value={value}
+                            className="min-w-max gap-2 rounded-lg px-3 font-semibold text-foreground/80 hover:bg-accent data-active:bg-primary data-active:text-primary-foreground data-active:hover:bg-primary data-active:hover:text-primary-foreground dark:data-active:bg-primary dark:data-active:text-primary-foreground"
+                        >
+                            <Icon className="size-[18px]" aria-hidden="true" />
+                            {label}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
 
-                    <TabsContent value="team" keepMounted>
-                        <TeamSettings
-                            key={club.id}
-                            clubId={club.id}
-                            behaviours={behaviours}
-                            onSaveSuccess={showSaveToast}
-                        />
-                    </TabsContent>
+                <TabsContent value="team" keepMounted>
+                    <TeamSettings
+                        key={club.id}
+                        clubId={club.id}
+                        behaviours={behaviours}
+                        onSaveSuccess={showSaveToast}
+                    />
+                </TabsContent>
 
-                    <TabsContent value="players">
-                        <PlayerList
-                            players={players}
-                            currentPage={page}
-                            totalPages={totalPages}
-                            totalPlayers={totalPlayers}
-                            onPageChange={setPage}
-                            loading={rosterLoading}
-                            error={rosterError}
-                            onRetry={reloadRoster}
-                        />
-                    </TabsContent>
+                <TabsContent value="players">
+                    <PlayerList
+                        players={players}
+                        currentPage={page}
+                        totalPages={totalPages}
+                        totalPlayers={totalPlayers}
+                        onPageChange={setPage}
+                        loading={rosterLoading}
+                        error={rosterError}
+                        onRetry={reloadRoster}
+                        onPlayerCreated={handlePlayerCreated}
+                    />
+                </TabsContent>
 
-                    <TabsContent value="behaviours">
-                        <ClubBehaviourList behaviours={behaviours} />
-                    </TabsContent>
+                <TabsContent value="behaviours">
+                    <ClubBehaviourList
+                        behaviours={behaviours}
+                        onCreated={addCatalogueBehaviour}
+                        onUpdated={updateCatalogueBehaviour}
+                        onDeleted={removeCatalogueBehaviour}
+                    />
+                </TabsContent>
 
-                    <TabsContent value="dt" keepMounted>
-                        <DtSettings key={`dt-${club.id}`} dt={club.dt} onSaveSuccess={showSaveToast} />
-                    </TabsContent>
+                <TabsContent value="dt" keepMounted>
+                    <DtSettings key={`dt-${club.id}`} dt={club.dt} onSaveSuccess={showSaveToast} />
+                </TabsContent>
 
-                    <TabsContent value="leagues">
-                        <LeagueList leagues={leagues} />
-                    </TabsContent>
-                </Tabs>
+                <TabsContent value="leagues">
+                    <LeagueList leagues={leagues} />
+                </TabsContent>
 
-                <ClubSettingsDialog
-                    club={club}
-                    isOpen={isSettingsOpen}
-                    onOpenChange={(open) => {
-                        if (isSaving) return;
-                        setSaveError('');
-                        setIsSettingsOpen(open);
-                    }}
-                    onSave={handleSettingsSave}
-                    isSaving={isSaving}
-                    saveError={saveError}
-                />
-            </main>
-            <Toaster
-                position="bottom-right"
-                offset={16}
-                duration={5000}
-                visibleToasts={1}
-                closeButton
-                containerAriaLabel="Notificaciones de Mi club"
-                toastOptions={{closeButtonAriaLabel: 'Cerrar notificación'}}
+                <TabsContent value="amistosos">
+                    <MyFriendlyMatches />
+                </TabsContent>
+            </Tabs>
+
+            <ClubSettingsDialog
+                club={club}
+                isOpen={isSettingsOpen}
+                onOpenChange={(open) => {
+                    if (isSaving) return;
+                    setSaveError('');
+                    setIsSettingsOpen(open);
+                }}
+                onSave={handleSettingsSave}
+                isSaving={isSaving}
+                saveError={saveError}
             />
-        </>
+        </main>
     );
 }

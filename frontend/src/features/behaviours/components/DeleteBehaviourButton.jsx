@@ -1,5 +1,6 @@
 import {useRef, useState} from 'react';
 import {LoaderCircle, Trash2} from 'lucide-react';
+import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger} from '@/components/ui/dialog';
 import {deleteBehaviour} from '../api';
@@ -30,6 +31,10 @@ export default function DeleteBehaviourButton({behaviour, onDeleted}) {
             await deleteBehaviour(behaviour.id);
         } catch (requestError) {
             setError(requestError);
+            toast.error('No se pudo eliminar el comportamiento', {
+                description: requestError.message,
+                position: 'top-right',
+            });
             return;
         } finally {
             pending.current = false;
