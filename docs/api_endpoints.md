@@ -8,7 +8,7 @@ Los endpoints privados requieren sesión por cookie `FutBotSession`. Salud, regi
 
 ## Paginación
 
-Las colecciones paginadas reciben `page` desde 1 y `pageSize` de 1 a 100. Devuelven `items`, `page`, `pageSize`, `total`, `totalPages` y `hasNext`. Un resultado vacío tiene `totalPages: 1` y `hasNext: false`. Una página posterior a la última devuelve `items: []`.
+Las colecciones paginadas reciben `page` desde 1 y `pageSize` de 1 a 100. El desplazamiento `(page - 1) * tamaño` no puede superar `9223372036854775807`, el máximo de PostgreSQL. Los valores fuera de rango devuelven `400 VALIDATION_ERROR`. Las respuestas incluyen `items`, `page`, `pageSize`, `total`, `totalPages` y `hasNext`. Un resultado vacío tiene `totalPages: 1` y `hasNext: false`. Una página válida posterior a la última devuelve `items: []`.
 
 | Colección | Filtro | Paginación recomendada |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ Las colecciones paginadas reciben `page` desde 1 y `pageSize` de 1 a 100. Devuel
 | `/players` | `search` | `?page=1&pageSize=9` |
 | `/leagues` | `name` | `?page=1&pageSize=20` |
 
-En `/players` y `/leagues`, enviar `pageSize` selecciona el contrato paginado común. Por compatibilidad, `limit` mantiene el formato anterior con `limit` y `totalPages`. `/players` sin tamaño sigue usando el formato anterior. `/leagues` sin `page`, `pageSize` ni `limit` sigue devolviendo todos los resultados en `items`.
+En `/players` y `/leagues`, enviar `pageSize` selecciona el contrato paginado común. Por compatibilidad, `limit` acepta de 1 a 100 y mantiene el formato anterior con `limit` y `totalPages`. `/players` sin tamaño sigue usando el formato anterior. `/leagues` sin `page`, `pageSize` ni `limit` sigue devolviendo todos los resultados en `items`.
 
 ## Operaciones HTTP
 
