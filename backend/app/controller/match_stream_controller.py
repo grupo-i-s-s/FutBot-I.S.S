@@ -7,9 +7,15 @@ from app.config import settings
 from app.database import SessionLocal
 from app.dependencies import CurrentClub, Database
 from app.errors import AppError
-from app.services import match_stream_services, behaviour_service
+from app.services import match_stream_services, behaviour_service, matches_service
 from app.services.match_snapshot_service import read_snapshot
-from app.schemas.matches_schemas import LiveRequests
+from app.schemas.matches_schemas import (
+    LiveRequests,
+    LiveRequestCreate,
+    LiveRequestResponse,
+    MatchDtResponse,
+    MatchDtUpdate,
+)
 from app.repository import matches_repository
 from app.services.match_request_handler import enqueue_request
 from primitives.behaviour_api.runtime import resolve_program
@@ -88,7 +94,18 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
         with suppress(asyncio.CancelledError, WebSocketDisconnect):
             await incoming
 
-@match_stream_router.post("/{match_id}/live_request")
+
+@match_stream_router.post("/{match_id}/dt", response_model=MatchDtResponse)
+def update_match_dt(match_id: int, data: MatchDtUpdate, db: Database, club: CurrentClub):
+    return matches_service.set_match_dt(db=db, match_id=match_id, club_id=club.id, dt_active=data.dt_active)
+
+
+@match_stream_router.post("/{match_id}/live-requests", response_model=LiveRequestResponse)
+def create_live_request(match_id: int, data: LiveRequestCreate, db: Database, club: CurrentClub):
+    return update_behaviour(match_id, data, db, club)
+
+
+@match_stream_router.post("/{match_id}/live_request", include_in_schema=False)
 def update_behaviour(
     match_id: int,
     data: LiveRequests,

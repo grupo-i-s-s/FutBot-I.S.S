@@ -7,6 +7,7 @@ from app.schemas.league_schemas import (
     CreatePrivateLeagueRequest,
     LeagueListResponse,
     LeagueLobbyRead,
+    LeagueRead,
     LeaveLeagueResponse,
     LeagueJoinRequest,
     StartLeagueResponse,
@@ -14,6 +15,7 @@ from app.schemas.league_schemas import (
     LeagueLineupRead,
     LeagueLineupUpdate,
 )
+from app.schemas.pagination import Page
 from app.services import league_fixture_service, league_service, league_lineup_service
 
 league_router = APIRouter(prefix="/leagues", tags=["leagues"])
@@ -112,15 +114,20 @@ def create_private_league(
     )
 
 
-@league_router.get("", response_model=LeagueListResponse, response_model_exclude_none=True)
+@league_router.get("", response_model=Page[LeagueRead] | LeagueListResponse, response_model_exclude_none=True)
 def get_leagues(
         club: CurrentClub,
         db: Database,
         name: str | None = None,
         page: int | None = Query(None, ge=1),
-        limit: int | None = Query(None, ge=1, le=100),
+        page_size: int | None = Query(None, alias="pageSize", ge=1, le=100),
+        limit: int | None = Query(None, ge=1, le=100, deprecated=True),
 ):
-    return league_service.list_leagues(db=db, club_id=club.id, name=name, page=page, limit=limit)
+    size = page_size if page_size is not None else limit
+    result = league_service.list_leagues(db=db, club_id=club.id, name=name, page=page, limit=size)
+    if page_size is None:
+        return result
+    return Page[LeagueRead](items=result.items, page=result.page, page_size=page_size, total=result.total)
 
 @league_router.get("/{id}/ranking", status_code = status.HTTP_200_OK)
 def get_league_ranking(id:int, club: CurrentClub, db:Database):
