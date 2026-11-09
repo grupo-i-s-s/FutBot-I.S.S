@@ -84,6 +84,10 @@ function RequireSession() {
     return <Outlet/>;
 }
 
+function LeagueCreationBackground() {
+    return <><HomePage/><Outlet/></>;
+}
+
 export default function App() {
     return (
         <SessionProvider>
@@ -107,8 +111,10 @@ export default function App() {
                     <Route path={routes.leagues} element={<LeagueListPage />} />
                     <Route path={routes.cancelledLeague} element={<CancelledLeague />} />
                     <Route path={routes.leagueRegistration} element={<InscripcionLigaPage />} />
-                    <Route path={routes.createLeague} element={<CrearLiga />} />
-                    <Route path={routes.createPrivateLeague} element={<CreatePrivateLeague />} />
+                    <Route element={<LeagueCreationBackground/>}>
+                        <Route path={routes.createLeague} element={<CrearLiga />} />
+                        <Route path={routes.createPrivateLeague} element={<CreatePrivateLeague />} />
+                    </Route>
                     <Route path={routes.leagueLobby} element={<LeagueLobby />} />
                     <Route path={routes.leagueLineup} element={<LeagueLineupPage />} />
                     <Route path={routes.behaviours} element={<BehaviourList />} />

@@ -20,7 +20,7 @@ function submitLeague() {
     fireEvent.change(screen.getByLabelText('Nombre de la liga'), {
         target: {value: 'Liga de prueba'},
     });
-    fireEvent.change(screen.getByLabelText('Maximo de clubes'), {
+    fireEvent.change(screen.getByLabelText('Máximo de clubes'), {
         target: {value: '8'},
     });
     fireEvent.change(screen.getByLabelText('Fecha y hora de inicio'), {
