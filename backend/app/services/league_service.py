@@ -372,6 +372,7 @@ def league_rank(league_id: int, db:Session):
         ranking[club.id] = {
             "id": club.id,
             "nombre": club.name,
+            "avatar": club.avatar,
             "puntos": 0,
             "pj": 0,
             "pg":0,

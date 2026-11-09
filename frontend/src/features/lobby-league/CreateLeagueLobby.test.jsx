@@ -49,7 +49,7 @@ beforeEach(() => {
         if (url === '/api/auth/me') data = {clubId};
         else if (url === '/api/behaviours') data = {items: []};
         else if (url.endsWith('/lobby')) data = lobby;
-        else if (url === '/api/leagues/42/ranking') data = [{id: 1, nombre: 'Club del ranking', puntos: 0}];
+        else if (url === '/api/leagues/42/ranking') data = [{id: 1, nombre: 'Club del ranking', avatar: 'avatar-08.png', puntos: 0}];
         else if (url.endsWith('/fixture')) data = fixture;
         else if (url.endsWith('/start')) data = await start();
         else throw new Error(`Petición inesperada: ${url}`);
@@ -80,8 +80,9 @@ it('permite iniciar sólo al creador y muestra fixture, posiciones y estado actu
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('cierran las inscripciones'));
     expect(await screen.findByText('En curso')).toBeInTheDocument();
     expect(await screen.findByRole('heading', {name: 'Tu próximo partido'})).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', {name: 'Ranking'}));
+    fireEvent.click(screen.getByRole('tab', {name: 'Ranking'}));
     expect(await screen.findByText('Club del ranking')).toBeInTheDocument();
+    expect(screen.getByRole('img', {name: 'Escudo de Club del ranking'})).toBeInTheDocument();
     expect(screen.queryByRole('button', {name: 'Iniciar liga'})).not.toBeInTheDocument();
     const [, options] = fetchMock.mock.calls.find(([url]) => url.endsWith('/start'));
     expect(options.method).toBe('POST');
