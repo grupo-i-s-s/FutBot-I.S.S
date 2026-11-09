@@ -4,7 +4,7 @@ import {isPaused} from '../matchSnapshot.js';
 
 const pauseNames = {1: 'primera hidratación', 2: 'entretiempo', 3: 'segunda hidratación'};
 
-export default function PlannedSubstitutionPanel({matchId, state, sequence, clubId, connected}) {
+export default function PlannedSubstitutionPanel({matchId, state, sequence, clubId, connected, allowManualActions}) {
     const [outId, setOutId] = useState('');
     const [inId, setInId] = useState('');
     const [receipt, setReceipt] = useState(null);
@@ -28,14 +28,31 @@ export default function PlannedSubstitutionPanel({matchId, state, sequence, club
 
     const team = state.lineups?.find(lineup => lineup.clubId === clubId);
     if (!team) return null;
-    const next = state.nextPause;
-    const pending = !receipt?.manual && receipt?.sequence > sequence
-        ? (receipt.status === 'PENDING' && receipt.pauseId === next?.pauseId ? receipt : null)
-        : team.pendingSubstitution;
     const roster = [...team.starters, ...team.substitutes];
     const name = id => roster.find(player => player.playerId === id)?.name ?? `Jugador ${id}`;
     const lastEvent = (state.events ?? []).filter(event => event.clubId === clubId
         && ['SUBSTITUTION_APPLIED', 'SUBSTITUTION_REJECTED'].includes(event.type)).at(-1);
+    const eventNotice = lastEvent && (
+        <p role="status">{lastEvent.type === 'SUBSTITUTION_APPLIED'
+            ? lastEvent.source === 'DT'
+                ? `El DT hizo un cambio. Salió ${name(lastEvent.outPlayerId)} y entró ${name(lastEvent.inPlayerId)}.`
+                : `Cambio aplicado: salió ${name(lastEvent.outPlayerId)} y entró ${name(lastEvent.inPlayerId)}.`
+            : 'El motor rechazó el cambio; no se aplicó.'}</p>
+    );
+
+    if (!allowManualActions) {
+        return eventNotice ? (
+            <section className="match-substitution" aria-label="Sustituciones">
+                <h2>Sustituciones</h2>
+                {eventNotice}
+            </section>
+        ) : null;
+    }
+
+    const next = state.nextPause;
+    const pending = !receipt?.manual && receipt?.sequence > sequence
+        ? (receipt.status === 'PENDING' && receipt.pauseId === next?.pauseId ? receipt : null)
+        : team.pendingSubstitution;
     const accepted = paused && receipt?.manual && receipt.pauseId === pauseId;
     const resolved = accepted && (team.remainingSubstitutions === 0
         || (lastEvent?.eventId !== receipt.previousEventId && lastEvent?.pauseId === pauseId && lastEvent.outPlayerId === receipt.outPlayerId
@@ -88,13 +105,7 @@ export default function PlannedSubstitutionPanel({matchId, state, sequence, club
                     {' '}Se aplicará en {pauseNames[next?.number]}; todavía no se realizó.</p>
             )}
             {waiting && <p role="status">Cambio pendiente: esperando la confirmación del motor.</p>}
-            {lastEvent && (
-                <p role="status">{lastEvent.type === 'SUBSTITUTION_APPLIED'
-                    ? lastEvent.source === 'DT'
-                        ? `El DT hizo un cambio. Salió ${name(lastEvent.outPlayerId)} y entró ${name(lastEvent.inPlayerId)}.`
-                        : `Cambio aplicado: salió ${name(lastEvent.outPlayerId)} y entró ${name(lastEvent.inPlayerId)}.`
-                    : 'El motor rechazó el cambio; no se aplicó.'}</p>
-            )}
+            {eventNotice}
             {state.status === 'RUNNING' && (
                 <>
                     {!paused && !next && <p>No quedan pausas para programar cambios.</p>}

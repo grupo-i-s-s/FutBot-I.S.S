@@ -35,11 +35,3 @@ export function changeBehaviour(matchId, playerId, behaviourId) {
         body: {playerId, behaviourId},
     });
 }
-
-export function activateMatchDt(matchId, active) {
-    const id = validateMatchId(matchId);
-    return request(`/matches/${id}/dt`, {
-        method: 'POST',
-        body: {dtActive: active},
-    });
-}

@@ -9,7 +9,7 @@ const modeNames = {
     CUSTOM: 'Personalizado',
 };
 
-function PlayerBehaviourSelector({matchId, player, behaviours, canChange}) {
+function PlayerBehaviour({matchId, player, behaviours, allowManualActions, canChange}) {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const confirmedId = String(player.behaviourId ?? '');
@@ -19,7 +19,7 @@ function PlayerBehaviourSelector({matchId, player, behaviours, canChange}) {
 
     async function handleChange(event) {
         const behaviourId = event.target.value;
-        if (!canChange || sending || !behaviourId || behaviourId === confirmedId) return;
+        if (!allowManualActions || !canChange || sending || !behaviourId || behaviourId === confirmedId) return;
 
         setSending(true);
         setError('');
@@ -38,7 +38,7 @@ function PlayerBehaviourSelector({matchId, player, behaviours, canChange}) {
                 <span className="font-medium">Comportamiento actual:</span>{' '}
                 {confirmedName}
             </p>
-            <div className="mt-2">
+            {allowManualActions && <div className="mt-2">
                 <select
                     aria-label={`Cambiar táctica de ${player.name} (#${player.id})`}
                     className="w-full text-sm p-1 border rounded"
@@ -51,12 +51,12 @@ function PlayerBehaviourSelector({matchId, player, behaviours, canChange}) {
                 </select>
                 {sending && <p role="status" className="mt-1 text-xs text-muted-foreground">Enviando orden…</p>}
                 {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
-            </div>
+            </div>}
         </>
     );
 }
 
-export default function LiveChangeBehaviour({matchId, players, behaviours, isMyTeam, canChange}) {
+export default function LiveChangeBehaviour({matchId, players, behaviours, isMyTeam, allowManualActions, canChange}) {
     return (
         <div>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -73,10 +73,11 @@ export default function LiveChangeBehaviour({matchId, players, behaviours, isMyT
                                     #{player.id} {player.name}
                                 </h4>
                                 {isMyTeam ? (
-                                    <PlayerBehaviourSelector
+                                    <PlayerBehaviour
                                         matchId={matchId}
                                         player={player}
                                         behaviours={behaviours}
+                                        allowManualActions={allowManualActions}
                                         canChange={canChange}
                                     />
                                 ) : (

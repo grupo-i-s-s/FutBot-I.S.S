@@ -13,7 +13,6 @@ import MatchBreakNotice, {
 } from './components/MatchBreakNotice.jsx';
 import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx';
 import PlannedSubstitutionPanel from './components/PlannedSubstitutionPanel.jsx';
-import { activateMatchDt } from './matchApi.js';
 import {routes} from '@/routes.js';
 
 const connectionLabels = {
@@ -39,42 +38,17 @@ function resultText(state) {
     return `Ganó ${local.score > visitor.score ? local.name : visitor.name}.`;
 }
 
-function MatchDtControl({ matchId, team, running, connected }) {
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
-    const active = team.dtActive === true;
-    const configured = team.dtConfigured ?? active;
-    const status = team.dtError ? 'DT con error' : active ? 'DT activo' : 'DT inactivo';
-
-    async function toggle() {
-        if (!running || !connected || !configured || saving) return;
-        setSaving(true);
-        setError('');
-        try {
-            await activateMatchDt(matchId, !active);
-        } catch (cause) {
-            setError(cause.message || 'No se pudo cambiar el estado del DT.');
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    if (!configured && !team.dtError) return null;
+function MatchDtStatus({ team }) {
+    const active = team?.dtActive === true;
+    if (!active && (team?.dtActive !== false || !team.dtConfigured)) return null;
+    const dtError = active && team.dtError;
+    const status = dtError ? 'DT con error' : active ? 'DT activo' : 'DT inactivo';
 
     return (
-        <div className="text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-                <span className={active && !team.dtError ? 'font-semibold text-emerald-800' : 'text-muted-foreground'}>
-                    {status}
-                </span>
-                {running && configured && (
-                    <Button type="button" variant="outline" size="sm" disabled={!connected || saving} onClick={toggle}>
-                        {saving ? 'Guardando…' : active ? 'Desactivar DT' : 'Activar DT'}
-                    </Button>
-                )}
-            </div>
-            {team.dtError && <p className="match-error">{team.dtError}</p>}
-            {error && <p className="match-error" role="alert">{error}</p>}
+        <div className="match-notice">
+            <p className="font-semibold">{status}</p>
+            {active && <p>Estás viendo el partido en modo espectador.</p>}
+            {dtError && <p className="match-error" role="alert">{dtError}</p>}
         </div>
     );
 }
@@ -98,6 +72,8 @@ export default function MatchPage() {
     }, []);
 
     const state = snapshot?.state;
+    const myTeam = state?.teams.find(team => team.id === club?.id);
+    const allowManualActions = myTeam?.dtActive === false;
     const terminal = ['FINISHED', 'CANCELLED'].includes(state?.status);
     const connected = connectionStatus === 'connected';
     const paused = isPaused(state);
@@ -136,6 +112,7 @@ export default function MatchPage() {
                 {state && (
                     <>
                         <MatchScoreboard state={state} />
+                        <MatchDtStatus team={myTeam} />
                         <MatchBreakNotice
                             state={state}
                             connected={connected}
@@ -146,7 +123,8 @@ export default function MatchPage() {
                         {terminal && <p className="match-result">{resultText(state)}</p>}
                         <MatchCanvas snapshot={snapshot} live={live} />
                         <PlannedSubstitutionPanel key={matchId} matchId={matchId} state={state}
-                                                  sequence={snapshot.sequence} clubId={club?.id} connected={connected}/>
+                                                  sequence={snapshot.sequence} clubId={club?.id} connected={connected}
+                                                  allowManualActions={allowManualActions}/>
                         {state.players.length > 0 && (
                             <section className="match-lineups" aria-label="Jugadores en cancha">
                                 {state.teams.map((team) => {
@@ -155,17 +133,11 @@ export default function MatchPage() {
                                     const isMyTeam = team.id === club?.id;
                                     return (
                                         <div key={team.id}>
-                                            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                                                <h2>
-                                                    <span style={{ backgroundColor: team.color }} />
-                                                    {team.name}
-                                                </h2>
-                                                {isMyTeam && (
-                                                    <MatchDtControl key={matchId} matchId={matchId} team={team}
-                                                                    running={running} connected={connected} />
-                                                )}
-                                            </div>
-                                            {isMyTeam && running && behavioursError && (
+                                            <h2>
+                                                <span style={{ backgroundColor: team.color }} />
+                                                {team.name}
+                                            </h2>
+                                            {isMyTeam && allowManualActions && running && behavioursError && (
                                                 <p role="alert">No se pudieron cargar los comportamientos. {behavioursError}</p>
                                             )}
                                             <LiveChangeBehaviour
@@ -174,6 +146,7 @@ export default function MatchPage() {
                                                 players={teamPlayers}
                                                 behaviours={behaviours}
                                                 isMyTeam={isMyTeam}
+                                                allowManualActions={allowManualActions}
                                                 canChange={running && connected}
                                             />
                                         </div>

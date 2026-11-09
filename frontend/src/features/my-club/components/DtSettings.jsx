@@ -68,6 +68,7 @@ export default function DtSettings({ dt, onSaveSuccess }) {
                 <CardDescription>
                     Cuando lo activás, el DT dirige a tu equipo desde el inicio de cada partido.
                     Puede cambiar a comportamientos predeterminados y hacer sustituciones durante las pausas.
+                    Los cambios de configuración se aplican a los próximos partidos.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
