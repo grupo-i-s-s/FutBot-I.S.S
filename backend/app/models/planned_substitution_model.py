@@ -13,6 +13,10 @@ class PlannedSubstitution(Base):
             "uq_pending_substitution", "match_id", "club_id", "pause_index", unique=True,
             postgresql_where=text("status = 'PENDING'"), sqlite_where=text("status = 'PENDING'"),
         ),
+        Index(
+            "uq_applied_substitution", "match_id", "club_id", "pause_index", unique=True,
+            postgresql_where=text("status = 'APPLIED'"), sqlite_where=text("status = 'APPLIED'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

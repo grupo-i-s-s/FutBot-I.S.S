@@ -207,6 +207,55 @@ class Match:
             hydration_ms=hydration_break_ms,
             half_ms=half_break_ms,
         )
+        self.on_pause = None
+        self.substitution_pauses: set[tuple[int, int]] = set()
+        self.substitution_events: list[dict] = []
+
+    @property
+    def paused(self) -> bool:
+        return self._breaks.paused
+
+    @property
+    def pause_index(self) -> int:
+        return self._breaks.next_index
+
+    def substitute(self, club_id: int, out_player_id: int, in_player_id: int) -> None:
+        if not self.paused:
+            raise ValueError("PAUSE_CLOSED")
+        key = (club_id, self.pause_index)
+        if key in self.substitution_pauses:
+            raise ValueError("SUBSTITUTION_QUOTA_USED")
+        team = next((t for t in (self.local_team, self.visitor_team) if t.club_id == club_id), None)
+        outgoing = next((p for p in team.players if p.id == out_player_id), None) if team else None
+        incoming = next((p for p in team.substitutes if p.id == in_player_id), None) if team else None
+        if outgoing is None or incoming is None or incoming.club_id != club_id or in_player_id in self.player_bodies:
+            raise ValueError("SUBSTITUTION_INVALID_PLAYERS")
+
+        updated = replace(
+            team,
+            players=tuple(incoming if p.id == out_player_id else p for p in team.players),
+            substitutes=tuple(outgoing if p.id == in_player_id else p for p in team.substitutes),
+        )
+        if club_id == self.local_team.club_id:
+            self.local_team = updated
+        else:
+            self.visitor_team = updated
+        self.player_profiles = self.local_team.players + self.visitor_team.players
+        # Reutilizar el cuerpo conserva su posición y evita duplicar objetos físicos.
+        body = self.player_bodies.pop(out_player_id)
+        body.mass = incoming.real_strength
+        body.moment = pymunk.moment_for_circle(body.mass, 0, PLAYER_RADIUS)
+        body.velocity = (0, 0)
+        body.angular_velocity = 0
+        body.force = (0, 0)
+        body.torque = 0
+        self.player_bodies[in_player_id] = body
+        self.home_positions[in_player_id] = self.home_positions.pop(out_player_id)
+        for player_id in (out_player_id, in_player_id):
+            self.next_kick_at.pop(player_id, None)
+            self.behaviour_errors.pop(player_id, None)
+        self.close_runtime()
+        self.substitution_pauses.add(key)
 
     def team_side(self, club_id: int) -> str:
         if club_id not in (self.local_team.club_id, self.visitor_team.club_id):
@@ -256,6 +305,7 @@ class Match:
                 "durationMs": self.duration_ms,
                 "period": 2 if self.sides_swapped else 1,
                 **self._breaks.public_state(),
+                "events": [dict(event) for event in self.substitution_events],
                 "field": {"width": width, "height": height, "goalWidth": goal_width},
                 "teams": [
                     {"id": team.club_id, "name": team.name, "avatar": team.avatar,
@@ -280,7 +330,7 @@ class Match:
     def checkpoint(self) -> dict:
         """Estado privado para retomar desde el último snapshot confirmado."""
         return {
-            "version": 5,
+            "version": 6,
             "match_id": self.match_id,
             "duration_ms": self.duration_ms,
             "local_team": asdict(self.local_team),
@@ -288,6 +338,8 @@ class Match:
             "time": self.time,
             "scorer": dict(self.scorer),
             "breaks": self._breaks.checkpoint(),
+            "substitution_pauses": [list(key) for key in sorted(self.substitution_pauses)],
+            "substitution_events": [dict(event) for event in self.substitution_events],
             "sides_swapped": self.sides_swapped,
             "kickoff_club_id": self.kickoff_club_id,
             "next_kick_at": {
@@ -313,7 +365,7 @@ class Match:
     def from_checkpoint(cls, data: dict) -> "Match":
         version = data.get("version")
 
-        if version not in (1, 2, 3, 4, 5):
+        if version not in (1, 2, 3, 4, 5, 6):
             raise ValueError("Versión de checkpoint incompatible.")
 
         def team_from_data(team: dict) -> Team:
@@ -416,6 +468,17 @@ class Match:
             restored_errors[player_id] = error
 
         match.behaviour_errors = restored_errors
+
+        if version >= 6:
+            pauses = data["substitution_pauses"]
+            valid_clubs = {match.local_team.club_id, match.visitor_team.club_id}
+            if any(len(key) != 2 or key[0] not in valid_clubs or key[1] not in (1, 2, 3) for key in pauses):
+                raise ValueError("Cuota de sustituciones inválida.")
+            match.substitution_pauses = {tuple(key) for key in pauses}
+            events = data["substitution_events"]
+            if not isinstance(events, list) or any(not isinstance(e, dict) or not e.get("eventId") for e in events):
+                raise ValueError("Eventos de sustitución inválidos.")
+            match.substitution_events = [dict(event) for event in events]
 
         if version < 4 and custom_ids:
             raise ValueError(

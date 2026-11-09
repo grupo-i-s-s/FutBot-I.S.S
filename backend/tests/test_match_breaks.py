@@ -114,7 +114,7 @@ def test_checkpoint_preserves_active_break_and_remaining_time(match):
     checkpoint = json.loads(json.dumps(match.checkpoint()))
     restored = Match.from_checkpoint(checkpoint)
 
-    assert checkpoint["version"] == 5
+    assert checkpoint["version"] == 6
     assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
     assert restored.snapshot(5, "now") == match.snapshot(5, "now")
     assert public_state(restored)["breakRemainingMs"] == 60
@@ -167,6 +167,7 @@ def test_invalid_break_duration_is_rejected(duration):
 
 
 def test_executor_keeps_publishing_during_break(match, monkeypatch):
+    monkeypatch.setattr(execution, "apply_planned_substitutions", lambda *_: False)
     # Pausa suficientemente larga para observar varios snapshots congelados.
     match._breaks.hydration_ms = 1000
 

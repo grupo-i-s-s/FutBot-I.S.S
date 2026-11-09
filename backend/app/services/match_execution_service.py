@@ -7,6 +7,7 @@ from app.errors import AppError
 from app.repository import matches_repository
 from app.services.match_start_service import prepare_match_start
 from app.services.league_fixture_service import update_fixture_schedule
+from app.services.substitution_execution_service import apply_planned_substitutions
 from primitives.match_simulation import Match
 from app.services.match_request_handler import live_request
 import logging
@@ -104,6 +105,19 @@ def _execute(
             resources.callback(simulation.close_runtime)
 
             snapshot = _persist(db, row, simulation)
+
+        def on_pause():
+            current = matches_repository.get_by_id_for_update(db, match_id)
+            if current is None or current.status != "RUNNING":
+                return False
+            return apply_planned_substitutions(db, match_id, simulation)
+
+        simulation.on_pause = on_pause
+        if simulation.pause_index:
+            if on_pause():
+                snapshot = _persist(db, row, simulation)
+            else:
+                db.rollback()
 
         deadline = monotonic()
 

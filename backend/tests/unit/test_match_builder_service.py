@@ -244,7 +244,7 @@ def test_bench_configuration_is_frozen_and_recovers_from_json_checkpoint(db, tea
     teams.players[7][1].name = "Nombre nuevo"
 
     restored = Match.from_checkpoint(checkpoint)
-    assert checkpoint["version"] == 5
+    assert checkpoint["version"] == 6
     assert restored.local_team.substitutes == match.local_team.substitutes
     assert restored.visitor_team.substitutes == match.visitor_team.substitutes
     assert [p.id for p in restored.local_team.substitutes] == [71, 73, 75]
