@@ -7,7 +7,7 @@ from app.models.matches_model import Matches, TEST_OPPONENT_CLUB_ID
 from app.repository import matches_repository
 from app.services.match_builder_service import build_match
 from app.services.match_schedule_service import LEAGUE_SCHEDULE_CONFLICT, find_league_schedule_conflict
-from app.services.match_snapshot_service import read_snapshot
+from app.services.match_snapshot_service import read_snapshot, with_closed_match_pauses
 from primitives.match_simulation import Match
 
 PENDING_STATUSES = ("WAITING", "WAITING_OPPONENT", "SCHEDULED")
@@ -24,8 +24,9 @@ def cancel_match(db: Session, match: Matches, reason: str, now: datetime) -> Non
     match.status = "CANCELLED"
     match.cancellation_reason = reason
     match.sequence = snapshot["sequence"]
-    match.snapshot = snapshot
+    match.snapshot = with_closed_match_pauses(snapshot)
 
+    matches_repository.expire_pending_substitutions(db, match.match_id)
     db.flush()
 
 

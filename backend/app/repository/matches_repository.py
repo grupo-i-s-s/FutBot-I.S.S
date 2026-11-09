@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.orm import Session, aliased
 
 from app.database import engine
@@ -10,6 +10,7 @@ from app.models.behaviour_model import Behavior
 from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
+from app.models.planned_substitution_model import PlannedSubstitution
 
 
 def get_starting_players(db: Session, club_id: int) -> list[tuple[Player, Behavior]]:
@@ -52,6 +53,15 @@ def get_by_id(db: Session, match_id: int) -> Matches | None:
 def get_by_id_for_update(db: Session, match_id: int) -> Matches | None:
     return db.scalar(
         select(Matches).where(Matches.match_id == match_id).with_for_update().execution_options(populate_existing=True))
+
+
+def expire_pending_substitutions(db: Session, match_id: int) -> None:
+    """Cierra los planes pendientes bajo el bloqueo del partido."""
+    db.execute(
+        update(PlannedSubstitution)
+        .where(PlannedSubstitution.match_id == match_id, PlannedSubstitution.status == "PENDING")
+        .values(status="EXPIRED")
+    )
 
 
 @contextmanager

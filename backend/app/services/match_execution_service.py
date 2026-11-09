@@ -45,6 +45,7 @@ def _close_unrecoverable_match(db: Session, row, error: Exception) -> dict:
     row.sequence += 1
     snapshot = empty_match_snapshot(db, row, now, status="CANCELLED")
     row.snapshot = snapshot
+    matches_repository.expire_pending_substitutions(db, row.match_id)
     if row.league_round_id is not None:
         update_fixture_schedule(db, row.league_round_id)
     db.commit()

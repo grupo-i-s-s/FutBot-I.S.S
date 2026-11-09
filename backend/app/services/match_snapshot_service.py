@@ -75,6 +75,29 @@ def _with_match_control(snapshot: dict, match: Matches) -> dict:
     return {**snapshot, "state": public_state}
 
 
+def with_closed_match_pauses(snapshot: dict) -> dict:
+    """Cierra las pausas y los cambios visibles sin modificar el snapshot de origen."""
+    state = snapshot["state"]
+    updates = {}
+    if (
+        state.get("phase") not in (None, "PLAYING")
+        or state.get("breakIndex") is not None
+        or state.get("breakRemainingMs", 0) != 0
+    ):
+        updates.update(phase="PLAYING", breakIndex=None, breakRemainingMs=0)
+    if state.get("nextPause") is not None:
+        updates["nextPause"] = None
+    lineups = state.get("lineups", [])
+    if any(
+        lineup.get("pendingSubstitution") is not None or lineup.get("remainingSubstitutions")
+        for lineup in lineups
+    ):
+        updates["lineups"] = [
+            {**lineup, "pendingSubstitution": None, "remainingSubstitutions": 0} for lineup in lineups
+        ]
+    return {**snapshot, "state": {**state, **updates}} if updates else snapshot
+
+
 def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
     match = matches_repository.get_by_id(db, match_id)
     if match is None:
@@ -82,7 +105,10 @@ def read_snapshot(db: Session, match_id: int, club_id: int) -> dict:
     if club_id not in (match.creator_id, match.visitor_id):
         raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
     if match.snapshot is not None:
-        return _with_club_avatars(db, _with_match_control(match.snapshot, match))
+        snapshot = _with_match_control(match.snapshot, match)
+        if snapshot["state"].get("status") == "CANCELLED":
+            snapshot = with_closed_match_pauses(snapshot)
+        return _with_club_avatars(db, snapshot)
     if match.status not in ("WAITING", "WAITING_OPPONENT", "SCHEDULED"):
         raise AppError("MATCH_STATE_INVALID", "Falta el snapshot persistido del partido.")
     return empty_match_snapshot(db, match, datetime.now(timezone.utc))
