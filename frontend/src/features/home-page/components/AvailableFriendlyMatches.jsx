@@ -1,14 +1,10 @@
 import {Link, useLocation} from 'react-router';
 import {ArrowRight, Swords} from 'lucide-react';
-import {Button} from '@/components/ui/button';
-import {useFriendlyMatches} from '../../friendly-matches/hooks/useFriendlyMatches.js';
-import {FriendlyMatchPagination} from '../../friendly-matches/components/FriendlyMatchSearch.jsx';
 import '../homePage.css';
 import {routes} from '@/routes.js';
 
 
 export default function AvailableFriendlyMatches() {
-    const search = useFriendlyMatches();
     const location = useLocation();
     const availableMatches = {pathname: routes.friendlyMatches, search: location.search, hash: location.hash};
 
@@ -31,32 +27,6 @@ export default function AvailableFriendlyMatches() {
                 Crear Partido Amistoso
                 <ArrowRight size={17} aria-hidden="true"/>
             </Link>
-            {search.loading && <p role="status">Buscando amistosos…</p>}
-            {search.error && <p role="alert">{search.error}
-                <Button variant="outline" onClick={search.reload}>Reintentar búsqueda</Button>
-            </p>}
-            {!search.loading && !search.error && search.result.items.length > 0 && (
-                <ul className="home-list" tabIndex={0} aria-label="Resultados de amistosos">
-                    {search.result.items.map((match) => (
-                        <li key={match.matchId} className="home-list-card">
-                            <div className="home-match-heading">
-                                <span className="home-club-avatar" aria-hidden="true">
-                                    {match.creatorClubName.charAt(0)}
-                                </span>
-                                <div>
-                                    <h3>{match.creatorClubName}</h3>
-                                    <p className="home-item-description">
-                                        {new Date(match.startDateTime).toLocaleString('es-AR')}
-                                    </p>
-                                </div>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            )}
-            {!search.error && search.result.total > 0 && (
-                <div className="mt-3"><FriendlyMatchPagination search={search}/></div>
-            )}
         </aside>
     );
 }

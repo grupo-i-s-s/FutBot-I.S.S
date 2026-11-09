@@ -153,9 +153,9 @@ it.each(['/home', '/login'])('redirects %s to the authenticated home with its fi
     expect(location).toHaveAttribute('data-search', search);
     expect(location).toHaveAttribute('data-hash', hash);
     expect(location).toHaveAttribute('data-navigation-state', JSON.stringify(state));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchMock).not.toHaveBeenCalledWith(
         '/api/friendly-matches?creatorName=River&page=2&pageSize=20', expect.anything(),
-    ));
+    );
 });
 
 it('lets an anonymous club verify its email after registering', async () => {

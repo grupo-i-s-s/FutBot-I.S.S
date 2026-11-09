@@ -13,7 +13,7 @@ vi.mock('./hooks/useMatchConnection.js', () => ({useMatchConnection: () => ({
 const match = {matchId: 42, creatorClubName: 'River Norte', startDateTime: '2030-01-01T12:00:00Z'};
 const reply = (data, status = 200) => ({ok: status < 400, status, json: async () => data});
 const result = (items = [match], page = 1, total = 41) => ({items, total, page, pageSize: 20});
-const pages = ['/partidos-disponibles', '/inicio'];
+const pages = ['/partidos-disponibles'];
 let fetchMock;
 let available;
 let join;
@@ -171,7 +171,8 @@ it('conserva el contexto desde la portada al listado y al volver del partido', a
     await show(`/inicio${query}`);
     expect(screen.queryByRole('search')).not.toBeInTheDocument();
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
-    expect(screen.getByText('Página 2 · 41 amistosos')).toBeInTheDocument();
+    expect(screen.queryByRole('list', {name: 'Resultados de amistosos'})).not.toBeInTheDocument();
+    expect(available).not.toHaveBeenCalled();
     const listing = screen.getByRole('link', {name: 'Ver amistosos disponibles'});
     expect(listing).toHaveAttribute('href', `/partidos-disponibles${query}`);
     await act(async () => fireEvent.click(listing));
