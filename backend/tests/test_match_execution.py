@@ -91,7 +91,7 @@ def test_executor_persists_result_and_second_call_does_not_play_again(database, 
         assert row.local_score == 0 and row.visitor_score == 6
         assert row.started_at is not None and row.finished_at is not None
         assert row.snapshot == final
-        assert row.runtime_state["version"] == 4
+        assert row.runtime_state["version"] == 5
         assert [team["avatar"] for team in final["state"]["teams"]] == [
             "avatar-01.png", "avatar-02.png",
         ]

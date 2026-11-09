@@ -99,6 +99,7 @@ class Team:
     formation_id: int = 1
     formation_positions: tuple[tuple[float, float], ...] | None = None
     avatar: str | None = None
+    substitutes: tuple[PlayerProfile, ...] = ()
 
     def __post_init__(self):
         positions = self.formation_positions
@@ -279,7 +280,7 @@ class Match:
     def checkpoint(self) -> dict:
         """Estado privado para retomar desde el último snapshot confirmado."""
         return {
-            "version": 4,
+            "version": 5,
             "match_id": self.match_id,
             "duration_ms": self.duration_ms,
             "local_team": asdict(self.local_team),
@@ -312,7 +313,7 @@ class Match:
     def from_checkpoint(cls, data: dict) -> "Match":
         version = data.get("version")
 
-        if version not in (1, 2, 3, 4):
+        if version not in (1, 2, 3, 4, 5):
             raise ValueError("Versión de checkpoint incompatible.")
 
         def team_from_data(team: dict) -> Team:
@@ -331,6 +332,10 @@ class Match:
                 formation_id=team.get("formation_id", 1),
                 formation_positions=team.get("formation_positions"),
                 avatar=team.get("avatar"),
+                substitutes=tuple(
+                    PlayerProfile(**{**player, "behaviour_mode": BehaviourMode(player["behaviour_mode"])})
+                    for player in team.get("substitutes", [])
+                ),
             )
 
         match = cls(
