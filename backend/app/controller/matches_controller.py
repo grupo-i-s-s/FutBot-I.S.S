@@ -1,11 +1,11 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from app.dependencies import CurrentClub, Database
 from app.schemas.matches_schemas import (
     ClubFriendlyMatchResponse,
     CreateFriendlyMatchRequest,
     CreateFriendlyMatchResponse,
-    FriendlyMatchResponse,
+    FriendlyMatchListResponse,
     JoinMatchRequest,
     JoinMatchResponse,
     MatchStateResponse,
@@ -24,9 +24,13 @@ def create_friendly_match(
     return matches_service.create_friendly_match(db=db, club_id=club.id, data=data)
 
 
-@matches_router.get("", response_model=list[FriendlyMatchResponse])
-def list_friendly_matches(db: Database, club: CurrentClub):
-    return matches_service.list_available(db, club.id)
+@matches_router.get("", response_model=FriendlyMatchListResponse)
+def list_friendly_matches(
+    db: Database, club: CurrentClub, creator_name: str | None = Query(default=None, alias="creatorName"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, alias="pageSize", ge=1, le=100),
+):
+    return matches_service.list_available(db, club.id, creator_name=creator_name, page=page, page_size=page_size)
 
 
 @matches_router.get("/me", response_model=list[ClubFriendlyMatchResponse])

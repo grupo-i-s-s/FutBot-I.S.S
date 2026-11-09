@@ -142,17 +142,17 @@ def test_listing_filters_unavailable_creators_and_retains_existing_match_filters
     response = viewer.client.get("/friendly-matches")
 
     assert response.status_code == 200, response.text
-    assert [item["matchId"] for item in response.json()] == expected
+    assert [item["matchId"] for item in response.json()["items"]] == expected
 
 
 def test_creator_opting_out_after_listing_cannot_be_joined_via_direct_request(context):
     owner = context.account("owner", available=True)
     visitor = context.account("visitor", available=True)
     match_id = create_match(owner.client)
-    assert [item["matchId"] for item in visitor.client.get("/friendly-matches").json()] == [match_id]
+    assert [item["matchId"] for item in visitor.client.get("/friendly-matches").json()["items"]] == [match_id]
 
     set_availability(owner.client, False)
-    assert visitor.client.get("/friendly-matches").json() == []
+    assert visitor.client.get("/friendly-matches").json()["items"] == []
     response = visitor.client.post("/friendly-matches/join", json={"idPartido": match_id})
 
     assert response.status_code == 409, response.text
@@ -164,7 +164,7 @@ def test_visitor_opting_out_after_listing_cannot_join(context):
     owner = context.account("owner", available=True)
     visitor = context.account("visitor", available=True)
     match_id = create_match(owner.client)
-    assert [item["matchId"] for item in visitor.client.get("/friendly-matches").json()] == [match_id]
+    assert [item["matchId"] for item in visitor.client.get("/friendly-matches").json()["items"]] == [match_id]
 
     set_availability(visitor.client, False)
     response = visitor.client.post("/friendly-matches/join", json={"idPartido": match_id})

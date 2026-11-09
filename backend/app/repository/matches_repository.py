@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
-from sqlalchemy import or_, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session, aliased
 
 from app.database import engine
@@ -100,8 +100,9 @@ def save_progress(db: Session, row: Matches, simulation, snapshot: dict, now: da
     db.add(row)
 
 
-def list_available(db: Session, club_id: int, now: datetime):
-    return db.execute(
+def list_available(db: Session, club_id: int, now: datetime, *, creator_name: str | None = None,
+                   page: int = 1, page_size: int = 20):
+    query = (
         select(Matches, Club.name)
         .join(Club, Club.id == Matches.creator_id)
         .where(
@@ -111,8 +112,13 @@ def list_available(db: Session, club_id: int, now: datetime):
             Matches.init_date > now,
             Matches.status.in_(("WAITING", "WAITING_OPPONENT")),
         )
-        .order_by(Matches.init_date, Matches.match_id)
-    ).all()
+    )
+    if creator_name:
+        query = query.where(Club.name.icontains(creator_name, autoescape=True))
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    items = db.execute(query.order_by(Matches.init_date, Matches.match_id)
+                       .offset((page - 1) * page_size).limit(page_size)).all()
+    return items, total
 
 
 def list_for_club(db: Session, club_id: int):

@@ -43,6 +43,13 @@ class FriendlyMatchResponse(BaseModel):
     start_datetime: datetime = Field(serialization_alias="startDateTime")
 
 
+class FriendlyMatchListResponse(BaseModel):
+    items: list[FriendlyMatchResponse]
+    total: int
+    page: int
+    page_size: int = Field(serialization_alias="pageSize")
+
+
 class ClubFriendlyMatchResponse(FriendlyMatchResponse):
     visitor_club_name: str | None = Field(serialization_alias="visitorClubName")
     status: str
