@@ -211,7 +211,7 @@ it('muestra el último error de búsqueda en el toast y permite reintentar', asy
 
     await click('Reintentar');
     expect(lastQuery().get('name')).toBe('River');
-    expect(screen.getByRole('link', {name: 'Ver perfil de River'})).toBeVisible();
+    expect(screen.getByRole('button', {name: 'Ver perfil de River'})).toBeVisible();
 });
 
 it('ignora una respuesta vieja de la búsqueda', async () => {
@@ -263,7 +263,7 @@ it('abre el perfil elegido desde el listado', async () => {
     await open();
 
     await act(async () => {
-        fireEvent.click(screen.getByRole('link', {
+        fireEvent.click(screen.getByRole('button', {
             name: 'Ver perfil de River',
         }));
     });
@@ -277,6 +277,12 @@ it('abre el perfil elegido desde el listado', async () => {
         name: 'River',
     })).toBeInTheDocument();
     expect(screen.getByText('Jugador de River')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog', {name: 'Perfil de River'});
+    await act(async () => fireEvent.click(within(dialog).getByRole('button', {name: 'Close'})));
+    await advance(200);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('searchbox')).toBeVisible();
+    expect(screen.getByRole('button', {name: 'Ver perfil de River'})).toBeVisible();
 });
 
 it('muestra ceros y ranking inicial sin controles de edición', async () => {

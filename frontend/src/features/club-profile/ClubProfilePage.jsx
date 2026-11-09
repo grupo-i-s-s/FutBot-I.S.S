@@ -36,7 +36,7 @@ export default function ClubProfilePage() {
     return <ClubProfileContent key={clubId} clubId={clubId}/>;
 }
 
-function ClubProfileContent({clubId}) {
+export function ClubProfileContent({clubId, embedded = false}) {
     const [attempt, setAttempt] = useState(0);
     const [state, setState] = useState({status: 'loading'});
     const retryToast = useRef(null);
@@ -71,12 +71,14 @@ function ClubProfileContent({clubId}) {
         setAttempt(value => value + 1);
     }
 
+    const Container = embedded ? 'div' : 'main';
+
     return (
-        <main className="mx-auto w-[calc(100%_-_32px)] max-w-6xl space-y-6 py-8 sm:py-12">
-            <Link to={routes.clubs} className={buttonVariants({variant: 'ghost'})}>
+        <Container className={embedded ? 'space-y-6' : 'mx-auto w-[calc(100%_-_32px)] max-w-6xl space-y-6 py-8 sm:py-12'}>
+            {!embedded && <Link to={routes.clubs} className={buttonVariants({variant: 'ghost'})}>
                 <ArrowLeft data-icon="inline-start" aria-hidden="true"/>
                 Volver a clubes
-            </Link>
+            </Link>}
 
             {state.status === 'loading' && (
                 <div role="status">
@@ -94,7 +96,7 @@ function ClubProfileContent({clubId}) {
 
             {state.status === 'error' && <ClubProfileError error={state.error} onRetry={handleRetry}/>}
             {state.status === 'success' && <ClubProfileDetails club={state.club}/>}
-        </main>
+        </Container>
     );
 }
 

@@ -5,13 +5,15 @@ import {toast} from 'sonner';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import {Button, buttonVariants} from '@/components/ui/button';
 import {Card, CardContent, CardHeader} from '@/components/ui/card';
+import {Dialog, DialogContent, DialogDescription, DialogTitle} from '@/components/ui/dialog';
 import {Empty, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
 import {Input} from '@/components/ui/input';
 import {Item, ItemActions, ItemContent, ItemMedia} from '@/components/ui/item';
 import {Label} from '@/components/ui/label';
 import {Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious} from '@/components/ui/pagination';
 import {Skeleton} from '@/components/ui/skeleton';
-import {routePath, routes} from '@/routes.js';
+import {routes} from '@/routes.js';
+import {ClubProfileContent} from '../club-profile/ClubProfilePage';
 import ClubAvatar from '../my-club/components/ClubAvatar';
 import {getClubs} from './api.js';
 
@@ -29,6 +31,7 @@ export default function ClubsListPage() {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedClub, setSelectedClub] = useState(null);
 
     const debounceRef = useRef(null);
     const requestRef = useRef(null);
@@ -240,14 +243,15 @@ export default function ClubsListPage() {
                                                         <h3 className="font-semibold wrap-anywhere">{club.name}</h3>
                                                     </ItemContent>
                                                     <ItemActions>
-                                                        <Link
-                                                            to={routePath(routes.clubProfile, {clubId: club.id})}
-                                                            className={buttonVariants({variant: 'outline'})}
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => setSelectedClub(club)}
                                                             aria-label={`Ver perfil de ${club.name}`}
                                                         >
                                                             Ver perfil
                                                             <ArrowRight data-icon="inline-end" aria-hidden="true"/>
-                                                        </Link>
+                                                        </Button>
                                                     </ItemActions>
                                                 </Item>
                                             ))}
@@ -285,6 +289,13 @@ export default function ClubsListPage() {
                     </CardContent>
                 </Card>
             </section>
+            <Dialog open={Boolean(selectedClub)} onOpenChange={open => { if (!open) setSelectedClub(null); }}>
+                <DialogContent className="max-h-[90dvh] overflow-y-auto pt-10 sm:max-w-5xl">
+                    <DialogTitle className="sr-only">Perfil de {selectedClub?.name}</DialogTitle>
+                    <DialogDescription className="sr-only">Estadísticas y jugadores del club.</DialogDescription>
+                    {selectedClub && <ClubProfileContent key={selectedClub.id} clubId={selectedClub.id} embedded/>}
+                </DialogContent>
+            </Dialog>
         </main>
     );
 }
