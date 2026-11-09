@@ -1,24 +1,27 @@
 from datetime import datetime, timezone
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.engine import Row
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, load_only, selectinload
 from typing import Optional
 
 from app.models.auth_model import Club
 from app.models.league_model import League, LeagueRegistration, LeagueRound, LeagueStanding
-from app.models.matches_model import Matches
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
 from app.models.behaviour_model import Behavior
 from app.models.player_model import Player
 
-def get_league_by_id(db: Session, league_id: int) -> Optional[League]:
-    return (
+def get_league_by_id(
+        db: Session, league_id: int, *, load_registrations: bool = True,
+) -> Optional[League]:
+    query = (
         db.query(League)
-        .options(selectinload(League.registrations))
         .filter(League.id == league_id)
         .with_for_update()
         .populate_existing()
-        .first()
     )
+    if load_registrations:
+        query = query.options(selectinload(League.registrations))
+    return query.first()
 
 
 def get_league_for_join(
@@ -150,11 +153,51 @@ def get_fixture_rounds(db: Session, league_id: int) -> list[LeagueRound]:
 def get_fixture_matches(db: Session, league_id: int) -> list[Matches]:
     return list(db.scalars(
         select(Matches)
+        .options(load_only(
+            Matches.match_id, Matches.league_round_id,
+            Matches.creator_id, Matches.visitor_id, Matches.status,
+            Matches.local_score, Matches.visitor_score, Matches.finished_at,
+            Matches.cancellation_reason, raiseload=True,
+        ))
         .join(LeagueRound, Matches.league_round_id == LeagueRound.id)
         .where(LeagueRound.league_id == league_id)
         .order_by(LeagueRound.number, Matches.match_id)
         .execution_options(populate_existing=True)
     ).all())
+
+
+def get_first_unresolved_round(db: Session, league_id: int) -> LeagueRound | None:
+    round_matches = select(Matches.match_id).where(Matches.league_round_id == LeagueRound.id)
+    resolved = and_(
+        Matches.finished_at.is_not(None),
+        or_(
+            Matches.status == "FINISHED",
+            and_(Matches.status == "CANCELLED", Matches.cancellation_reason == CHECKPOINT_UNRECOVERABLE),
+        ),
+    )
+    # Una ronda vacía también debe llegar al servicio para que detecte el fixture inválido.
+    return db.scalar(
+        select(LeagueRound)
+        .where(
+            LeagueRound.league_id == league_id,
+            or_(~round_matches.exists(), round_matches.where(resolved.is_not(True)).exists()),
+        )
+        .order_by(LeagueRound.number)
+        .limit(1)
+        .execution_options(populate_existing=True)
+    )
+
+
+def has_fixture_rounds(db: Session, league_id: int) -> bool:
+    return db.scalar(select(LeagueRound.id).where(LeagueRound.league_id == league_id).limit(1)) is not None
+
+
+def get_round_match_states(db: Session, round_id: int):
+    return db.execute(
+        select(Matches.match_id, Matches.status)
+        .where(Matches.league_round_id == round_id)
+        .order_by(Matches.match_id)
+    ).all()
 
 
 def get_running_league_ids(db: Session) -> list[int]:
@@ -165,8 +208,22 @@ def get_running_league_ids(db: Session) -> list[int]:
 
 def get_round_matches_for_update(db: Session, round_id: int) -> list[Matches]:
     return list(db.scalars(
-        select(Matches).where(Matches.league_round_id == round_id)
+        select(Matches)
+        .options(load_only(
+            Matches.match_id, Matches.creator_id, Matches.visitor_id,
+            Matches.duration_ms, Matches.sequence, Matches.started_at, Matches.finished_at,
+            raiseload=True,
+        ))
+        .where(Matches.league_round_id == round_id)
         .order_by(Matches.match_id).with_for_update()
+        .execution_options(populate_existing=True)
+    ).all())
+
+
+def get_round_registrations(db: Session, league_id: int, club_ids: tuple[int, ...]) -> list[LeagueRegistration]:
+    return list(db.scalars(
+        select(LeagueRegistration)
+        .where(LeagueRegistration.league_id == league_id, LeagueRegistration.club_id.in_(club_ids))
         .execution_options(populate_existing=True)
     ).all())
 
