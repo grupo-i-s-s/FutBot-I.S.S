@@ -1,4 +1,7 @@
 import {useEffect, useState} from 'react';
+import {Link} from 'react-router';
+import {buttonVariants} from '@/components/ui/button';
+import {routePath, routes} from '@/routes.js';
 import {obtenerFixture} from './api.js';
 
 const states = {
@@ -73,6 +76,15 @@ export default function LeagueFixture({id, clubId, clubs, leagueStatus, isRegist
                         <strong>{match.creatorClubName} vs {match.visitorClubName}</strong>
                         <span>{states[match.status]}</span>
                         {['RUNNING', 'FINISHED'].includes(match.status) && <span>{match.localScore} - {match.visitorScore}</span>}
+                        {clubId != null && [match.creatorClubId, match.visitorClubId].includes(clubId) && (
+                            <Link
+                                to={routePath(routes.match, {matchId: match.matchId})}
+                                state={{leagueId: id}}
+                                className={buttonVariants({size: 'sm', variant: 'outline'})}
+                            >
+                                Ver partido
+                            </Link>
+                        )}
                     </li>
                 ))}</ul>
             </>}

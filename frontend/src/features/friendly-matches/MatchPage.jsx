@@ -13,7 +13,7 @@ import MatchBreakNotice, {
 } from './components/MatchBreakNotice.jsx';
 import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx';
 import PlannedSubstitutionPanel from './components/PlannedSubstitutionPanel.jsx';
-import {routes} from '@/routes.js';
+import {routePath, routes} from '@/routes.js';
 
 const connectionLabels = {
     loading: 'Cargando partido...', connecting: 'Conectando...', reconnecting: 'Reconectando...',
@@ -93,17 +93,20 @@ export default function MatchPage() {
         );
 
     const isBehaviourTest = state?.teams?.some((team) => team.id === 999);
+    const leagueId = Number(location.state?.leagueId);
+    const leagueLobby = !isBehaviourTest && Number.isSafeInteger(leagueId) && leagueId > 0
+        ? routePath(routes.leagueLobby, {id: leagueId}) : null;
 
     return (
         <main className="match-page">
             <div className="match-page-content">
                 <header className="match-page-header">
                     <div>
-                        <p className="match-eyebrow">{isBehaviourTest ? '' : 'AMISTOSO'}</p>
+                        <p className="match-eyebrow">{isBehaviourTest ? '' : leagueLobby ? 'LIGA' : 'AMISTOSO'}</p>
                         <h1>{isBehaviourTest ? 'Prueba de comportamientos' : 'El partido'}</h1>
                     </div>
-                    <Link to={isBehaviourTest ? routes.behaviours : location.state?.returnTo ?? routes.friendlyMatches}>
-                        {isBehaviourTest ? 'Volver a comportamientos' : 'Volver a amistosos'}
+                    <Link to={isBehaviourTest ? routes.behaviours : leagueLobby ?? location.state?.returnTo ?? routes.friendlyMatches}>
+                        {isBehaviourTest ? 'Volver a comportamientos' : leagueLobby ? 'Volver a la liga' : 'Volver a amistosos'}
                     </Link>
                 </header>
                 <p className={`match-connection ${live ? 'match-connection-live' : ''}`} role="status">{label}</p>
