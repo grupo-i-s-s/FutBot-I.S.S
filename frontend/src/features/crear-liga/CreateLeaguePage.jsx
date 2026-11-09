@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {crearLiga} from './api.js';
 import {useNavigate} from 'react-router';
+import {routePath, routes} from '@/routes.js';
 
 
 export default function CrearLiga() {
@@ -24,7 +25,7 @@ export default function CrearLiga() {
 
         try {
             const response = await crearLiga(name, minTeams, maxTeams, startDateTime, roundInterval);
-            navigate('/leagues/' + response.leagueId + '/lobby', {replace: true});
+            navigate(routePath(routes.leagueLobby, {id: response.leagueId}), {replace: true});
         } catch (err) {
             const fieldErrors = Object.values(err.fields ?? {}).join(' ');
             setError(fieldErrors || err.message || 'No se pudo crear la liga pública.');

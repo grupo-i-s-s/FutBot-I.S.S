@@ -3,6 +3,7 @@ import { getLeagues } from './api';
 import { Link } from 'react-router';
 import '../login/LoginPage.css';
 import './LeagueListPage.css';
+import {routePath, routes} from '@/routes.js';
 
 export default function LeagueListPage() {
     const [name, setName] = useState('');
@@ -99,7 +100,7 @@ export default function LeagueListPage() {
                             </p>
 
                             {error.status === 401 ? (
-                                <Link to="/login" className="leagues-link">
+                                <Link to={routes.signIn} className="leagues-link">
                                     Iniciar sesión
                                 </Link>
                             ) : (
@@ -151,9 +152,9 @@ export default function LeagueListPage() {
                                         </p>
                                     )}
                                     {league.isMember ? (
-                                        <Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver lobby</Link>
+                                        <Link to={routePath(routes.leagueLobby, {id: league.id})} className="leagues-link">Ver lobby</Link>
                                     ) : league.canJoin ? (
-                                        <Link to={`/leagues/${league.id}/join`} className="leagues-link">Inscribirse</Link>
+                                        <Link to={routePath(routes.leagueRegistration, {id: league.id})} className="leagues-link">Inscribirse</Link>
                                     ) : (
                                         <p className="leagues-message">Inscripción no disponible.</p>
                                     )}
@@ -163,7 +164,7 @@ export default function LeagueListPage() {
                     )}
                 </div>
 
-                <Link to="/mi-club" className="leagues-link">
+                <Link to={routes.myClub} className="leagues-link">
                     Volver a mi club
                 </Link>
             </section>

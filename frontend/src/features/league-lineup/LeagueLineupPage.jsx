@@ -4,6 +4,7 @@ import {Link, useParams} from 'react-router';
 import {Button} from '@/components/ui/button';
 import { getLeagueLineup, getLineupCatalogs, updateLeagueLineup} from './api';
 import { changeSlot, toDraft, toPayload, validateDraft} from './lineupForm';
+import {routePath, routes} from '@/routes.js';
 
 
 const SELECT_CLASSES =
@@ -155,7 +156,7 @@ function LeagueLineupEditor({leagueId}) {
     return (
         <main className="mx-auto max-w-3xl space-y-4 p-4">
             <Link
-                to={`/leagues/${leagueId}/lobby`}
+                to={routePath(routes.leagueLobby, {id: leagueId})}
                 className="underline"
             >
                 Volver a la liga

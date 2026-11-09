@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import {routes} from '@/routes.js';
 
 export default function CancelledLeague() {
     return (
@@ -10,7 +11,7 @@ export default function CancelledLeague() {
                 <p className="text-sm text-green-600 mb-6">
                     Pero no te preocupes, puedes encontrar otras ligas disponibles
                 </p>
-                <Link to="/ligas-disponibles" className="inline-block bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors">
+                <Link to={routes.leagues} className="inline-block bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors">
                     Ver ligas disponibles
                 </Link>
             </div>

@@ -1,9 +1,10 @@
 import {useEffect, useRef, useState} from 'react';
-import {Link, useNavigate, useParams, useSearchParams} from 'react-router';
+import {Link, useNavigate, useParams} from 'react-router';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from '@/components/ui/card';
 import {getDefaultTeam, getLeagueLobby, joinLeague,} from './api.js';
+import {routePath, routes} from '@/routes.js';
 
 function LineupGroup({title, players}) {
     return (
@@ -25,9 +26,7 @@ function LineupGroup({title, players}) {
 }
 
 export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
-    const {id} = useParams();
-    const [searchParams] = useSearchParams();
-    const leagueId = id || searchParams.get('leagueId');
+    const {id: leagueId} = useParams();
     const navigate = useNavigate();
     const [league, setLeague] = useState(suppliedLeague || null);
     const [team, setTeam] = useState(null);
@@ -103,7 +102,7 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
                 team.lineUp,
                 needsAccessCode ? accessCode : undefined
             );
-            navigate(`/leagues/${league.id}/lobby`);
+            navigate(routePath(routes.leagueLobby, {id: league.id}));
         } catch (err) {
             if (err.code === 'LEAGUE_ACCESS_INVALID') {
                 setPasswordError('La contraseña de la liga es incorrecta. Revisala y volvé a intentar.');
@@ -141,7 +140,7 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
                 <AlertTitle>{error ? 'No se pudo cargar la liga' : 'No se seleccionó ninguna liga'}</AlertTitle>
                 <AlertDescription>
                     {error || 'Debés seleccionar una liga para poder inscribirte.'}
-                    {' '}<Link to="/ligas-disponibles">Ver ligas disponibles</Link>
+                    {' '}<Link to={routes.leagues}>Ver ligas disponibles</Link>
                 </AlertDescription>
             </Alert>
         );
@@ -158,7 +157,7 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
                 </CardHeader>
 
                 <CardContent>
-                    <Link to={`/leagues/${league.id}/lobby`}>Ver lobby</Link>
+                    <Link to={routePath(routes.leagueLobby, {id: league.id})}>Ver lobby</Link>
                 </CardContent>
             </Card>
         );
@@ -170,7 +169,7 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
                 <AlertTitle>No se pudo cargar el equipo</AlertTitle>
                 <AlertDescription>
                     {error || 'No se encontró un equipo disponible para inscribirse.'}
-                    {' '}<Link to="/mi-club">Configurar mi equipo</Link>
+                    {' '}<Link to={routes.myClub}>Configurar mi equipo</Link>
                 </AlertDescription>
             </Alert>
         );

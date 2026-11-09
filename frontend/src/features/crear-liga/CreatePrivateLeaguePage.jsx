@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {crearLigaPrivada} from './apiPrivate.js';
 import {Link, useNavigate} from 'react-router';
+import {routePath, routes} from '@/routes.js';
 
 
 export default function CreatePrivateLeague() {
@@ -39,7 +40,7 @@ export default function CreatePrivateLeague() {
                 throw new Error('El servidor no devolvió el ID de la liga creada.');
             }
 
-            navigate('/leagues/' + response.leagueId + '/lobby', {replace: true});
+            navigate(routePath(routes.leagueLobby, {id: response.leagueId}), {replace: true});
         } catch (err) {
             const fieldErrors = Object.values(err.fields ?? {}).join(' ');
             setError(fieldErrors || err.message || 'No se pudo crear la liga privada.');
@@ -171,7 +172,7 @@ export default function CreatePrivateLeague() {
                     </button>
                     {error && <p role="alert">{error}</p>}
                     {needsLogin && (
-                        <Link to="/login">
+                        <Link to={routes.signIn}>
                             Iniciar sesión
                         </Link>
                     )}

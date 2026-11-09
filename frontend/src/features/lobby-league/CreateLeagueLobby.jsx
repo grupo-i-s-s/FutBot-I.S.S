@@ -5,6 +5,7 @@ import LeagueRanking from './LeagueRanking.jsx';
 import LeagueFixture from './LeagueFixture.jsx';
 import './CreateLeagueLobby.css';
 import {buttonVariants} from '@/components/ui/button';
+import {routePath, routes} from '@/routes.js';
 
 export function LeagueLobby() {
     const { id } = useParams();
@@ -110,12 +111,12 @@ function LeagueLobbyContent({ id }) {
             await abandonarLobby(id);
 
             if (isCreator) {
-                navigate('/home', {
+                navigate(routes.home, {
                     replace: true,
                     state: { notice: 'La liga se ha eliminado.' },
                 });
             } else {
-                navigate('/mi-club');
+                navigate(routes.myClub);
             }
         } catch (err) {
             alert(err.message || 'No se pudo abandonar la liga');
@@ -131,7 +132,7 @@ function LeagueLobbyContent({ id }) {
     }
 
     if (error?.status === 404) {
-        return <Navigate to="/liga-cancelada" replace />;
+        return <Navigate to={routes.cancelledLeague} replace />;
     }
 
     if (error && !lobby) {
@@ -142,7 +143,7 @@ function LeagueLobbyContent({ id }) {
                 </p>
 
                 {error.status === 401 ? (
-                    <Link to="/login">Iniciar sesión</Link>
+                    <Link to={routes.signIn}>Iniciar sesión</Link>
                 ) : (
                     <button
                         type="button"
@@ -229,7 +230,7 @@ function LeagueLobbyContent({ id }) {
                         ) : (
                             lobby.clubs.map((club) => (
                                 <div className="player-item" key={club.id}>
-                                    <Link to={`/club/${club.id}`} className="player-name">
+                                    <Link to={routePath(routes.clubProfile, {clubId: club.id})} className="player-name">
                                         {club.name}
                                     </Link>
 
@@ -245,7 +246,7 @@ function LeagueLobbyContent({ id }) {
                 <div className="lobby-actions">
                         {lobby.isRegistered && (
                             <Link
-                                to={`/leagues/${id}/lineup`}
+                                to={routePath(routes.leagueLineup, {id})}
                                 className={buttonVariants({size: 'sm', variant: 'outline'})}
                             >
                                 Ver plantel

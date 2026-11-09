@@ -3,6 +3,7 @@ import {ArrowRight, Trophy} from 'lucide-react';
 import '../homePage.css';
 import {useEffect, useState} from 'react';
 import {getLeagues} from '../../list-leagues/api';
+import {routePath, routes} from '@/routes.js';
 
 
 export default function AvaiableLeagues() {
@@ -56,16 +57,16 @@ export default function AvaiableLeagues() {
                 </div>
             </div>
 
-            <Link to="/ligas-disponibles" className="home-panel-link">
+            <Link to={routes.leagues} className="home-panel-link">
                 Ver todas las ligas
             </Link>
 
-            <Link to="/crear-liga" className="home-panel-link">
+            <Link to={routes.createLeague} className="home-panel-link">
                 Crear una liga Publica
                 <ArrowRight size={17} aria-hidden="true"/>
             </Link>
 
-            <Link to="/crear-liga-privada" className="home-panel-link">
+            <Link to={routes.createPrivateLeague} className="home-panel-link">
                 Crear una liga Privada
                 <ArrowRight size={17} aria-hidden="true"/>
             </Link>
@@ -112,12 +113,12 @@ export default function AvaiableLeagues() {
                                     />
                         </div>
                         {league.isMember ? (
-                            <Link to={`/leagues/${league.id}/lobby`} className="home-panel-link"
+                            <Link to={routePath(routes.leagueLobby, {id: league.id})} className="home-panel-link"
                                   aria-label={`Ver lobby de ${league.name}`}>
                                 Ver lobby
                             </Link>
                         ) : league.canJoin ? (
-                            <Link to={`/leagues/${league.id}/join`} className="home-panel-link"
+                            <Link to={routePath(routes.leagueRegistration, {id: league.id})} className="home-panel-link"
                                   aria-label={`Unirme a liga ${league.name}`}>
                                 Unirme a liga
                             </Link>
