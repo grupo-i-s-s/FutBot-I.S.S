@@ -8,7 +8,7 @@ from app.errors import AppError
 from app.models.auth_model import Club
 from app.models.behaviour_model import Behavior
 from app.models.league_model import League, LeagueRound
-from app.models.matches_model import Matches
+from app.models.matches_model import Matches, TEST_OPPONENT_CLUB_ID
 from app.models.player_model import Player
 from app.models.planned_substitution_model import PlannedSubstitution
 
@@ -178,6 +178,26 @@ def get_confirmed_league_slots(db: Session, club_ids: tuple[int, ...], before: d
             or_(Matches.creator_id.in_(club_ids), Matches.visitor_id.in_(club_ids)),
         )
         .order_by(LeagueRound.scheduled_at, Matches.match_id)
+    ).all()
+
+
+def get_confirmed_friendly_slots(db: Session, club_ids: tuple[int, ...], before: datetime):
+    # El join ya bloqueó ambos clubes. Leer sin bloquear otros partidos evita
+    # competir con otro join que haya adquirido primero la fila de su invitación.
+    return db.execute(
+        select(Matches.init_date, Matches.duration_ms, Matches.creator_id, Matches.visitor_id)
+        .where(
+            Matches.league_round_id.is_(None),
+            Matches.league_id.is_(None),
+            Matches.status.not_in(("FINISHED", "CANCELLED")),
+            # Las confirmaciones anteriores a SCHEDULED conservan WAITING con visitante.
+            Matches.visitor_id.is_not(None),
+            Matches.creator_id != TEST_OPPONENT_CLUB_ID,
+            Matches.visitor_id != TEST_OPPONENT_CLUB_ID,
+            Matches.init_date < before,
+            or_(Matches.creator_id.in_(club_ids), Matches.visitor_id.in_(club_ids)),
+        )
+        .order_by(Matches.init_date, Matches.match_id)
     ).all()
 
 

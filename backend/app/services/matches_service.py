@@ -9,7 +9,12 @@ from app.repository import matches_repository
 from app.schemas.matches_schemas import CreateFriendlyMatchRequest, MatchStateResponse
 from app.models.auth_model import Club
 from app.services.match_builder_service import build_match
-from app.services.match_schedule_service import LEAGUE_SCHEDULE_CONFLICT, find_league_schedule_conflict
+from app.services.match_schedule_service import (
+    FRIENDLY_SCHEDULE_CONFLICT,
+    LEAGUE_SCHEDULE_CONFLICT,
+    find_friendly_schedule_conflict,
+    find_league_schedule_conflict,
+)
 from app.services.match_start_service import cancel_match
 from primitives.match_simulation import DEFAULT_DURATION_MS
 
@@ -50,6 +55,23 @@ def _require_free_league_slot(
         raise AppError(
             LEAGUE_SCHEDULE_CONFLICT,
             "El horario se superpone con un partido de liga confirmado.",
+            {"conflictStart": occupied_start.isoformat(), "conflictEnd": occupied_end.isoformat()},
+        )
+
+
+def _require_free_friendly_slot(
+        db: Session, club_ids: tuple[int, ...], current_club_id: int, start: datetime, duration_ms: int,
+) -> None:
+    try:
+        conflict = find_friendly_schedule_conflict(db, club_ids, start, duration_ms)
+    except OverflowError as exc:
+        raise AppError("MATCH_INVALID_DATE", "La franja de juego excede el rango de fechas permitido.") from exc
+    if conflict is not None:
+        occupied_start, occupied_end, participants = conflict
+        club = "Tu club" if current_club_id in participants else "El club rival"
+        raise AppError(
+            FRIENDLY_SCHEDULE_CONFLICT,
+            f"{club} ya tiene un amistoso confirmado en esa franja. Elegí otro horario.",
             {"conflictStart": occupied_start.isoformat(), "conflictEnd": occupied_end.isoformat()},
         )
 
@@ -105,6 +127,7 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
     if match.init_date <= datetime.now(timezone.utc):
         raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
     _require_free_league_slot(db, club_ids, match.init_date, match.duration_ms)
+    _require_free_friendly_slot(db, club_ids, club_id, match.init_date, match.duration_ms)
 
     match.visitor_id = club_id
     match.status = "SCHEDULED"
