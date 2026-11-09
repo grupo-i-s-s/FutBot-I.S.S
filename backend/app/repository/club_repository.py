@@ -34,19 +34,3 @@ def get_joined_leagues(db: Session, club_id: int) -> list[League]:
 
     return list(db.scalars(query).all())
 
-def get_club_stats(db: Session, club_id: int) -> dict:
-    query = ( select (Stats.points, Stats.played, Stats.wins, Stats.losses, Stats.draws, Stats.gF,Stats.gA)
-             .where(Stats.club_id == club_id))
-    return(db.execute(query).mappings().first()) 
-
-def get_rankings(db: Session):
-    query = (select( Club.name, Stats.points,
-                    Stats.played, Stats.wins,
-                    Stats.draws, Stats.losses,
-                    Stats.gF,Stats.gA)
-
-        .join(Club.stats)
-        .order_by(Stats.points.desc(), Stats.gF.desc(), Stats.gA.desc())
-        .limit(50))
-
-    return (db.execute(query).mappings().all())
