@@ -102,35 +102,17 @@ export default function CreateBehaviourPage() {
                         onChange={(event) => setName(event.target.value)}
                     />
                 </div>
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                    <BehaviourCodeEditor
-                        value={code}
-                        onChange={(value) => {
-                            setCode(value);
-                            setDiagnostics([]);
-                        }}
-                        diagnostics={diagnostics}
-                        documentId="new"
-                        kind="PLAYER"
-                        readOnly={isSaving}
-                    />
-
-                    <aside
-                        aria-label="Funciones disponibles de la API"
-                        className="max-h-[300px] overflow-y-auto overscroll-contain rounded-lg border border-gray-300 bg-white p-4"
-                    >
-                        <h3 className="mb-3 font-semibold">Funciones disponibles</h3>
-
-                        <ul className="space-y-3">
-                            {apiFunctions.map((fn) => (
-                                <li key={fn.name} className="text-sm">
-                                    <code className="font-semibold text-blue-700">{fn.name}</code>
-                                    <p className="text-gray-600">{fn.description}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    </aside>
-                </div>
+                <BehaviourCodeEditor
+                    value={code}
+                    onChange={(value) => {
+                        setCode(value);
+                        setDiagnostics([]);
+                    }}
+                    diagnostics={diagnostics}
+                    documentId="new"
+                    kind="PLAYER"
+                    readOnly={isSaving}
+                />
                 <button
                     type="submit"
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow"

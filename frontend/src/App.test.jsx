@@ -1,6 +1,6 @@
 import {afterEach, expect, it, vi} from 'vitest';
 import {cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
-import {MemoryRouter} from 'react-router';
+import {createMemoryRouter, MemoryRouter, RouterProvider} from 'react-router';
 import App from './App.jsx';
 
 afterEach(() => {
@@ -9,18 +9,45 @@ afterEach(() => {
 });
 
 function renderRoute(path, response, status = 200) {
-    const fetchMock = vi.fn().mockResolvedValue({
-        ok: status < 400,
-        status,
-        json: async () => response,
+    const fetchMock = vi.fn(async (url) => {
+        let body = response;
+        let responseStatus = status;
+
+        if (url === '/api/club/me') {
+            body = {id: 7, name: 'Club de prueba', avatar: 'avatar-01.png'};
+            responseStatus = 200;
+        } else if (url === '/api/auth/me') {
+            body = {clubId: 7};
+            responseStatus = 200;
+        } else if (path === '/crear-liga-privada' && url === '/api/leagues/42/lobby') {
+            body = {
+                id: 42, name: 'Liga privada integrada', isPrivate: true,
+                status: 'open', minTeams: 3, maxTeams: 8,
+                registeredTeams: 1, remainingSlots: 7, isRegistered: true,
+                creatorClubId: 7,
+                creatorClub: {id: 7, name: 'Club de prueba'},
+                clubs: [{id: 7, name: 'Club de prueba'}],
+            };
+            responseStatus = 200;
+        }
+
+        return {
+            ok: responseStatus < 400,
+            status: responseStatus,
+            json: async () => body,
+        };
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter initialEntries={[path]}><App/></MemoryRouter>);
-    return fetchMock;
+    const router = createMemoryRouter(
+        [{path: '*', element: <App/>}],
+        {initialEntries: [path]},
+    );
+    render(<RouterProvider router={router}/>);
+    return {fetchMock, router};
 }
 
 it('opens the available leagues route and filters through the authenticated API', async () => {
-    const fetchMock = renderRoute('/ligas-disponibles', {
+    const {fetchMock} = renderRoute('/ligas-disponibles', {
         items: [{
             id: 42, name: 'Liga integrada', registeredCount: 1, maxTeams: 8,
             availableSlots: 7, isMember: true, status: 'open',
@@ -28,20 +55,23 @@ it('opens the available leagues route and filters through the authenticated API'
     });
     expect(await screen.findByText('Liga integrada')).toBeInTheDocument();
     expect(screen.getByText('Tu club ya está inscripto.')).toBeInTheDocument();
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/leagues');
-    expect(fetchMock.mock.calls[0][1].credentials).toBe('same-origin');
+    const initialRequest = fetchMock.mock.calls.find(([url]) => url === '/api/leagues');
+    expect(initialRequest).toBeDefined();
+    expect(initialRequest[1].credentials).toBe('same-origin');
 
     fireEvent.change(screen.getByLabelText('Buscar por nombre'), {
         target: {value: '  Liga integrada  '},
     });
     fireEvent.submit(screen.getByLabelText('Buscar por nombre').closest('form'));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(fetchMock.mock.calls[1][0]).toBe('/api/leagues?name=Liga+integrada');
+    await waitFor(() => expect(fetchMock.mock.calls.some(
+        ([url]) => url === '/api/leagues?name=Liga+integrada'
+    )).toBe(true));
     expect(await screen.findByText('Liga integrada')).toBeInTheDocument();
 });
 
 it('retains the private league creation route and its request contract', async () => {
-    const fetchMock = renderRoute('/crear-liga-privada', {
+    const {fetchMock, router} = renderRoute('/crear-liga-privada', {
+        leagueId: 42,
         message: 'Liga creada exitosamente.',
     }, 201);
     for (const [label, value] of [
@@ -54,8 +84,10 @@ it('retains the private league creation route and its request contract', async (
         fireEvent.change(screen.getByLabelText(label), {target: {value}});
     }
     fireEvent.submit(screen.getByRole('button', {name: 'Crear liga'}).closest('form'));
-    expect(await screen.findByRole('status')).toHaveTextContent('Liga creada exitosamente.');
-    const [url, options] = fetchMock.mock.calls[0];
+    await waitFor(() => expect(router.state.location.pathname).toBe('/leagues/42/lobby'));
+    const [url, options] = fetchMock.mock.calls.find(
+        ([requestUrl, requestOptions]) => requestUrl === '/api/leagues/private' && requestOptions.method === 'POST'
+    );
     expect(url).toBe('/api/leagues/private');
     expect(options.method).toBe('POST');
     expect(JSON.parse(options.body)).toEqual({
@@ -67,7 +99,7 @@ it('retains the private league creation route and its request contract', async (
 });
 
 it('retains the lobby route and displays the creator registration from develop', async () => {
-    const fetchMock = renderRoute('/leagues/42/lobby', {
+    const {fetchMock} = renderRoute('/leagues/42/lobby', {
         isPrivate: true, minTeams: 3, maxTeams: 8, remainingSlots: 7,
         registeredTeams: 1, isRegistered: true,
         creatorClub: {id: 7, name: 'Club creador'},
@@ -77,7 +109,7 @@ it('retains the lobby route and displays the creator registration from develop',
     expect(screen.getByText('Privada')).toBeInTheDocument();
     expect(screen.getByText('Creador')).toBeInTheDocument();
     expect(screen.getByText('Tu club está inscripto.')).toBeInTheDocument();
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/leagues/42/lobby');
+    expect(fetchMock.mock.calls.some(([url]) => url === '/api/leagues/42/lobby')).toBe(true);
 });
 
 it.each([false, true])('joins a league from the listing and opens its lobby (private: %s)', async (isPrivate) => {

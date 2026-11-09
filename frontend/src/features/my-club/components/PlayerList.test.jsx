@@ -1,5 +1,6 @@
 import {render, screen} from '@testing-library/react';
 import {describe, expect, it, vi} from 'vitest';
+import {MemoryRouter} from 'react-router';
 
 import PlayerList from './PlayerList';
 
@@ -10,22 +11,25 @@ vi.mock('./BehaviorSelector', () => ({
 describe('PlayerList', () => {
     it('muestra los atributos PACSS y el comportamiento del jugador', () => {
         render(
-            <PlayerList
-                players={[
-                    {
-                        id: 1,
-                        name: 'Marta',
-                        power: 80,
-                        agility: 75,
-                        control: 90,
-                        speed: 85,
-                        strength: 78,
-                        behaviourName: 'Ofensivo',
-                    },
-                ]}
-                behaviours={[]}
-                onBehaviourAssigned={vi.fn()}
-            />
+            <MemoryRouter>
+                <PlayerList
+                    players={[
+                        {
+                            id: 1,
+                            name: 'Marta',
+                            power: 80,
+                            agility: 75,
+                            control: 90,
+                            speed: 85,
+                            strength: 78,
+                            behaviourName: 'Ofensivo',
+                        },
+                    ]}
+                    behaviours={[]}
+                    onBehaviourAssigned={vi.fn()}
+                />
+            </MemoryRouter>
+            
         );
 
         expect(screen.getByText('Marta')).toBeInTheDocument();
@@ -41,11 +45,13 @@ describe('PlayerList', () => {
 
     it('muestra un estado vacío cuando no hay jugadores', () => {
         render(
-            <PlayerList
-                players={[]}
-                behaviours={[]}
-                onBehaviourAssigned={vi.fn()}
-            />
+            <MemoryRouter>
+                <PlayerList
+                    players={[]}
+                    behaviours={[]}
+                    onBehaviourAssigned={vi.fn()}
+                />
+            </MemoryRouter>
         );
 
         expect(screen.getByText('Sin jugadores')).toBeInTheDocument();
