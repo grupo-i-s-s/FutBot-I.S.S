@@ -42,6 +42,11 @@ async function teamEditor() {
     return within(await screen.findByRole('tabpanel', {name: 'Mi equipo'}));
 }
 
+async function saveToast(message) {
+    const notifications = screen.getByRole('region', {name: /^Notificaciones de Mi club/});
+    return within(notifications).findByText(message);
+}
+
 function searchCombobox(input, query) {
     act(() => input.focus());
     fireEvent.input(input, {target: {value: query}, inputType: 'insertText'});
@@ -119,7 +124,7 @@ describe('Configuración de formación del club', () => {
 
         fireEvent.change(select, {target: {value: '2'}});
         fireEvent.click(editor.getByRole('button', {name: 'Guardar equipo'}));
-        expect(await editor.findByText('Equipo guardado correctamente.')).toBeInTheDocument();
+        expect(await saveToast('Equipo guardado correctamente.')).toBeVisible();
         expect(updateDefaultTeam).toHaveBeenCalledWith({...original, formationId: 2});
         expect(updateMyClub).not.toHaveBeenCalled();
 
@@ -127,6 +132,7 @@ describe('Configuración de formación del club', () => {
         render(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const reopened = await teamEditor();
         expect(await reopened.findByLabelText('Formación')).toHaveValue('2');
+        expect(screen.queryByText('Equipo guardado correctamente.')).not.toBeInTheDocument();
         expect(reopened.getByRole('combobox', {name: 'Jugador del lugar 1'})).toHaveValue('Jugador 10');
         expect(reopened.getByRole('combobox', {name: 'Comportamiento del lugar 1'})).toHaveValue('Equilibrado');
     });
@@ -140,6 +146,7 @@ describe('Configuración de formación del club', () => {
         fireEvent.click(editor.getByRole('button', {name: 'Guardar equipo'}));
 
         expect(await editor.findByRole('alert')).toHaveTextContent('No se pudo guardar la formación.');
+        expect(screen.queryByText('Equipo guardado correctamente.')).not.toBeInTheDocument();
         expect(select).toHaveValue('3');
         expect(persisted.lineUp.formationId).toBe(1);
         expect(editor.getByRole('button', {name: 'Guardar equipo'})).toBeEnabled();
@@ -159,10 +166,27 @@ describe('Configuración de formación del club', () => {
         expect(dialog.queryByRole('button', {name: 'Close'})).not.toBeInTheDocument();
         fireEvent.keyDown(screen.getByRole('dialog'), {key: 'Escape'});
         expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.queryByText('Equipo guardado correctamente.')).not.toBeInTheDocument();
 
         await act(async () => finishSave(structuredClone(persisted)));
-        expect(await dialog.findByText('Equipo guardado correctamente.')).toBeInTheDocument();
+        expect(await saveToast('Equipo guardado correctamente.')).toBeVisible();
         expect(dialog.getByRole('button', {name: 'Cancelar'})).toBeEnabled();
+    });
+
+    it('confirma el guardado de los datos del club con un toast que se puede cerrar', async () => {
+        const name = 'Club actualizado';
+        const message = 'Los cambios del club se guardaron correctamente.';
+        updateMyClub.mockResolvedValue({...club, name});
+        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        const dialog = await openSettings();
+        fireEvent.change(dialog.getByRole('textbox', {name: 'Nombre del club'}), {target: {value: name}});
+        fireEvent.click(dialog.getByRole('button', {name: 'Guardar cambios'}));
+
+        expect(updateMyClub).toHaveBeenCalledWith(expect.objectContaining({name}));
+        expect(await screen.findByRole('heading', {name})).toBeVisible();
+        expect(await saveToast(message)).toBeVisible();
+        fireEvent.click(await screen.findByRole('button', {name: 'Cerrar notificación'}));
+        await waitFor(() => expect(screen.queryByText(message)).not.toBeInTheDocument());
     });
 
     it('mantiene el borrador al cambiar de pestaña y paginar el plantel', async () => {
@@ -227,7 +251,7 @@ describe('Configuración de formación del club', () => {
         expect(starter).toHaveValue('Jugador 11');
         expect(starterBehaviour).toHaveValue('Ofensivo');
         fireEvent.click(editor.getByRole('button', {name: 'Guardar equipo'}));
-        expect(await editor.findByText('Equipo guardado correctamente.')).toBeInTheDocument();
+        expect(await saveToast('Equipo guardado correctamente.')).toBeVisible();
         expect(updateDefaultTeam).toHaveBeenCalledWith({
             formationId: 2,
             starters: [{playerId: 11, behaviourId: 11}, ...original.starters.slice(1)],

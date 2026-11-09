@@ -73,21 +73,15 @@ function TeamBehaviourCombobox({id, behaviour, behaviours, disabled, onSelect}) 
 }
 
 export default function TeamSettings({
-    clubId, behaviours, disabled = false, onSavingChange,
+    clubId, behaviours, disabled = false, onSavingChange, onSaveSuccess,
 }) {
     const inputPrefix = useId();
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
     const [team, setTeam] = useState(null);
     const [formations, setFormations] = useState([]);
     const [selectedPlayers, setSelectedPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-
-    function clearFeedback() {
-        setError('');
-        setSuccess('');
-    }
 
     useEffect(() => {
         const controller = new AbortController();
@@ -134,7 +128,7 @@ export default function TeamSettings({
     }, [clubId]);
 
     function changeBehaviour(index, behaviour) {
-        clearFeedback();
+        setError('');
 
         setTeam((current) => ({
             ...current,
@@ -147,7 +141,7 @@ export default function TeamSettings({
     }
 
     function selectPlayer(slotIndex, player) {
-        clearFeedback();
+        setError('');
 
         setTeam((current) => ({
             ...current,
@@ -170,7 +164,7 @@ export default function TeamSettings({
     async function handleSubmit(event) {
         event.preventDefault();
         if (disabled || isSaving || !team) return;
-        clearFeedback();
+        setError('');
 
         const playerIds = team.slots.map((slot) => slot.playerId);
 
@@ -216,7 +210,7 @@ export default function TeamSettings({
             });
 
             setTeam(loadTeam(response));
-            setSuccess('Equipo guardado correctamente.');
+            onSaveSuccess('Equipo guardado correctamente.');
         } catch (err) {
             const fields = Object.values(err.fields ?? {}).join(' ');
             setError(
@@ -287,7 +281,7 @@ export default function TeamSettings({
                             className={SELECT_CLASSES}
                             value={team.formation}
                             onChange={(event) => {
-                                clearFeedback();
+                                setError('');
                                 setTeam((current) => ({
                                     ...current,
                                     formation: event.target.value,
@@ -370,12 +364,6 @@ export default function TeamSettings({
                     {error && (
                         <p role="alert" className="text-sm text-destructive">
                             {error}
-                        </p>
-                    )}
-
-                    {success && (
-                        <p role="status" className="text-sm">
-                            {success}
                         </p>
                     )}
                 </form>
