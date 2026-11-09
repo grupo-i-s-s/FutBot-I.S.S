@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import { getLeagueRanking } from './api.js';
 import './LeagueRanking.css';
+import {Link} from 'react-router';
 
 export default function LeagueRanking({leagueId}) {
     const[rankData, setRankData] = useState([]);
@@ -36,7 +37,9 @@ export default function LeagueRanking({leagueId}) {
                     {rankData.map((club, index) => (
                         <div className="ranking-row" key={club.id}>
                             <span className="col-pos">{index + 1}</span>
-                            <span className="col-club">{club.nombre}</span>
+                            <Link to={`/club/${club.id}`} className="col-club">
+                                {club.nombre}
+                            </Link>
                             <span className="col-stat font-bold">{club.puntos}</span>
                             <span className="col-stat">{club.pj}</span>
                             <span className="col-stat">{club.pg}</span>

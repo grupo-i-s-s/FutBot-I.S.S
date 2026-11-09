@@ -68,6 +68,7 @@ error_status = {
     "BEHAVIOUR_INVALID": 400,
     "BEHAVIOUR_IN_USE": 409,
     "BEHAVIOUR_NAME_DUPLICATE": 409,
+    "CLUB_NOT_FOUND": 404,
 }
 
 

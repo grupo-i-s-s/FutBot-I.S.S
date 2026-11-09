@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from app.schemas.avatar_schemas import AvatarFilename
-
+from typing import Literal
 
 class ClubRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -34,3 +34,41 @@ class ClubLeagueRead(BaseModel):
 
 class ClubLeagueListResponse(BaseModel):
     items: list[ClubLeagueRead]
+
+class ClubPublicRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    avatar: str
+
+class ClubStatsRead(BaseModel):
+    played: int = Field(ge=0)
+    wins: int = Field(ge=0)
+    draws: int = Field(ge=0)
+    losses: int = Field(ge=0)
+
+
+class ClubRankingRead(BaseModel):
+    position: int = Field(ge=1)
+    points: int = Field(ge=0)
+    source: Literal["PUBLIC_LEAGUES"] = "PUBLIC_LEAGUES"
+
+
+class ClubPlayerRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+
+
+class ClubProfileRead(ClubPublicRead):
+    stats: ClubStatsRead
+    ranking: ClubRankingRead
+    players: list[ClubPlayerRead]
+
+class ClubListResponse(BaseModel):
+    items: list[ClubPublicRead]
+    page: int
+    page_size: int = Field(serialization_alias="pageSize")
+    total: int
+    has_next: bool = Field(serialization_alias="hasNext")
