@@ -1,57 +1,25 @@
-import {cleanup, render, screen, within} from '@testing-library/react';
+import {cleanup, render, screen} from '@testing-library/react';
 import {MemoryRouter} from 'react-router';
 import {afterEach, expect, it, vi} from 'vitest';
 import AvaiableLeagues from './AvaiableLeagues';
-
-const league = {
-    id: 42,
-    name: 'Liga de prueba',
-    status: 'open',
-    maxTeams: 4,
-    registeredCount: 2,
-    availableSlots: 2,
-    isMember: false,
-    isPrivate: false,
-};
 
 afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
 });
 
-async function renderLeague(overrides) {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
-        items: [{...league, ...overrides}],
-    }), {headers: {'Content-Type': 'application/json'}})));
+it('muestra solo los accesos a ligas sin consultar el listado', () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
 
     render(<MemoryRouter><AvaiableLeagues/></MemoryRouter>);
-    await screen.findByRole('heading', {name: league.name});
-    return screen.getByRole('listitem');
-}
 
-it.each([
-    [{isMember: true, status: 'running', registeredCount: 4, availableSlots: 0}, 'Ver lobby de Liga de prueba', 'sala-de-espera'],
-    [{}, 'Unirme a liga Liga de prueba', 'inscripcion'],
-    [{isPrivate: true}, 'Unirme a liga Liga de prueba', 'inscripcion'],
-])('muestra un único enlace enfocable según la inscripción (%j)', async (overrides, label, path) => {
-    const card = await renderLeague(overrides);
-    const links = within(card).getAllByRole('link');
-    expect(links).toHaveLength(1);
-    const [link] = links;
-    expect(link).toHaveAccessibleName(label);
-    expect(link).toHaveAttribute('href', `/ligas/42/${path}`);
-    expect(card.querySelector('a a')).toBeNull();
-    expect(link.tabIndex).toBe(0);
-    link.focus();
-    expect(link).toHaveFocus();
-});
-
-it.each([
-    [{status: 'running'}, 'La inscripción está cerrada.'],
-    [{registeredCount: 4, availableSlots: 0}, 'La liga está completa.'],
-])('informa por qué no se puede inscribir (%j)', async (overrides, reason) => {
-    const card = await renderLeague(overrides);
-    expect(within(card).getByText(reason)).toBeInTheDocument();
-    expect(within(card).queryByRole('link')).not.toBeInTheDocument();
-    expect(card.querySelector('a')).toBeNull();
+    expect(screen.getByRole('heading', {name: 'Ligas Disponibles'})).toBeInTheDocument();
+    expect(screen.getAllByRole('link')).toHaveLength(3);
+    expect(screen.getByRole('link', {name: 'Ver todas las ligas'})).toHaveAttribute('href', '/ligas-disponibles');
+    expect(screen.getByRole('link', {name: 'Crear una liga Publica'})).toHaveAttribute('href', '/crear-liga');
+    expect(screen.getByRole('link', {name: 'Crear una liga Privada'})).toHaveAttribute('href', '/crear-liga-privada');
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByText('No hay ligas disponibles.')).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
 });

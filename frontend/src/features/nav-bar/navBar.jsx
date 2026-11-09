@@ -29,6 +29,7 @@ function ClubNavigation({signOut}) {
             <NavLink to={routes.friendlyMatches} className="app-nav-action">Amistosos</NavLink>
             <NavLink to={routes.leagues} className="app-nav-action">Ligas</NavLink>
             <NavLink to={routes.clubs} className="app-nav-action">Clubes</NavLink>
+            <NavLink to={routes.globalRanking} className="app-nav-action">Ranking global</NavLink>
             <button type="button" className="app-nav-action" onClick={handleSignOut} disabled={signingOut}>
                 {signingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </button>

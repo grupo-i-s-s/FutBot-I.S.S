@@ -18,34 +18,36 @@
 .app-nav-club {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     flex: 1 1 0;
     min-width: 0;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: 700;
     overflow-wrap: anywhere;
 }
 
 .app-nav-club > :first-child {
     flex: none;
+    width: 64px;
+    height: 64px;
 }
 
 .app-nav-links {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     margin-inline-start: auto;
 }
 
 .app-nav-action {
     display: inline-flex;
     align-items: center;
-    min-height: 44px;
-    padding: 8px 12px;
+    min-height: 38px;
+    padding: 6px 10px;
     border: 1px solid #b9cdbd;
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
 }
