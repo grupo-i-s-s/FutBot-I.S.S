@@ -6,7 +6,6 @@ from app.models.behaviour_model import Behavior
 from app.repository import behaviour_repository
 from app.schemas.behaviour_schemas import BehaviourCreate
 from primitives.behaviour_api.validation import validate_program
-from app.models.league_model import LeagueRegistration
 from app.models.matches_model import Matches
 
 def list_behaviours(db: Session, club_id: int, kind: str|None=None) -> list[Behavior]:
@@ -192,7 +191,7 @@ def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
         if default_team and _lineup_uses_behaviour( default_team.line_up, behaviour_id, assigned_player_ids):
             references["defaultTeam"] = "Equipo predeterminado"
 
-        for registration in behaviour_repository.get_league_lineups(db, club_id):
+        for registration in behaviour_repository.get_active_league_lineups(db, club_id):
             if _lineup_uses_behaviour( registration.line_up, behaviour_id, assigned_player_ids):
                 references[f"leagues.{registration.league_id}"] = (
                     f"Alineación de liga #{registration.league_id}"

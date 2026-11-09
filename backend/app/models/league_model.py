@@ -5,6 +5,8 @@ from typing import Optional
 
 from app.database import Base
 
+TERMINAL_LEAGUE_STATUSES = {"finished", "cancelled", "canceled"}
+
 
 class League(Base):
     __tablename__ = "leagues"

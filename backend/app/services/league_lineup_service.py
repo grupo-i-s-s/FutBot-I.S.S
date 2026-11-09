@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.models.behaviour_model import Behavior
+from app.models.league_model import TERMINAL_LEAGUE_STATUSES
 from app.models.player_model import Player
 from app.repository import behaviour_repository, league_repository, player_repository, team_repository
 from app.schemas.league_schemas import LeagueLineupRead, LeagueLineupUpdate
@@ -14,7 +15,6 @@ from primitives.behaviour_api.runtime import resolve_program
 from primitives.formations import FORMATIONS
 
 INCOMPLETE_LEGACY_LINEUP = "INCOMPLETE_LEGACY"
-TERMINAL_LEAGUE_STATUSES = {"finished", "cancelled", "canceled"}
 PLAYER_SNAPSHOT_FIELDS = ("id", "club_id", "name", "power", "agility", "control", "speed", "strength")
 LineupCatalogs = tuple[dict[int, Player], dict[int, Behavior]]
 

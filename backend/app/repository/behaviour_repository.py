@@ -1,6 +1,6 @@
-from sqlalchemy import select, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
-from app.models.league_model import LeagueRegistration
+from app.models.league_model import League, LeagueRegistration, TERMINAL_LEAGUE_STATUSES
 from app.models.auth_model import Club
 from app.models.matches_model import Matches
 from app.models.player_model import Player
@@ -106,11 +106,15 @@ def get_default_team(db: Session, club_id: int)-> DefaultTeam | None:
         .execution_options(populate_existing=True)
     )
 
-def get_league_lineups(db: Session, club_id:int) -> list[LeagueRegistration]:
+def get_active_league_lineups(db: Session, club_id: int) -> list[LeagueRegistration]:
     return list(
         db.scalars(
             select(LeagueRegistration)
-            .where(LeagueRegistration.club_id == club_id)
+            .join(League, League.id == LeagueRegistration.league_id)
+            .where(
+                LeagueRegistration.club_id == club_id,
+                func.lower(League.status).not_in(TERMINAL_LEAGUE_STATUSES),
+            )
             .order_by(LeagueRegistration.id)
             .execution_options(populate_existing=True)
         ).all()
