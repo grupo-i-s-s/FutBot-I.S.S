@@ -9,6 +9,7 @@ import MatchBreakNotice, {
     breakLabel,
 } from './components/MatchBreakNotice.jsx';
 import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx';
+import PlannedSubstitutionPanel from './components/PlannedSubstitutionPanel.jsx';
 import { useState, useEffect } from 'react'
 import { request } from '@/api/http.js';
 
@@ -90,6 +91,8 @@ export default function MatchPage() {
                                 abierta.</p>}
                         {terminal && <p className="match-result">{resultText(state)}</p>}
                         <MatchCanvas snapshot={snapshot} live={live} />
+                        <PlannedSubstitutionPanel key={matchId} matchId={matchId} state={state}
+                                                  sequence={snapshot.sequence} clubId={myClubId} connected={connected}/>
                         {state.players.length > 0 && (
                             <section className="match-lineups" aria-label="Jugadores en cancha">
                                 {state.teams.map((team) => {

@@ -74,6 +74,11 @@ def test_applies_both_clubs_once_preserves_positions_and_recovers(database, leag
     assert len(events) == 2
     assert len({event["eventId"] for event in events}) == 2
     assert all(event["type"] == "SUBSTITUTION_APPLIED" for event in events)
+    own = partial["state"]["lineups"][0]
+    assert own["pendingSubstitution"] is None
+    assert own["remainingSubstitutions"] == 0
+    assert own["starters"][0]["playerId"] == league_data.lineups[0][3]
+    assert own["substitutes"][0]["playerId"] == league_data.lineups[0][0]
     with Session(database) as db:
         row = db.get(Matches, game)
         restored = Match.from_checkpoint(row.runtime_state)

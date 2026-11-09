@@ -293,6 +293,9 @@ class Match:
 
     def snapshot(self, sequence: int, sent_at: str) -> dict:
         """Estado público completo; no contiene cuerpos ni objetos de Pymunk."""
+        next_pause = next((i + 1 for i in range(self.pause_index, 3)
+                           if self._breaks.durations_ms[i] > 0), None) if not self.finished else None
+        quota_pause = self.pause_index if self.paused else next_pause
         return {
             "schemaVersion": 1,
             "type": "match.snapshot",
@@ -306,6 +309,19 @@ class Match:
                 "period": 2 if self.sides_swapped else 1,
                 **self._breaks.public_state(),
                 "events": [dict(event) for event in self.substitution_events],
+                "nextPause": {"pauseId": f"{self.match_id}:{next_pause}", "number": next_pause}
+                if next_pause is not None else None,
+                "lineups": [
+                    {
+                        "clubId": team.club_id,
+                        "starters": [{"playerId": p.id, "name": p.name} for p in team.players],
+                        "substitutes": [{"playerId": p.id, "name": p.name} for p in team.substitutes],
+                        "remainingSubstitutions": int(quota_pause is not None
+                                                      and (team.club_id, quota_pause) not in self.substitution_pauses),
+                        "pendingSubstitution": None,
+                    }
+                    for team in (self.local_team, self.visitor_team)
+                ],
                 "field": {"width": width, "height": height, "goalWidth": goal_width},
                 "teams": [
                     {"id": team.club_id, "name": team.name, "avatar": team.avatar,

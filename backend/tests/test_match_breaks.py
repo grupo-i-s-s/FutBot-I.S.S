@@ -168,10 +168,12 @@ def test_invalid_break_duration_is_rejected(duration):
 
 def test_executor_keeps_publishing_during_break(match, monkeypatch):
     monkeypatch.setattr(execution, "apply_planned_substitutions", lambda *_: False)
+    monkeypatch.setattr(execution, "with_pending_substitutions", lambda db, match_id, snapshot: snapshot)
     # Pausa suficientemente larga para observar varios snapshots congelados.
     match._breaks.hydration_ms = 1000
 
     row = SimpleNamespace(
+        match_id=42,
         sequence=0,
         status="WAITING",
         duration_ms=1000,

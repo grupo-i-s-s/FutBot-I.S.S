@@ -1,3 +1,6 @@
+from copy import deepcopy
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,6 +21,22 @@ def _result(plan: PlannedSubstitution) -> dict:
     }
 
 
+def with_pending_substitutions(db: Session, match_id: int, snapshot: dict) -> dict:
+    if "lineups" not in snapshot["state"]:
+        return snapshot
+    result = deepcopy(snapshot)
+    state = result["state"]
+    target = state.get("nextPause")
+    pending = db.scalars(select(PlannedSubstitution).where(
+        PlannedSubstitution.match_id == match_id, PlannedSubstitution.status == "PENDING",
+    )).all()
+    by_club = {plan.club_id: _result(plan) for plan in pending
+               if target and f"{match_id}:{plan.pause_index}" == target["pauseId"]}
+    for lineup in state["lineups"]:
+        lineup["pendingSubstitution"] = by_club.get(lineup["clubId"]) if state["status"] == "RUNNING" else None
+    return result
+
+
 def plan_substitution(db: Session, match_id: int, club_id: int, data: PlannedSubstitutionRequest) -> dict:
     try:
         # El mismo bloqueo que usa el escritor evita leer un checkpoint a medio actualizar.
@@ -34,7 +53,7 @@ def plan_substitution(db: Session, match_id: int, club_id: int, data: PlannedSub
         if previous is not None:
             if (previous.out_player_id, previous.in_player_id) != (data.out_player_id, data.in_player_id):
                 raise AppError("SUBSTITUTION_COMMAND_CONFLICT", "El identificador ya se usó para otro cambio.")
-            result = _result(previous)
+            result = {**_result(previous), "sequence": match.sequence}
             db.commit()
             return result
 
@@ -72,7 +91,12 @@ def plan_substitution(db: Session, match_id: int, club_id: int, data: PlannedSub
         )
         db.add(plan)
         db.flush()
-        result = _result(plan)
+        if match.snapshot is not None:
+            snapshot = with_pending_substitutions(db, match_id, match.snapshot)
+            match.sequence += 1
+            match.snapshot = {**snapshot, "sequence": match.sequence,
+                              "sentAt": datetime.now(timezone.utc).isoformat()}
+        result = {**_result(plan), "sequence": match.sequence}
         db.commit()
         return result
     except Exception:

@@ -24,6 +24,8 @@ from app.repository import matches_repository
 from app.schemas.matches_schemas import PlannedSubstitutionRequest
 from app.services.match_builder_service import build_match
 from app.services.planned_substitution_service import plan_substitution
+from app.services.match_execution_service import _persist
+from app.services.match_snapshot_service import read_snapshot
 from primitives.match_simulation import Match
 
 
@@ -71,10 +73,16 @@ def test_plan_is_persisted_without_changing_match(api, database, league_data, ru
         before = deepcopy((row.runtime_state, row.snapshot, row.sequence))
     response = api.client.put(api.url, json=body(league_data))
     assert response.status_code == 200, response.text
-    assert response.json() == {**body(league_data), "pauseId": f"{running_match}:1", "status": "PENDING"}
+    assert response.json() == {**body(league_data), "pauseId": f"{running_match}:1", "status": "PENDING",
+                               "sequence": before[2] + 1}
     with Session(database) as db:
         row = db.get(Matches, running_match)
-        assert (row.runtime_state, row.snapshot, row.sequence) == before
+        assert row.runtime_state == before[0]
+        for field in ("players", "ball", "clockMs"):
+            assert row.snapshot["state"][field] == before[1]["state"][field]
+        assert row.sequence == before[2] + 1
+        own = row.snapshot["state"]["lineups"][0]
+        assert own["pendingSubstitution"]["commandId"] == "change-1"
         assert len(plans(db)) == 1
         assert plans(db)[0].club_id == league_data.clubs[0]
 
@@ -128,6 +136,24 @@ def test_invalid_replacement_preserves_confirmed_plan(api, database, league_data
         assert len(saved) == 1
         assert saved[0].status == "PENDING"
         assert saved[0].command_id == "change-1"
+
+
+def test_pending_plan_survives_the_next_snapshot_and_can_be_recovered(api, database, league_data, running_match):
+    receipt = api.client.put(api.url, json=body(league_data)).json()
+    with Session(database) as db:
+        row = db.get(Matches, running_match)
+        simulation = Match.from_checkpoint(row.runtime_state)
+        simulation.time = 0.01
+        persisted = _persist(db, row, simulation)
+        assert persisted["sequence"] > receipt["sequence"]
+    with Session(database) as db:
+        restored = read_snapshot(db, running_match, league_data.clubs[0])
+        own = restored["state"]["lineups"][0]
+        assert own["pendingSubstitution"]["commandId"] == "change-1"
+        assert own["remainingSubstitutions"] == 1
+        assert [p["playerId"] for p in own["starters"]] == league_data.lineups[0][:3]
+        assert [p["playerId"] for p in own["substitutes"]] == league_data.lineups[0][3:]
+        assert all(set(p) == {"playerId", "name"} for p in own["starters"] + own["substitutes"])
 
 
 @pytest.mark.parametrize("status", ["WAITING", "SCHEDULED", "FINISHED", "CANCELLED"])
