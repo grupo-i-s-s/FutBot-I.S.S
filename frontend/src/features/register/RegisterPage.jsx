@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { register } from './api';
 import { Link } from 'react-router';
 import { useNavigate } from 'react-router';
+import {routes} from '@/routes.js';
 
 
 export default function RegisterPage() {
@@ -22,7 +23,7 @@ export default function RegisterPage() {
 
         try {
             await register(email, clubName, password, repeatPassword);
-            navigate('/verificar-email', { state: { email } });
+            navigate(routes.verifyEmail, { state: { email } });
         } catch (err) {
             const fields = Object.values(err.fields || {});
             setError(
@@ -86,7 +87,7 @@ export default function RegisterPage() {
                     </button>
                     {error && <p role="alert">{error}</p>}
                     {success && <p role="status">{success}</p>}
-                    <Link to="/login" className="Registro">Iniciar Sesión</Link>
+                    <Link to={routes.signIn} className="Registro">Iniciar Sesión</Link>
 
                 </form>
             </section>

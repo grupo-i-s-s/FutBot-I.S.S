@@ -1,0 +1,28 @@
+export {generatePath as routePath} from 'react-router';
+
+export const routes = {
+    root: '/',
+    signIn: '/iniciar-sesion',
+    register: '/registro',
+    verifyEmail: '/verificar-email',
+    home: '/inicio',
+    myClub: '/mi-club',
+    clubs: '/clubes',
+    clubProfile: '/clubes/:clubId',
+    friendlyMatches: '/partidos-disponibles',
+    createMatch: '/crear-partido',
+    match: '/partidos/:matchId',
+    createPlayer: '/crear-jugador',
+    changePassword: '/cambiar-contrasena',
+    behaviours: '/comportamientos',
+    behaviourDetail: '/comportamientos/:behaviourId',
+    createBehaviour: '/crear-comportamiento',
+    createDtBehaviour: '/crear-comportamiento-dt',
+    leagues: '/ligas-disponibles',
+    cancelledLeague: '/liga-cancelada',
+    leagueRegistration: '/ligas/:id/inscripcion',
+    createLeague: '/crear-liga',
+    createPrivateLeague: '/crear-liga-privada',
+    leagueLobby: '/ligas/:id/sala-de-espera',
+    leagueLineup: '/ligas/:id/plantel',
+};

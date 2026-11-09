@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { resendVerification, verifyEmail } from './api.js';
 import './VerifyEmailPage.css';
+import {routes} from '@/routes.js';
 
 export default function VerifyEmailPage() {
     const location = useLocation();
@@ -54,7 +55,7 @@ export default function VerifyEmailPage() {
                     {verified ? (
                         <>
                             <p role="status">{message}</p>
-                            <Link to="/login" className="verify-email-card__login">Ir a iniciar sesión</Link>
+                            <Link to={routes.signIn} className="verify-email-card__login">Ir a iniciar sesión</Link>
                         </>
                     ) : (
                         <form onSubmit={handleVerify}>

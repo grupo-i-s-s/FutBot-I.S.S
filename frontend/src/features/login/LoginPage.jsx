@@ -1,8 +1,9 @@
 import {useState} from 'react';
 import {login} from './api';
 import './LoginPage.css';
-import {Link, useNavigate} from 'react-router';
+import {Link, useLocation, useNavigate} from 'react-router';
 import {useSession} from '../session/SessionProvider.jsx';
+import {routes} from '@/routes.js';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -11,6 +12,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const {refreshSession} = useSession();
     const navigate = useNavigate();
+    const {search, hash, state} = useLocation();
 
     async function handleSubmit(event) {
         event.preventDefault();
@@ -21,7 +23,7 @@ export default function LoginPage() {
         try {
             await login(email, password);
             void refreshSession();
-            navigate('/home', {replace: true});
+            navigate({pathname: routes.home, search, hash}, {replace: true, state});
         } catch (err) {
             const fieldErrors = Object.values(err.fields ?? {}).join(' ');
 
@@ -71,7 +73,7 @@ export default function LoginPage() {
                         {loading ? 'Iniciando sesión…' : 'Iniciar Sesión'}
                     </button>
                     {error && <p role="alert">{error}</p>}
-                    <Link to="/registro" className="Registro">Registrarme</Link>
+                    <Link to={routes.register} className="Registro">Registrarme</Link>
                 </form>
             </section>
 

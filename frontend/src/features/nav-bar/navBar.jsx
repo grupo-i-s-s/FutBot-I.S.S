@@ -3,6 +3,7 @@ import {NavLink, useNavigate} from 'react-router';
 import ClubAvatar from '../my-club/components/ClubAvatar';
 import {useSession} from '../session/SessionProvider.jsx';
 import './navBar.css';
+import {routes} from '@/routes.js';
 
 function ClubNavigation({signOut}) {
     const navigate = useNavigate();
@@ -14,7 +15,7 @@ function ClubNavigation({signOut}) {
         setError('');
         try {
             await signOut();
-            navigate('/', {replace: true});
+            navigate(routes.root, {replace: true});
         } catch (requestError) {
             setError(requestError.message || 'No se pudo cerrar la sesión.');
         } finally {
@@ -24,11 +25,11 @@ function ClubNavigation({signOut}) {
 
     return <>
         <nav className="app-nav-links" aria-label="Navegación principal">
-            <NavLink to="/home" className="app-nav-action">Inicio</NavLink>
-            <NavLink to="/mi-club" className="app-nav-action">Mi club</NavLink>
-            <NavLink to="/partidos-disponibles" className="app-nav-action">Amistosos</NavLink>
-            <NavLink to="/ligas-disponibles" className="app-nav-action">Ligas</NavLink>
-            <NavLink to="/clubes" className="app-nav-action">Clubes</NavLink>
+            <NavLink to={routes.home} className="app-nav-action">Inicio</NavLink>
+            <NavLink to={routes.myClub} className="app-nav-action">Mi club</NavLink>
+            <NavLink to={routes.friendlyMatches} className="app-nav-action">Amistosos</NavLink>
+            <NavLink to={routes.leagues} className="app-nav-action">Ligas</NavLink>
+            <NavLink to={routes.clubs} className="app-nav-action">Clubes</NavLink>
             <button type="button" className="app-nav-action" onClick={handleSignOut} disabled={signingOut}>
                 {signingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </button>
@@ -55,8 +56,8 @@ export default function NavBar() {
 
                 {showPublicLinks && (
                     <nav className="app-nav-links" aria-label="Cuenta">
-                        <NavLink to="/" className="app-nav-action" end>Iniciar sesión</NavLink>
-                        <NavLink to="/registro" className="app-nav-action">Registrarse</NavLink>
+                        <NavLink to={routes.root} className="app-nav-action" end>Iniciar sesión</NavLink>
+                        <NavLink to={routes.register} className="app-nav-action">Registrarse</NavLink>
                     </nav>
                 )}
             </div>

@@ -1,4 +1,4 @@
-import {Navigate, Outlet, Route, Routes} from 'react-router';
+import {Navigate, Outlet, Route, Routes, useLocation, useParams, useSearchParams} from 'react-router';
 import {Button} from '@/components/ui/button';
 import HomePage from './features/home-page/homePage.jsx';
 import LoginPage from './features/login/LoginPage.jsx';
@@ -25,6 +25,33 @@ import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
 import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
 import LeagueLineupPage from './features/league-lineup/LeagueLineupPage.jsx';
+import {routePath, routes} from './routes.js';
+
+const privateAliases = [
+    ['/home', routes.home],
+    ['/behaviours', routes.behaviours],
+    ['/behaviours/:behaviourId', routes.behaviourDetail],
+    ['/club/:clubId', routes.clubProfile],
+    ['/leagues/:id/join', routes.leagueRegistration],
+    ['/leagues/:id/lobby', routes.leagueLobby],
+    ['/leagues/:id/lineup', routes.leagueLineup],
+];
+
+function LegacyRedirect({to}) {
+    const {search, hash, state} = useLocation();
+    const params = useParams();
+    return <Navigate to={{pathname: routePath(to, params), search, hash}} state={state} replace/>;
+}
+
+function LegacyLeagueRegistration() {
+    const {search, hash, state} = useLocation();
+    const [searchParams] = useSearchParams();
+    const leagueId = searchParams.get('leagueId');
+    if (!leagueId) return <InscripcionLigaPage/>;
+
+    const pathname = routePath(routes.leagueRegistration, {id: leagueId});
+    return <Navigate to={{pathname, search, hash}} state={state} replace/>;
+}
 
 function SessionLoading() {
     return <main className="mx-auto max-w-md px-4 py-8">
@@ -34,14 +61,18 @@ function SessionLoading() {
 
 function SignIn() {
     const {status} = useSession();
+    const {search, hash, state} = useLocation();
     if (status === 'checking') return <SessionLoading/>;
-    return status === 'authenticated' ? <Navigate to="/home" replace/> : <LoginPage/>;
+    if (status === 'authenticated') {
+        return <Navigate to={{pathname: routes.home, search, hash}} state={state} replace/>;
+    }
+    return <LoginPage/>;
 }
 
 function RequireSession() {
     const {status, error, refreshSession} = useSession();
     if (status === 'checking') return <SessionLoading/>;
-    if (status === 'anonymous') return <Navigate to="/" replace/>;
+    if (status === 'anonymous') return <Navigate to={routes.root} replace/>;
     if (status === 'error') {
         return <main className="mx-auto max-w-md space-y-4 px-4 py-8">
             <p role="alert">{error.message}</p>
@@ -56,32 +87,36 @@ export default function App() {
         <SessionProvider>
             <NavBar/>
             <Routes>
-                <Route path="/" element={<SignIn/>} />
-                <Route path="/login" element={<SignIn/>} />
-                <Route path="/registro" element={<RegisterPage />} />
-                <Route path="/verificar-email" element={<VerifyEmailPage />} />
+                <Route path={routes.root} element={<SignIn/>} />
+                <Route path={routes.signIn} element={<SignIn/>} />
+                <Route path={routes.register} element={<RegisterPage />} />
+                <Route path={routes.verifyEmail} element={<VerifyEmailPage />} />
+                <Route path="/login" element={<LegacyRedirect to={routes.signIn}/>} />
                 <Route element={<RequireSession/>}>
-                    <Route path="/home" element={<HomePage />} />
-                    <Route path="/mi-club" element={<MyClubPage />} />
-                    <Route path="/partidos-disponibles" element={<MatchesPage />} />
-                    <Route path="/crear-partido" element={<CreateFriendlyMatch />} />
-                    <Route path="/crear-jugador" element={<CreatePlayerPage />} />
-                    <Route path="/partidos/:matchId" element={<MatchPage />} />
-                    <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
-                    <Route path="/behaviours/:behaviourId" element={<BehaviourDetailPage />} />
-                    <Route path="/ligas-disponibles" element={<LeagueListPage />} />
-                    <Route path="/liga-cancelada" element={<CancelledLeague />} />
-                    <Route path="/inscripcion-liga" element={<InscripcionLigaPage />} />
-                    <Route path="/leagues/:id/join" element={<InscripcionLigaPage />} />
-                    <Route path="/crear-liga" element={<CrearLiga />} />
-                    <Route path="/crear-liga-privada" element={<CreatePrivateLeague />} />
-                    <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
-                    <Route path="/leagues/:id/lineup" element={<LeagueLineupPage />} />
-                    <Route path="/behaviours" element={<BehaviourList />} />
-                    <Route path="/crear-comportamiento" element={<CreateBehaviourPage />} />
-                    <Route path="/crear-comportamiento-dt" element={<CreateBehaviourPage key="dt" kind="DT" />} />
-                    <Route path="/clubes" element={<ClubsListPage />} />
-                    <Route path="/club/:clubId" element={<ClubProfilePage />} />
+                    <Route path={routes.home} element={<HomePage />} />
+                    <Route path={routes.myClub} element={<MyClubPage />} />
+                    <Route path={routes.friendlyMatches} element={<MatchesPage />} />
+                    <Route path={routes.createMatch} element={<CreateFriendlyMatch />} />
+                    <Route path={routes.createPlayer} element={<CreatePlayerPage />} />
+                    <Route path={routes.match} element={<MatchPage />} />
+                    <Route path={routes.changePassword} element={<ChangePasswordPage />} />
+                    <Route path={routes.behaviourDetail} element={<BehaviourDetailPage />} />
+                    <Route path={routes.leagues} element={<LeagueListPage />} />
+                    <Route path={routes.cancelledLeague} element={<CancelledLeague />} />
+                    <Route path={routes.leagueRegistration} element={<InscripcionLigaPage />} />
+                    <Route path={routes.createLeague} element={<CrearLiga />} />
+                    <Route path={routes.createPrivateLeague} element={<CreatePrivateLeague />} />
+                    <Route path={routes.leagueLobby} element={<LeagueLobby />} />
+                    <Route path={routes.leagueLineup} element={<LeagueLineupPage />} />
+                    <Route path={routes.behaviours} element={<BehaviourList />} />
+                    <Route path={routes.createBehaviour} element={<CreateBehaviourPage />} />
+                    <Route path={routes.createDtBehaviour} element={<CreateBehaviourPage key="dt" kind="DT" />} />
+                    <Route path={routes.clubs} element={<ClubsListPage />} />
+                    <Route path={routes.clubProfile} element={<ClubProfilePage />} />
+                    <Route path="/inscripcion-liga" element={<LegacyLeagueRegistration/>} />
+                    {privateAliases.map(([path, to]) => (
+                        <Route key={path} path={path} element={<LegacyRedirect to={to}/>} />
+                    ))}
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
             </Routes>
