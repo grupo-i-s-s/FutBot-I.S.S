@@ -18,6 +18,7 @@ from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.planned_substitution_model import PlannedSubstitution
+from app.models.stats_model import Stats
 from app.models.team_model import DefaultTeam
 from app.repository import matches_repository
 from app.security import hash_session_token, new_session_token
@@ -29,7 +30,7 @@ from primitives.match_simulation import Match
 def seed_match_database(engine, duration_ms=700):
     tables = [model.__table__ for model in (
         User, Club, AuthSession, Behavior, Player, DefaultTeam, League, LeagueRound,
-        Matches, PlannedSubstitution, Dt, DtBehaviour,
+        Matches, PlannedSubstitution, Dt, DtBehaviour, Stats,
     )]
     Base.metadata.create_all(engine, tables=tables)
     tokens = [new_session_token(), new_session_token()]
@@ -41,7 +42,8 @@ def seed_match_database(engine, duration_ms=700):
             db.add(AuthSession(user_id=club_id, token_hash=hash_session_token(token), created_at=now,
                                expires_at=now + timedelta(hours=1)))
             db.add(Behavior(id=club_id, club_id=club_id, name='Equilibrado', description='test',
-                            code=DEFAULT_CODES['Equilibrado'], validation_status='VALID'))
+                            code=DEFAULT_CODES['Equilibrado'], kind='PLAYER', version=1,
+                            validation_status='VALID'))
             for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f'Jugador {club_id}-{index + 1}', power=60, agility=60,

@@ -142,8 +142,8 @@ def list_for_club(db: Session, club_id: int):
         .where(
             or_(Matches.creator_id == club_id, Matches.visitor_id == club_id),
             Matches.league_round_id.is_(None),
-            Matches.creator_id != 999,
-            Matches.visitor_id.is_distinct_from(999),
+            Matches.creator_id != TEST_OPPONENT_CLUB_ID,
+            Matches.visitor_id.is_distinct_from(TEST_OPPONENT_CLUB_ID),
         )
         .order_by(Matches.init_date.desc(), Matches.match_id.desc())
     ).all()

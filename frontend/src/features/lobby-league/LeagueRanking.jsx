@@ -6,19 +6,19 @@ import {routePath, routes} from '@/routes.js';
 
 export default function LeagueRanking({leagueId}) {
     const[rankData, setRankData] = useState([]);
-    
+
     useEffect(() => {
-                    async function rank() {
-                        const rank = await getLeagueRanking(leagueId);  
-                        setRankData(rank)
-                    }
-                    rank()    
-                    }, [leagueId]);
+        async function rank() {
+            const rank = await getLeagueRanking(leagueId);
+            setRankData(rank);
+        }
+        rank();
+    }, [leagueId]);
 
     return (
         <div className="lobby-card">
             <h2>Ranking de la Liga</h2>
-            
+
             {/* 2. Estructura de la tabla */}
             <div className="ranking-table">
                 {/* Encabezados */}

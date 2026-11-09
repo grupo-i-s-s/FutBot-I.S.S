@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.errors import AppError
 from app.models.auth_model import Club, User
+from app.models.stats_model import Stats
 from app.repository import (
     session_repository,
     user_repository,
+    club_repository,
     behaviour_repository,
     player_repository,
     team_repository,
@@ -53,11 +55,8 @@ def session_error() -> AppError:
 
 
 def duplicate_error(field: str) -> AppError:
-    if field == "email":
-        messages = {"email": "El email ya está registrado.", "clubName": "Ya existe un club con ese nombre."}
-        message = messages[field]
-    else:
-        message = "El nombre de usuario ya está registrado."
+    messages = {"email": "El email ya está registrado.", "clubName": "Ya existe un club con ese nombre."}
+    message = messages.get(field, "El nombre de usuario ya está registrado.")
 
     return AppError(
         "ACCOUNT_DUPLICATE",
@@ -98,6 +97,8 @@ def _create_account(
         avatar=DEFAULT_AVATAR,
     )
 
+    db.add(Stats(club_id=club.id))
+
     dt_behaviours = dt_repository.create_default_dt_behaviours(db, user.id)
     default_dt_behaviour_id = dt_behaviours[0].id if dt_behaviours else None
     dt_repository.create_dt(db, club.id, default_dt_behaviour_id)
@@ -134,6 +135,9 @@ def register(db: Session, data: RegisterRequest) -> dict[str, str]:
     try:
         if user_repository.get_by_email(db, email):
             raise duplicate_error("email")
+
+        if club_repository.get_by_name(db, data.club_name):
+            raise duplicate_error("clubName")
 
         pending = pending_email_verification_repository.get_by_email(db, email, lock=True)
 

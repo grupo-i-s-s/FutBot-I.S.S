@@ -24,6 +24,7 @@ from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.planned_substitution_model import PlannedSubstitution
+from app.models.stats_model import Stats
 from app.models.team_model import DefaultTeam
 from app.repository import matches_repository
 from app.services import match_execution_service
@@ -51,7 +52,7 @@ def context():
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     tables = [model.__table__ for model in (
         User, Club, Behavior, Player, DefaultTeam, League, LeagueRound,
-        Matches, PlannedSubstitution, Dt, DtBehaviour,
+        Matches, PlannedSubstitution, Dt, DtBehaviour, Stats,
     )]
     Base.metadata.create_all(engine, tables=tables)
     with Session(engine) as db:
@@ -59,7 +60,8 @@ def context():
             db.add(User(id=club_id, email=f"club{club_id}@test.com", password_hash="unused"))
             db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}", avatar="shield"))
             db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
-                            code=DEFAULT_CODES["Equilibrado"], validation_status="VALID"))
+                            code=DEFAULT_CODES["Equilibrado"], kind="PLAYER", version=1,
+                            validation_status="VALID"))
             for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f"Jugador {club_id}-{index}", power=60, agility=60,

@@ -55,7 +55,9 @@ curl -fsS http://localhost:8000/openapi.json | python3 docs/check_api_reference.
 | PATCH | `/players/{player_id}/behaviour` | `200` | `PlayerBehaviourUpdate` | Asigna el comportamiento del jugador. |
 | GET | `/behaviours` | `200` | — | Catálogo de comportamientos de jugadores. |
 | GET | `/behaviours/{behaviour_id}` | `200` | — | Detalle de un comportamiento propio. |
+| GET | `/behaviours/{behaviour_id}/usage` | `200` | — | Indica si el comportamiento tiene referencias activas. |
 | POST | `/behaviours` | `201` | `BehaviourCreate` | Crea un comportamiento de jugador. |
+| PUT | `/behaviours/{behaviour_id}` | `200` | `BehaviourUpdate` | Actualiza el nombre y el código de un comportamiento editable y aumenta su versión. |
 | DELETE | `/behaviours/{behaviour_id}` | `204` | — | Elimina un comportamiento que se puede retirar. |
 | POST | `/behaviours/validate` | `200` | `BehaviourValidateRequest` | Valida un programa de jugador o DT. |
 | GET | `/leagues` | `200` | — | Ligas disponibles, con filtro por nombre. |
@@ -67,6 +69,7 @@ curl -fsS http://localhost:8000/openapi.json | python3 docs/check_api_reference.
 | POST | `/leagues/{id}/start` | `200` | — | Inicia la liga y genera sus rondas. |
 | GET | `/leagues/{id}/fixture` | `200` | — | Rondas, horarios, resultados y próximo partido. |
 | GET | `/leagues/{id}/ranking` | `200` | — | Tabla de posiciones de la liga. |
+| GET | `/ranking-global` | `200` | — | Ranking global de clubes. |
 | GET | `/leagues/{id}/lineup` | `200` | — | Alineación propia en la liga, versión y permiso de edición. |
 | PUT | `/leagues/{id}/lineup` | `200` | `LeagueLineupUpdate` | Guarda el plantel de liga con `expectedVersion`. |
 | GET | `/friendly-matches` | `200` | — | Amistosos disponibles por club creador. |

@@ -9,6 +9,7 @@ export const routes = {
     myClub: '/mi-club',
     clubs: '/clubes',
     clubProfile: '/clubes/:clubId',
+    globalRanking: '/ranking-global',
     friendlyMatches: '/partidos-disponibles',
     createMatch: '/crear-partido',
     match: '/partidos/:matchId',

@@ -4,6 +4,7 @@ import { getBehaviour } from './api';
 import './BehaviourDetailPage.css';
 import DeleteBehaviourButton from './components/DeleteBehaviourButton';
 import {routes} from '@/routes.js';
+import BehaviourEdit from './components/BehaviourEdit';
 
 export default function BehaviourDetailPage() {
     const { behaviourId } = useParams();
@@ -13,6 +14,7 @@ export default function BehaviourDetailPage() {
     const [error, setError] = useState('');
     const [attempt, setAttempt] = useState(0);
     const navigate = useNavigate();
+    const [notice, setNotice] = useState('');
 
     useEffect(() => {
         const controller = new AbortController();
@@ -83,6 +85,16 @@ export default function BehaviourDetailPage() {
                             {behaviour.name}
                         </h2>
 
+                        <BehaviourEdit
+                            behaviour={behaviour}
+                            onUpdated={(updatedBehaviour) => {
+                                setBehaviour(updatedBehaviour);
+                                setNotice(
+                                    `Cambios guardados. Versión ${updatedBehaviour.version}.`
+                                );
+                            }}
+                        />
+
                         <DeleteBehaviourButton
                             behaviour={behaviour}
                             onDeleted={(deletedBehaviour) => {
@@ -94,6 +106,12 @@ export default function BehaviourDetailPage() {
                                 });
                             }}
                         />
+
+                        {notice && (
+                            <p role="status" className="my-3 text-emerald-700">
+                                {notice}
+                            </p>
+                        )}
 
                         <p className="behaviour-detail-description">
                             Código del comportamiento. Solo lectura.

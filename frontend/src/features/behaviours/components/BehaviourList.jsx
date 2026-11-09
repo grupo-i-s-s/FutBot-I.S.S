@@ -6,7 +6,7 @@ import DeleteBehaviourButton from './DeleteBehaviourButton';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { createBehaviourTestMatch } from '../api.js';
 import {routePath, routes} from '@/routes.js';
-
+import BehaviourEdit from './BehaviourEdit';
 
 export default function BehaviourList() {
     const [behaviours, setBehaviours] = useState([]);
@@ -67,6 +67,21 @@ export default function BehaviourList() {
                 </button>
                 {testError && <p role="alert">{testError}</p>}
             </div>
+        );
+    }
+
+    function handleUpdated(updatedBehaviour) {
+        setBehaviours((current) =>
+            current.map((item) =>
+                item.id === updatedBehaviour.id
+                    ? {...item, ...updatedBehaviour}
+                    : item
+            )
+        );
+
+        setNotice(
+            `El comportamiento “${updatedBehaviour.name}” se actualizó correctamente. ` +
+            `Versión ${updatedBehaviour.version}.`
         );
     }
 
@@ -136,10 +151,17 @@ export default function BehaviourList() {
                                 Ver detalle &rarr;
                             </Link>
 
-                            <DeleteBehaviourButton
-                                behaviour={behaviour}
-                                onDeleted={handleDeleted}
-                            />
+                            <div className="flex items-center gap-1">
+                                <BehaviourEdit
+                                    behaviour={behaviour}
+                                    onUpdated={handleUpdated}
+                                />
+
+                                <DeleteBehaviourButton
+                                    behaviour={behaviour}
+                                    onDeleted={handleDeleted}
+                                />
+                            </div>
                         </div>
                     </li>
                 ))}

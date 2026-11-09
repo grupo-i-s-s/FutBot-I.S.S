@@ -53,9 +53,16 @@ export default function AvaiableLeagues() {
                             <Trophy size={22} aria-hidden="true"/>
                         </span>
                 <div>
-                    <h2 id="home-leagues-title">Ligas disponibles</h2>
+                    <h2 id="home-leagues-title">Ranking y Ligas disponibles</h2>
                 </div>
             </div>
+
+            <Link to={routes.globalRanking} className="home-panel-link" style={{ background: '#eaf2e7', marginBottom: '12px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    Ver Ranking Global
+                </span>
+                <ArrowRight size={17} aria-hidden="true"/>
+            </Link>
 
             <Link to={routes.leagues} className="home-panel-link">
                 Ver todas las ligas

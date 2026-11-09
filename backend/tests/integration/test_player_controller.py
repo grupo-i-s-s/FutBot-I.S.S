@@ -260,8 +260,11 @@ def test_get_players_only_returns_players_from_current_club(monkeypatch):
         )
     ]
 
-    def fake_get_players(db, club_id, **_):
+    def fake_get_players(db, club_id, *, page, limit, search):
         assert club_id == 1
+        assert page == 1
+        assert limit == 9
+        assert search is None
         return club_players, len(club_players)
 
     monkeypatch.setattr(player_service, "get_players", fake_get_players)

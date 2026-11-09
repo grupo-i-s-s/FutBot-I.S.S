@@ -35,12 +35,11 @@ class BehaviourReadDetail(BaseModel):
     validation_status: str = Field( serialization_alias="validationStatus")
 
 
-class BehaviourCreate(BaseModel):
+class BehaviourContent(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     name: str = Field(min_length=1, max_length=50)
     code: str
-    kind: Literal["PLAYER"]
 
     @field_validator("name")
     @classmethod 
@@ -54,6 +53,13 @@ class BehaviourCreate(BaseModel):
     def validate_code_size(cls, value: str)->str:
         if len(value.encode("utf-8")) > 65_536: raise ValueError("El codigo no puede superar los 64KiB")
         return value
+
+class BehaviourCreate(BehaviourContent):
+    kind: Literal["PLAYER"]
+
+
+class BehaviourUpdate(BehaviourContent):
+    expected_version: int = Field(alias="expectedVersion", ge=1)
 
 class BehaviourValidateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)

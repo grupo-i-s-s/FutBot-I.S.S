@@ -1,6 +1,6 @@
 import {afterEach, expect, it, vi} from 'vitest';
 import {cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
-import {MemoryRouter, useLocation} from 'react-router';
+import {createMemoryRouter, RouterProvider, useLocation} from 'react-router';
 import App from './App.jsx';
 
 const club = {id: 8, name: 'Club de pruebas', avatar: 'avatar-01.png', friendlyAvailable: true};
@@ -27,6 +27,13 @@ function CurrentPath() {
     );
 }
 
+function renderApp(path) {
+    const router = createMemoryRouter([{path: '*', element: <><App/><CurrentPath/></>}], {
+        initialEntries: [path],
+    });
+    render(<RouterProvider router={router}/>);
+}
+
 function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
     const fetchMock = vi.fn(async (url, options) => {
         if (url === '/api/clubs/me') return getClub();
@@ -35,13 +42,13 @@ function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
         return respond(options);
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter initialEntries={[path]}><App/><CurrentPath/></MemoryRouter>);
+    renderApp(path);
     return fetchMock;
 }
 
 it.each([
     '/ligas-disponibles', '/liga-cancelada', '/clubes', '/clubes/42',
-    '/crear-comportamiento-dt', '/ligas/42/plantel', '/leagues/42/lineup',
+    '/crear-comportamiento-dt', '/ligas/42/plantel', '/leagues/42/lineup', '/ranking-global',
 ])('redirects anonymous visits to %s to /', async (path) => {
     const fetchMock = renderRoute(path, {}, () => jsonResponse(invalidSession, 401));
 
@@ -166,6 +173,22 @@ it('redirects to / when a private request reports an expired session', async () 
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/$/);
     expect(screen.queryByRole('button', {name: 'Cerrar sesión'})).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/leagues?page=1&pageSize=100', expect.anything());
+});
+
+it('opens the global ranking from the authenticated home', async () => {
+    renderRoute('/inicio', {
+        '/api/leagues?page=1&pageSize=100': () => jsonResponse({items: []}),
+        '/api/friendly-matches?creatorName=&page=1&pageSize=20': () => jsonResponse({items: [], total: 0, page: 1, pageSize: 20}),
+        '/api/ranking-global': () => jsonResponse({items: [
+            {name: 'Club líder', points: 12, played: 4, wins: 4, draws: 0, losses: 0, dg: 8},
+        ]}),
+    });
+
+    fireEvent.click(await screen.findByRole('link', {name: 'Ver Ranking Global'}));
+
+    expect(await screen.findByRole('heading', {name: 'Ranking Global'})).toBeInTheDocument();
+    expect(screen.getByText('Club líder')).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/ranking-global$/);
 });
 
 it('opens the available leagues route and filters through the authenticated API', async () => {
@@ -337,7 +360,7 @@ it.each([false, true])('joins a league from the listing and opens its lobby (pri
         return {ok: true, status: options.method === 'POST' ? 201 : 200, json: async () => response};
     });
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter initialEntries={['/ligas-disponibles']}><App/></MemoryRouter>);
+    renderApp('/ligas-disponibles');
     fireEvent.click(await screen.findByRole('link', {name: 'Inscribirse'}));
     expect(await screen.findByText('Jugadora del club')).toBeInTheDocument();
     if (isPrivate) {

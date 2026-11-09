@@ -3,8 +3,9 @@ from sqlalchemy import (DateTime, ForeignKey, Integer, String, UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.dt_model import Dt
 from app.models.player_model import Player
-from app.models.dt_model import Dt, DtBehaviour
+from app.models.stats_model import Stats
 
 
 class User(Base):
@@ -35,7 +36,8 @@ class Club(Base):
         server_default="false",
     )
     players: Mapped[list[Player]] = relationship(back_populates="club")
-    dt = relationship("Dt", back_populates="club", uselist=False)
+    stats: Mapped["Stats"] = relationship(back_populates="club")
+    dt: Mapped[Dt | None] = relationship(back_populates="club", uselist=False)
 
 
 class AuthSession(Base):

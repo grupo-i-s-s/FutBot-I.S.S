@@ -21,6 +21,7 @@ import BehaviourList from './features/behaviours/components/BehaviourList.jsx';
 import LeagueListPage from './features/list-leagues/LeagueListPage.jsx';
 import NavBar from './features/nav-bar/navBar.jsx';
 import {SessionProvider, useSession} from './features/session/SessionProvider.jsx';
+import GlobalRanking from './features/global-ranking/globalRanking.jsx';
 import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
 import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
@@ -113,6 +114,7 @@ export default function App() {
                     <Route path={routes.createDtBehaviour} element={<CreateBehaviourPage key="dt" kind="DT" />} />
                     <Route path={routes.clubs} element={<ClubsListPage />} />
                     <Route path={routes.clubProfile} element={<ClubProfilePage />} />
+                    <Route path={routes.globalRanking} element={<GlobalRanking />} />
                     <Route path="/inscripcion-liga" element={<LegacyLeagueRegistration/>} />
                     {privateAliases.map(([path, to]) => (
                         <Route key={path} path={path} element={<LegacyRedirect to={to}/>} />

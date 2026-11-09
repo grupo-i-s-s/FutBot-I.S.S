@@ -50,6 +50,7 @@ it('creates a public league and opens its Spanish lobby route', async () => {
         start_date: new Date('2030-01-01T12:00').toISOString(),
         round_interval: 'CONTINUOUS',
     });
+    expect(screen.queryByRole('button', {name: 'Crear liga'})).not.toBeInTheDocument();
 });
 
 it('displays validation errors and allows another submission', async () => {

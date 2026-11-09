@@ -21,6 +21,7 @@ from app.models.auth_model import AuthSession, Club, PendingEmailVerification, U
 from app.models.behaviour_model import Behavior
 from app.models.dt_model import Dt, DtBehaviour
 from app.models.player_model import Player
+from app.models.stats_model import Stats
 from app.models.team_model import DefaultTeam
 from app.services import email_service
 
@@ -44,7 +45,7 @@ def context(monkeypatch):
     Base.metadata.create_all(engine, tables=[
         model.__table__ for model in (
             User, Club, AuthSession, Behavior, Player, DefaultTeam,
-            PendingEmailVerification, DtBehaviour, Dt,
+            PendingEmailVerification, DtBehaviour, Dt, Stats,
         )
     ])
 

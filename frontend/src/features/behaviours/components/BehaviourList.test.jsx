@@ -2,8 +2,8 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import BehaviourList from './BehaviourList';
 import {fetchBehaviours} from '../services/behavioursApi';
-import {MemoryRouter, Route, Routes} from 'react-router';
-import {deleteBehaviour, getBehaviour} from '../api';
+import {createMemoryRouter, MemoryRouter, RouterProvider} from 'react-router';
+import {deleteBehaviour, getBehaviourUsage, getBehaviour} from '../api';
 import BehaviourDetailPage from '../BehaviourDetailPage';
 
 // Mockeamos el servicio de API
@@ -13,6 +13,9 @@ vi.mock('../services/behavioursApi', () => ({
 vi.mock('../api', () => ({
     deleteBehaviour: vi.fn(),
     getBehaviour: vi.fn(),
+    getBehaviourUsage: vi.fn(),
+    updateBehaviour: vi.fn(),
+    createBehaviourTestMatch: vi.fn(),
 }));
 
 async function openDeletion() {
@@ -57,6 +60,10 @@ async function openDeletion() {
 describe('BehaviourList Component', () => {
     beforeEach(() => {
         vi.resetAllMocks();
+        getBehaviourUsage.mockResolvedValue({
+            inUse: false,
+            references: {},
+        });
     });
 
     it('muestra el estado de carga y luego renderiza la lista con nombres, descripciones, marca default y enlaces de navegación', async () => {
@@ -277,20 +284,11 @@ describe('BehaviourList Component', () => {
         fetchBehaviours.mockResolvedValueOnce([]);
         deleteBehaviour.mockResolvedValueOnce(null);
 
-        render(
-            <MemoryRouter initialEntries={['/comportamientos/1']}>
-                <Routes>
-                    <Route
-                        path="/comportamientos/:behaviourId"
-                        element={<BehaviourDetailPage/>}
-                    />
-                    <Route
-                        path="/comportamientos"
-                        element={<BehaviourList/>}
-                    />
-                </Routes>
-            </MemoryRouter>
-        );
+        const router = createMemoryRouter([
+            {path: '/comportamientos/:behaviourId', element: <BehaviourDetailPage/>},
+            {path: '/comportamientos', element: <BehaviourList/>},
+        ], {initialEntries: ['/comportamientos/1']});
+        render(<RouterProvider router={router}/>);
 
         fireEvent.click(
             await screen.findByRole('button', {
