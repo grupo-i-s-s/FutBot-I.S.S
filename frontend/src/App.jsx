@@ -88,6 +88,10 @@ function LeagueCreationBackground() {
     return <><HomePage/><Outlet/></>;
 }
 
+function DtBehaviourCreationBackground() {
+    return <><MyClubPage defaultTab="dt"/><Outlet/></>;
+}
+
 export default function App() {
     return (
         <SessionProvider>
@@ -116,7 +120,9 @@ export default function App() {
                     </Route>
                     <Route path={routes.leagueLobby} element={<LeagueLobby />} />
                     <Route path={routes.leagueLineup} element={<LeagueLineupPage />} />
-                    <Route path={routes.createDtBehaviour} element={<CreateBehaviourPage />} />
+                    <Route element={<DtBehaviourCreationBackground/>}>
+                        <Route path={routes.createDtBehaviour} element={<CreateBehaviourPage />} />
+                    </Route>
                     <Route path={routes.clubs} element={<ClubsListPage />} />
                     <Route path={routes.clubProfile} element={<ClubProfilePage />} />
                     <Route path={routes.globalRanking} element={<GlobalRanking />} />

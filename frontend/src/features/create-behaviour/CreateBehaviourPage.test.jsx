@@ -73,6 +73,22 @@ it('muestra el diagnóstico del servidor sin perder el código editado', async (
     expect(editor).toHaveValue('Mi código');
 });
 
+it('conserva el borrador del DT al cancelar el cierre y vuelve a su pestaña al confirmar', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderDtEditor();
+    const dialog = screen.getByRole('dialog', {name: 'Crear comportamiento del DT'});
+    fireEvent.change(screen.getByLabelText('Nombre del comportamiento'), {target: {value: 'Borrador del DT'}});
+
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Cancelar'}));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Nombre del comportamiento')).toHaveValue('Borrador del DT');
+
+    confirm.mockReturnValue(true);
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Cancelar'}));
+    expect(await screen.findByText('Catálogo de jugadores')).toHaveAttribute('data-tab', 'dt');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
 function renderDialog(onCreated) {
     const router = createMemoryRouter([
         {path: '/mi-club', element: <CreateBehaviourDialog onCreated={onCreated}/>},

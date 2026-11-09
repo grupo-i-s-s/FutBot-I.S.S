@@ -31,13 +31,13 @@ const CLUB_TABS = [
     {value: 'amistosos', label: 'Mis amistosos', icon: Swords},
 ];
 
-export default function MyClubPage() {
+export default function MyClubPage({defaultTab = 'team'} = {}) {
     const { key: locationKey, state, search, hash } = useLocation();
     const navigate = useNavigate();
     const searchParams = new URLSearchParams(search);
     const requestedTab = searchParams.get('tab');
     const activeTab = CLUB_TABS.find(({value}) => value === requestedTab)?.value
-        ?? (state?.tab === 'dt' ? 'dt' : 'team');
+        ?? (state?.tab === 'dt' ? 'dt' : defaultTab);
     const mounted = useRef(false);
     const [page, setPage] = useState(1);
     const {

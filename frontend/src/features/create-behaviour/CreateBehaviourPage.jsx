@@ -1,5 +1,11 @@
-import {Link, useNavigate} from 'react-router';
+import {useId} from 'react';
+import {useNavigate} from 'react-router';
+import {CircleAlert, CircleCheck, LoaderCircle} from 'lucide-react';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import {Button} from '@/components/ui/button';
+import {Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
+import {Field, FieldLabel} from '@/components/ui/field';
+import {Input} from '@/components/ui/input';
 import {routes} from '@/routes.js';
 import BehaviourCodeEditor from '../behaviours/components/BehaviourCodeEditor';
 import {useUnsavedChanges} from '../behaviours/hooks/useUnsavedChanges';
@@ -34,12 +40,19 @@ const dtApiFunctions = [
 
 export default function CreateBehaviourPage() {
     const navigate = useNavigate();
+    const formId = useId();
     const {
-        name, setName, code, changeCode, error, diagnostics, isValid, action, dirty, handleValidate, handleSubmit,
+        name, setName, code, changeCode, error, diagnostics, isValid, action, pending, dirty, handleValidate, handleSubmit,
     } = useBehaviourCreation({
         kind: 'COACH', template: DT_TEMPLATE, create: createDtBehaviour, onCreated: handleCreated,
     });
     const allowNavigation = useUnsavedChanges(dirty);
+    const busy = Boolean(action);
+
+    function handleClose() {
+        if (pending.current) return;
+        navigate(routes.myClub, {replace: true, state: {tab: 'dt'}});
+    }
 
     function handleCreated() {
         allowNavigation();
@@ -50,44 +63,61 @@ export default function CreateBehaviourPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-6 flex flex-col">
-            <Link to={routes.myClub} state={{tab: 'dt'}} className="mb-4 text-sm underline">Volver a Mi club</Link>
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">Crear comportamiento del DT</h2>
-            <form onSubmit={handleSubmit} className="w-full space-y-4">
-                <div>
-                    <label htmlFor="behaviour-name" className="sr-only">Nombre del comportamiento</label>
-                    <input
-                        id="behaviour-name"
-                        type="text"
-                        placeholder="Ingrese el nombre"
-                        maxLength={30}
-                        value={name}
-                        disabled={Boolean(action)}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-                        onChange={(event) => setName(event.target.value)}
+        <Dialog open onOpenChange={open => { if (!open) handleClose(); }}>
+            <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto sm:max-w-5xl" aria-busy={busy}>
+                <DialogHeader>
+                    <DialogTitle>Crear comportamiento del DT</DialogTitle>
+                    <DialogDescription>Elegí un nombre y escribí el código que dirigirá a tu equipo.</DialogDescription>
+                </DialogHeader>
+                <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+                    <Field>
+                        <FieldLabel htmlFor={`${formId}-name`}>Nombre del comportamiento</FieldLabel>
+                        <Input
+                            id={`${formId}-name`}
+                            placeholder="Ej. Presión alta"
+                            maxLength={30}
+                            value={name}
+                            disabled={busy}
+                            className="h-10 bg-background"
+                            onChange={(event) => setName(event.target.value)}
+                        />
+                    </Field>
+                    <BehaviourCodeEditor
+                        value={code}
+                        onChange={changeCode}
+                        diagnostics={diagnostics}
+                        documentId="new"
+                        kind="COACH"
+                        readOnly={busy}
+                        functions={dtApiFunctions}
+                        helpDescription="Escribí una función decide(obs) que devuelva DtAction con los cambios tácticos y las sustituciones del equipo."
                     />
-                </div>
-                <BehaviourCodeEditor
-                    value={code}
-                    onChange={changeCode}
-                    diagnostics={diagnostics}
-                    documentId="new"
-                    kind="COACH"
-                    readOnly={Boolean(action)}
-                    functions={dtApiFunctions}
-                    helpDescription="Escribí una función decide(obs) que devuelva DtAction con los cambios tácticos y las sustituciones del equipo."
-                />
-                <div className="flex flex-wrap justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={handleValidate} disabled={Boolean(action) || !code.trim()}>
+                    {error && (
+                        <Alert variant="destructive">
+                            <CircleAlert aria-hidden="true"/>
+                            <AlertTitle>Revisá el comportamiento</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
+                    {isValid && (
+                        <Alert role="status" className="border-primary/20 bg-primary/5">
+                            <CircleCheck aria-hidden="true"/>
+                            <AlertDescription>El código es válido.</AlertDescription>
+                        </Alert>
+                    )}
+                </form>
+                <DialogFooter>
+                    <DialogClose render={<Button type="button" variant="outline" disabled={busy}/>}>Cancelar</DialogClose>
+                    <Button type="button" variant="outline" onClick={handleValidate} disabled={busy || !code.trim()}>
+                        {action === 'validate' && <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden="true"/>}
                         {action === 'validate' ? 'Validando…' : 'Validar código'}
                     </Button>
-                    <Button type="submit" disabled={Boolean(action)}>
+                    <Button type="submit" form={formId} disabled={busy}>
+                        {action === 'save' && <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden="true"/>}
                         {action === 'save' ? 'Guardando…' : 'Guardar Comportamiento'}
                     </Button>
-                </div>
-                {error && <p role="alert" className="text-destructive">{error}</p>}
-                {isValid && <p role="status">El código es válido.</p>}
-            </form>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
