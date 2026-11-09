@@ -1,11 +1,14 @@
 import {useEffect, useState} from 'react';
 import {Button} from '@/components/ui/button';
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/components/ui/tooltip';
 import ClubAvatar from '../my-club/components/ClubAvatar.jsx';
 import {getGlobalRanking} from './api.js';
 
 const stats = [
-    ['points', 'Pts'], ['played', 'PJ'], ['wins', 'PG'], ['draws', 'PE'],
-    ['losses', 'PP'], ['goalsFor', 'GF'], ['goalsAgainst', 'GC'], ['dg', 'DG'],
+    ['points', 'Pts', 'Puntos'], ['played', 'PJ', 'Partidos jugados'],
+    ['wins', 'PG', 'Partidos ganados'], ['draws', 'PE', 'Partidos empatados'],
+    ['losses', 'PP', 'Partidos perdidos'], ['goalsFor', 'GF', 'Goles a favor'],
+    ['goalsAgainst', 'GC', 'Goles en contra'], ['dg', 'DG', 'Diferencia de goles'],
 ];
 
 export default function GlobalRanking() {
@@ -51,13 +54,19 @@ export default function GlobalRanking() {
                     <>
                         {result.items.length > 0 ? (
                             <div className="overflow-x-auto">
+                                <TooltipProvider>
                                 <table className="w-full whitespace-nowrap text-center">
                                     <thead className="bg-muted">
                                         <tr>
                                             <th scope="col" className="p-2">#</th>
                                             <th scope="col" className="p-2 text-left">Club</th>
-                                            {stats.map(([field, label]) => (
-                                                <th key={field} scope="col" className="p-2">{label}</th>
+                                            {stats.map(([field, label, meaning]) => (
+                                                <th key={field} scope="col" className="p-2">
+                                                    <Tooltip>
+                                                        <TooltipTrigger render={<span tabIndex={0}/>} className="cursor-help">{label}</TooltipTrigger>
+                                                        <TooltipContent>{meaning}</TooltipContent>
+                                                    </Tooltip>
+                                                </th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -78,6 +87,7 @@ export default function GlobalRanking() {
                                         ))}
                                     </tbody>
                                 </table>
+                                </TooltipProvider>
                             </div>
                         ) : (
                             <p role="status">No hay clubes para mostrar en esta página.</p>
