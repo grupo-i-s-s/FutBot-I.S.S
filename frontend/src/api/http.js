@@ -1,12 +1,13 @@
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 export class ApiError extends Error {
-    constructor({status, code, message, fields = {}, retryAfter}) {
+    constructor({ status, code, message, fields = {}, diagnostics = [], retryAfter}) {
         super(message);
         this.name = 'ApiError';
         this.status = status;
         this.code = code;
         this.fields = fields;
+        this.diagnostics = diagnostics;
         this.retryAfter = retryAfter;
     }
 }

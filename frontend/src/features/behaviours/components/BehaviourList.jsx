@@ -5,7 +5,7 @@ import { Plus } from 'lucide-react';
 import DeleteBehaviourButton from './DeleteBehaviourButton';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { createBehaviourTestMatch } from '../api.js';
-
+import BehaviourEdit from './BehaviourEdit';
 
 export default function BehaviourList() {
     const [behaviours, setBehaviours] = useState([]);
@@ -68,6 +68,21 @@ export default function BehaviourList() {
             </div>
         );
     }
+
+    function handleUpdated(updatedBehaviour) {
+    setBehaviours((current) =>
+        current.map((item) =>
+            item.id === updatedBehaviour.id
+                ? {...item, ...updatedBehaviour}
+                : item
+        )
+    );
+
+    setNotice(
+        `El comportamiento “${updatedBehaviour.name}” se actualizó correctamente. ` +
+        `Versión ${updatedBehaviour.version}.`
+    );
+}
 
     function handleDeleted(deletedBehaviour) {
         setBehaviours((current) =>
@@ -135,10 +150,17 @@ export default function BehaviourList() {
                                 Ver detalle &rarr;
                             </a>
 
-                            <DeleteBehaviourButton
-                                behaviour={behaviour}
-                                onDeleted={handleDeleted}
-                            />
+                            <div className="flex items-center gap-1">
+                                <BehaviourEdit
+                                    behaviour={behaviour}
+                                    onUpdated={handleUpdated}
+                                />
+                            
+                                <DeleteBehaviourButton
+                                    behaviour={behaviour}
+                                    onDeleted={handleDeleted}
+                                />
+                            </div>
                         </div>
                     </li>
                 ))}

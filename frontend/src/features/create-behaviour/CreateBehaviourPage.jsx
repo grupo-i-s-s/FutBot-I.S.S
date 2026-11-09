@@ -1,15 +1,23 @@
 import Editor from "@monaco-editor/react";
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { createBehaviour } from './api';
+import BehaviourCodeEditor from '../behaviours/components/BehaviourCodeEditor';
+import {useUnsavedChanges} from '../behaviours/hooks/useUnsavedChanges';
+
+const DEFAULT_CODE = 'def decide(observation):\n    return ir_a_pelota()\n';
 
 export default function CreateBehaviourPage() {
     const [name, setName] = useState('');
-    const [code, setCode] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const navigate = useNavigate();
+    const [code, setCode] = useState(DEFAULT_CODE);
+    const [diagnostics, setDiagnostics] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const pending = useRef(false);
 
+    const allowNavigation = useUnsavedChanges(name !== '' || code !== DEFAULT_CODE);
     const apiFunctions = [
         { name: 'tiempo_jugado()', description: 'Devuelve el tiempo de juego transcurrido.', returnType: 'Número' },
         { name: 'tiempo_restante()', description: 'Devuelve el tiempo de juego restante.', returnType: 'Número' },
@@ -44,26 +52,42 @@ export default function CreateBehaviourPage() {
 
     async function handleSubmit(event) {
         event.preventDefault();
+        if (pending.current) return;
+
         setError('');
         setSuccess('');
+        setDiagnostics([]);
 
         if (!name.trim() || !code.trim()) {
             setError('Deben completarse todos los campos.');
             return;
         }
+        pending.current = true;
+        setIsSaving(true);
 
         try {
             await createBehaviour(name, code);
-            setSuccess('Comportamiento creado exitosamente.');
-            navigate('/behaviours', { replace: true });
+            allowNavigation();
+            navigate('/behaviours', {
+                replace: true,
+                state: {
+                    notice: 'Comportamiento creado exitosamente.',
+                },
+            });
         } catch (err) {
-            const fields = Object.values(err.fields || {});
-            setError(
-                fields.join(' ') || err.message || 'No se pudo crear el comportamiento.'
-            );
-        }
-    }
+            setDiagnostics(err.diagnostics ?? []);
 
+            const fields = Object.values(err.fields ?? {});
+            setError(
+                fields.join(' ') ||
+                err.message ||
+                'No se pudo crear el comportamiento.'
+            );
+        } finally {
+            pending.current = false;
+            setIsSaving(false);
+        }
+    }    
     return (
         <div className="max-w-4xl mx-auto p-6 flex flex-col">
             <h2 className="text-2xl font-bold mb-6 text-gray-800 ">Crear Comportamiento</h2>
@@ -72,20 +96,23 @@ export default function CreateBehaviourPage() {
                     <input
                         type="text"
                         placeholder="Ingrese el nombre"
-                        defaultValue=""
+                        value={name}
+                        readOnly={isSaving}
                         className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
                         onChange={(event) => setName(event.target.value)}
                     />
                 </div>
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                    <Editor
-                        height="300px"
-                        width="100%"
-                        defaultLanguage="python"
-                        defaultValue={`def decide(observation):
-    #return ir_a_pelota()`}
-                        theme="vs-dark"
-                        onChange={(value) => setCode(value ?? '')}
+                    <BehaviourCodeEditor
+                        value={code}
+                        onChange={(value) => {
+                            setCode(value);
+                            setDiagnostics([]);
+                        }}
+                        diagnostics={diagnostics}
+                        documentId="new"
+                        kind="PLAYER"
+                        readOnly={isSaving}
                     />
 
                     <aside
@@ -107,8 +134,9 @@ export default function CreateBehaviourPage() {
                 <button
                     type="submit"
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow"
+                    disabled={isSaving}
                 >
-                    Guardar Comportamiento
+                    {isSaving ? 'Guardando…' : 'Guardar Comportamiento'}
                 </button>
 
                 {error && (

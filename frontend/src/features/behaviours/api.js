@@ -19,3 +19,17 @@ export function createBehaviourTestMatch() {
         method: 'POST',
     });
 }
+
+export function getBehaviourUsage(behaviourId, options) {
+    return request(`/behaviours/${behaviourId}/usage`, options);
+}
+
+export function updateBehaviour(
+    behaviourId,
+    {name, code, expectedVersion},
+) {
+    return request(`/behaviours/${behaviourId}`, {
+        method: 'PUT',
+        body: {name, code, expectedVersion},
+    });
+}
