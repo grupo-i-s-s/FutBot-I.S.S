@@ -23,6 +23,7 @@ def get_clubs(
     return club_service.list_clubs(
         db,
         name=name,
+        user_id=identity.user_id,
         page=page,
         page_size=page_size,
     )

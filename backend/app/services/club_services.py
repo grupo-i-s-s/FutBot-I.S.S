@@ -63,17 +63,12 @@ def list_joined_leagues(db: Session, club_id: int) -> dict:
         ]
     }
 
-def list_clubs(
-    db: Session,
-    *,
-    name: str | None = None,
-    page: int = 1,
-    page_size: int = 20,
-) -> ClubListResponse:
+def list_clubs( db: Session, *, user_id: int, name: str | None = None, page: int = 1, page_size: int = 20) -> ClubListResponse:
     normalized_name = name.strip() if name is not None else None
 
     clubs, total = club_repository.get_clubs(
         db,
+        exclude_user_id=user_id,
         name=normalized_name,
         page=page,
         page_size=page_size,

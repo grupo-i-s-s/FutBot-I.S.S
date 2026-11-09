@@ -36,14 +36,8 @@ def get_joined_leagues(db: Session, club_id: int) -> list[League]:
 
     return list(db.scalars(query).all())
 
-def get_clubs(
-    db: Session,
-    *,
-    name: str | None,
-    page: int,
-    page_size: int,
-) -> tuple[list[Club], int]:
-    query = select(Club)
+def get_clubs( db: Session, *, exclude_user_id: int, name: str | None, page: int, page_size: int) -> tuple[list[Club], int]:
+    query = select(Club).where( Club.user_id != exclude_user_id)
 
     if name:
         query = query.where(
