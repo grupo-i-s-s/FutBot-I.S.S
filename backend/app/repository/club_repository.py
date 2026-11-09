@@ -157,3 +157,6 @@ def get_club_profile_data(db: Session, club_id: int) -> dict | None:
     ).mappings().one_or_none()
 
     return dict(row) if row is not None else None
+
+def get_by_name(db: Session, name: str) -> Club | None:
+    return db.scalar(select(Club).where(func.lower(Club.name) == name.strip().lower()))
