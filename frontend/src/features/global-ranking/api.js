@@ -1,5 +1,6 @@
-import { request } from "@/api/http";
+import {request} from '@/api/http';
 
-export function getGlobalRanking(signal){
-    return request('/ranking-global', {signal});
+export function getGlobalRanking(page, signal) {
+    const params = new URLSearchParams({page, pageSize: 20});
+    return request(`/ranking-global?${params}`, {signal});
 }

@@ -179,16 +179,39 @@ it('opens the global ranking from the authenticated home', async () => {
     renderRoute('/inicio', {
         '/api/leagues?page=1&pageSize=100': () => jsonResponse({items: []}),
         '/api/friendly-matches?creatorName=&page=1&pageSize=20': () => jsonResponse({items: [], total: 0, page: 1, pageSize: 20}),
-        '/api/ranking-global': () => jsonResponse({items: [
-            {name: 'Club líder', points: 12, played: 4, wins: 4, draws: 0, losses: 0, dg: 8},
-        ]}),
+        '/api/ranking-global?page=1&pageSize=20': () => jsonResponse({
+            items: [{
+                id: 9, position: 1, name: 'Club líder', avatar: 'avatar-01.png',
+                points: 12, played: 4, wins: 4, draws: 0, losses: 0, goalsFor: 10, goalsAgainst: 2, dg: 8,
+            }],
+            page: 1, pageSize: 20, total: 21, totalPages: 2, hasNext: true,
+        }),
+        '/api/ranking-global?page=2&pageSize=20': () => jsonResponse({
+            items: [{
+                id: 29, position: 21, name: 'Club siguiente', avatar: 'avatar-02.png',
+                points: 0, played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, dg: 0,
+            }],
+            page: 2, pageSize: 20, total: 21, totalPages: 2, hasNext: false,
+        }),
     });
 
     fireEvent.click(await screen.findByRole('link', {name: 'Ver Ranking Global'}));
 
     expect(await screen.findByRole('heading', {name: 'Ranking Global'})).toBeInTheDocument();
-    expect(screen.getByText('Club líder')).toBeInTheDocument();
+    const leader = (await screen.findByRole('rowheader', {name: /club líder/i})).closest('tr');
+    expect(within(leader).getByRole('img', {name: 'Escudo de Club líder'})).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', {name: 'GF'})).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', {name: 'GC'})).toBeInTheDocument();
+    expect(within(leader).getByText('10')).toBeInTheDocument();
+    expect(within(leader).getByText('2')).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/ranking-global$/);
+
+    fireEvent.click(screen.getByRole('button', {name: 'Siguiente'}));
+
+    const nextClub = (await screen.findByRole('rowheader', {name: /club siguiente/i})).closest('tr');
+    expect(within(nextClub).getByText('21')).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Siguiente'})).toBeDisabled();
+    expect(screen.getByRole('button', {name: 'Anterior'})).toBeEnabled();
 });
 
 it('opens the available leagues route and filters through the authenticated API', async () => {
