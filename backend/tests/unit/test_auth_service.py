@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.errors import AppError
-from app.schemas.auth_schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, VerifyEmailRequest
+from app.schemas.auth_schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, VerifyEmailRequest, ResendVerificationRequest
 from app.services import auth_service as service
 
 
@@ -294,3 +294,68 @@ def test_session_write_commit_failures_are_rolled_back(db, auth, operation):
                 oldPassword="old-password", newPassword="new-password"))
     assert error.value is failure
     db.rollback.assert_called_once()
+
+def test_resend_verification_rejects_before_60_seconds(db, auth, now):
+    pending = SimpleNamespace(
+        expires_at=now + timedelta(minutes=10),
+        last_sent_at=now - timedelta(seconds=59),
+        resend_window_started_at=now - timedelta(minutes=10),
+        resend_count=1,
+    )
+    auth.pending.get_by_email.return_value = pending
+
+    with pytest.raises(AppError) as error:
+        service.resend_verification(
+            db, ResendVerificationRequest(email="user@example.com")
+        )
+
+    assert error.value.code == "EMAIL_VERIFICATION_RESEND_LIMIT"
+    auth.pending.update_for_resend.assert_not_called()
+    auth.email.send_verification_code.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
+def test_resend_verification_rejects_after_five_resends_within_hour(db, auth, now):
+    pending = SimpleNamespace(
+        expires_at=now + timedelta(minutes=10),
+        last_sent_at=now - timedelta(seconds=61),
+        resend_window_started_at=now - timedelta(minutes=30),
+        resend_count=5,
+    )
+    auth.pending.get_by_email.return_value = pending
+
+    with pytest.raises(AppError) as error:
+        service.resend_verification(
+            db, ResendVerificationRequest(email="user@example.com")
+        )
+
+    assert error.value.code == "EMAIL_VERIFICATION_RESEND_LIMIT"
+    auth.pending.update_for_resend.assert_not_called()
+    auth.email.send_verification_code.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
+def test_resend_verification_resets_expired_hourly_window(db, auth, now):
+    pending = SimpleNamespace(
+        expires_at=now + timedelta(minutes=10),
+        last_sent_at=now - timedelta(seconds=61),
+        resend_window_started_at=now - timedelta(hours=1, seconds=1),
+        resend_count=5,
+    )
+    auth.pending.get_by_email.return_value = pending
+
+    result = service.resend_verification(
+        db, ResendVerificationRequest(email="user@example.com")
+    )
+
+    assert result == {
+        "message": "Si existe una verificación pendiente, se envió un nuevo código."
+    }
+    values = auth.pending.update_for_resend.call_args.kwargs
+    assert values["resend_window_started_at"] == now
+    assert values["resend_count"] == 1
+    auth.email.send_verification_code.assert_called_once_with(
+        "user@example.com", "004281"
+    )
+    db.commit.assert_called_once()
+    db.rollback.assert_not_called()
