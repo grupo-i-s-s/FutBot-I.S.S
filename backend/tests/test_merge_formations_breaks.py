@@ -21,6 +21,17 @@ def make_match():
     return Match(*teams, duration_ms=1000, hydration_break_ms=100, half_break_ms=200)
 
 
+def legacy_checkpoint(simulation, version):
+    checkpoint = json.loads(json.dumps(simulation.checkpoint()))
+    checkpoint["version"] = version
+    checkpoint.pop("behaviour_errors")
+    for team_key in ("local_team", "visitor_team"):
+        for player in checkpoint[team_key]["players"]:
+            for key in ("behaviour_code", "behaviour_version", "behaviour_api_version"):
+                player.pop(key)
+    return checkpoint
+
+
 @pytest.fixture(autouse=True)
 def isolate_physics(monkeypatch):
     monkeypatch.setattr(match_simulation, "step", lambda *_: None)
@@ -34,7 +45,7 @@ def test_merged_checkpoint_recovers_formations_breaks_and_sides(elapsed):
     checkpoint = json.loads(json.dumps(simulation.checkpoint()))
     restored = Match.from_checkpoint(checkpoint)
 
-    assert checkpoint["version"] == 3
+    assert checkpoint["version"] == 4
     assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
     assert restored.local_team.formation_id == 2
     assert restored.visitor_team.formation_id == 3
@@ -49,8 +60,7 @@ def test_merged_checkpoint_recovers_formations_breaks_and_sides(elapsed):
 @pytest.mark.parametrize("version", [1, 2])
 def test_formation_branch_checkpoint_without_breaks_still_resumes(version):
     simulation = make_match()
-    checkpoint = json.loads(json.dumps(simulation.checkpoint()))
-    checkpoint["version"] = version
+    checkpoint = legacy_checkpoint(simulation, version)
     for key in ("breaks", "sides_swapped", "kickoff_club_id"):
         checkpoint.pop(key)
     restored = Match.from_checkpoint(checkpoint)
@@ -63,8 +73,7 @@ def test_formation_branch_checkpoint_without_breaks_still_resumes(version):
 def test_develop_checkpoint_with_breaks_and_without_formations_still_resumes():
     simulation = make_match()
     simulation.run_match(0.6)
-    checkpoint = json.loads(json.dumps(simulation.checkpoint()))
-    checkpoint["version"] = 2
+    checkpoint = legacy_checkpoint(simulation, 2)
     for key in ("local_team", "visitor_team"):
         checkpoint[key].pop("formation_id")
         checkpoint[key].pop("formation_positions")
@@ -76,6 +85,20 @@ def test_develop_checkpoint_with_breaks_and_without_formations_still_resumes():
     assert restored.snapshot(1, "now")["state"]["phase"] == "HALF_BREAK"
     restored.run_match(0.2)
     assert restored.sides_swapped
+
+
+def test_v3_checkpoint_without_custom_metadata_preserves_match_state():
+    simulation = make_match()
+    simulation.run_match(0.9)
+    expected = json.loads(json.dumps(simulation.checkpoint()))
+
+    restored = Match.from_checkpoint(legacy_checkpoint(simulation, 3))
+
+    assert json.loads(json.dumps(restored.checkpoint())) == expected
+    assert restored.snapshot(8, "now") == simulation.snapshot(8, "now")
+    assert restored.sides_swapped
+    restored.run_match(2)
+    assert restored.finished
 
 
 def test_halftime_mirrors_formations_once_and_keeps_score_and_roster():

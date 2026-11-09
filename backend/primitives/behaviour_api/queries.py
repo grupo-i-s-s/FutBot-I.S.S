@@ -36,7 +36,7 @@ class Queries:
         if closest is None:
             return None
 
-        return closest.positioon
+        return closest.position
 
     def played_time(self) -> float:
         return self.snapshot.time
@@ -91,7 +91,10 @@ class Queries:
         return self.snapshot.possessor_id is None
 
     def can_kick(self) -> bool:
-        return distance(self.me.position, self.snapshot.ball_position) <= self.me.kick_range
+        return (
+                distance(self.me.position, self.snapshot.ball_position) <= self.me.kick_range
+                and self.snapshot.time >= self.me.next_kick_at
+        )
 
     def my_position(self) -> Point:
         return self.me.position

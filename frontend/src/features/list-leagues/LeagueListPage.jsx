@@ -1,12 +1,12 @@
-import {useEffect, useState} from 'react';
-import {Link} from 'react-router';
-import {getLeagues} from './api';
+import { useEffect, useState } from 'react';
+import { getLeagues } from './api';
+import { Link } from 'react-router';
 import '../login/LoginPage.css';
 import './LeagueListPage.css';
 
 export default function LeagueListPage() {
     const [name, setName] = useState('');
-    const [search, setSearch] = useState({name: ''});
+    const [search, setSearch] = useState({ name: '' });
     const [leagues, setLeagues] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -47,20 +47,20 @@ export default function LeagueListPage() {
         event.preventDefault();
         setIsLoading(true);
         setError(null);
-        setSearch({name: name.trim()});
+        setSearch({ name: name.trim() });
     }
 
     function handleRetry() {
         setIsLoading(true);
         setError(null);
-        setSearch({name: search.name});
+        setSearch({ name: search.name });
     }
 
     return (
         <main className="login-page leagues-page">
             <section className="login-card leagues-card">
                 <h1 className="login-title">
-                    Ligas disponibles<br/>FutBot
+                    Ligas disponibles<br />FutBot
                 </h1>
 
                 <form onSubmit={handleSubmit}>
@@ -141,8 +141,8 @@ export default function LeagueListPage() {
 
                                     <p>
                                         Estado: {league.status === 'open'
-                                        ? 'En espera'
-                                        : league.status}
+                                            ? 'En espera'
+                                            : league.status}
                                     </p>
 
                                     {league.isMember && (
@@ -150,20 +150,13 @@ export default function LeagueListPage() {
                                             Tu club ya está inscripto.
                                         </p>
                                     )}
-                                    <Link
-                                        to={league.isMember
-                                            ? `/leagues/${league.id}/lobby`
-                                            : `/leagues/${league.id}/join`}
-                                        className="leagues-link"
-                                    >
-                                        {league.isMember ?
-                                            (<Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver
-                                                    lobby </Link>
-                                            ) : league.canJoin ?
-                                                (<Link to={`/leagues/${league.id}/join`} className="leagues-link">Unirme
-                                                    a liga</Link>)
-                                                : (<p className="leagues-message">Inscripción no disponible.</p>)}
-                                    </Link>
+                                    {league.isMember ? (
+                                        <Link to={`/leagues/${league.id}/lobby`} className="leagues-link">Ver lobby</Link>
+                                    ) : league.canJoin ? (
+                                        <Link to={`/leagues/${league.id}/join`} className="leagues-link">Inscribirse</Link>
+                                    ) : (
+                                        <p className="leagues-message">Inscripción no disponible.</p>
+                                    )}
                                 </li>
                             ))}
                         </ul>

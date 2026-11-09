@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -6,7 +6,9 @@ from app.errors import AppError
 from app.models.matches_model import Matches
 from app.repository import matches_repository
 from app.schemas.matches_schemas import CreateFriendlyMatchRequest, MatchStateResponse
-
+from app.models.auth_model import Club
+from app.services.match_builder_service import build_match
+from app.services.match_start_service import cancel_match
 
 def _require_available_clubs(
         db: Session, club_ids: tuple[int, ...], current_club_id: int
@@ -130,3 +132,40 @@ def get_match_state(db, match_id: int, club_id: int) -> MatchStateResponse:
         visitor_score=match.visitor_score,
         duration_ms=match.duration_ms,
     )
+
+TEST_OPPONENT_CLUB_ID = 999 
+def create_behaviour_test_match(db: Session, club_id: int) -> dict:
+    if club_id == TEST_OPPONENT_CLUB_ID:
+        raise AppError(
+            "MATCH_SELF_JOIN",
+            "El club rival de prueba no puede ser el club de tu sesión.",
+        )
+
+    if db.get(Club, TEST_OPPONENT_CLUB_ID) is None:
+        raise AppError(
+            "MATCH_NOT_FOUND",
+            "No está configurado el club rival de prueba.",
+        )
+    
+    now = datetime.now(timezone.utc)
+    previous_match = matches_repository.get_active_test_match(db, club_id, TEST_OPPONENT_CLUB_ID)
+
+    if previous_match is not None:
+        cancel_match(db, previous_match, "REPLACED_BY_NEW_TEST_MATCH", now)
+
+    match = Matches(
+        creator_id= club_id,
+        visitor_id= TEST_OPPONENT_CLUB_ID,
+        init_date= now + timedelta(seconds=1),
+        status = "SCHEDULED",
+    )
+    db.add(match)
+    db.flush()
+
+    build_match(db, match.match_id)
+
+    db.commit()
+    return {
+        "message": "Partido de prueba creado.",
+        "match_id": match.match_id,
+    }

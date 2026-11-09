@@ -109,7 +109,7 @@ def test_readiness_rejects_migration_history_without_application_tables(isolated
         "schema": "incomplete",
         "missing_tables": [
             "auth_sessions", "behaviors", "clubs", "default_teams",
-            "league_registrations", "leagues", "matches", "players", "users",
+            "league_registrations", "league_rounds", "league_standings", "leagues", "matches", "players", "users",
         ],
         "missing_columns": {},
     }

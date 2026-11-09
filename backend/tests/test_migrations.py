@@ -10,7 +10,7 @@ from app import migrate
 
 APPLICATION_TABLES = {
     "users", "clubs", "auth_sessions", "behaviors", "players", "leagues",
-    "league_registrations", "matches", "default_teams",
+    "league_registrations", "league_rounds", "league_standings", "matches", "default_teams",
 }
 
 

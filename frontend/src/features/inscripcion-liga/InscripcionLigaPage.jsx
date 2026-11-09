@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {Link, useNavigate, useParams, useSearchParams} from 'react-router';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import {Button} from '@/components/ui/button';
@@ -15,8 +15,17 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
     const [loading, setLoading] = useState(true);
     const [joining, setJoining] = useState(false);
     const [error, setError] = useState('');
+    const [passwordError, setPasswordError] = useState('');
+    const [retryAfter, setRetryAfter] = useState(0);
     const [accessCode, setAccessCode] = useState('');
-    const needsAccessCode = Boolean(league?.requiresAccessCode || league?.isPrivate || league?.type === 'PRIVATE');
+    const joiningRef = useRef(false);
+    const needsAccessCode = league?.isPrivate === true;
+
+    useEffect(() => {
+        if (retryAfter <= 0) return;
+        const timer = setTimeout(() => setRetryAfter(seconds => seconds - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [retryAfter]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -25,6 +34,8 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
             setLeague(suppliedLeague || null);
             setTeam(null);
             setAccessCode('');
+            setPasswordError('');
+            setRetryAfter(0);
             if (!suppliedLeague && !leagueId) {
                 setLoading(false);
                 return;
@@ -32,13 +43,13 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
             try {
                 setLoading(true);
                 setError('');
-                const [data, selectedLeague] = await Promise.all([
-                    getDefaultTeam({signal: controller.signal}),
-                    suppliedLeague || getLeagueLobby(leagueId, {signal: controller.signal}),
-                ]);
+                const selectedLeague = suppliedLeague
+                    || await getLeagueLobby(leagueId, {signal: controller.signal});
+                if (controller.signal.aborted) return;
+                setLeague(selectedLeague);
+                const data = await getDefaultTeam({signal: controller.signal});
                 if (!controller.signal.aborted) {
                     setTeam(data);
-                    setLeague(selectedLeague);
                 }
             } catch (err) {
                 if (!controller.signal.aborted) {
@@ -54,14 +65,15 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
     }, [leagueId, suppliedLeague]);
 
     async function handleJoin() {
-        if (joining || !league || !team) return;
+        if (joiningRef.current || !league || !team || retryAfter > 0
+            || needsAccessCode && !accessCode.trim()) return;
 
+        joiningRef.current = true;
         setError('');
+        setPasswordError('');
 
         try {
             setJoining(true);
-            setError('');
-
             await joinLeague(
                 league.id,
                 team.clubId,
@@ -70,23 +82,22 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
             );
             navigate(`/leagues/${league.id}/lobby`);
         } catch (err) {
-            if (err?.status === 409) {
-                setError(
-                    err.message ||
-                    'No hay cupos disponibles, el código es incorrecto o el club ya está inscripto.'
-                );
-            } else if (err?.status === 400) {
-                setError(
-                    err.message ||
-                    'El equipo no es válido para esta liga.'
-                );
+            if (err.code === 'LEAGUE_ACCESS_INVALID') {
+                setPasswordError('La contraseña de la liga es incorrecta. Revisala y volvé a intentar.');
+            } else if (err.status === 429) {
+                const seconds = Number(err.retryAfter);
+                setRetryAfter(Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : 60);
             } else {
-                setError(
-                    err?.message ||
-                    'No se pudo completar la inscripción.'
-                );
+                const messages = {
+                    LEAGUE_FULL: 'La liga está completa. No quedan cupos disponibles.',
+                    LEAGUE_CLOSED: 'Las inscripciones de esta liga están cerradas.',
+                    ALREADY_REGISTERED: 'Tu club ya está inscripto en esta liga.',
+                    NETWORK_ERROR: 'No se pudo conectar con el servidor. Volvé a intentar.',
+                };
+                setError(messages[err.code] || 'No se pudo completar la inscripción. Revisá tu equipo y volvé a intentar.');
             }
         } finally {
+            joiningRef.current = false;
             setJoining(false);
         }
     }
@@ -114,6 +125,7 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
                 <AlertDescription>
                     {error ||
                         'No se encontró un equipo disponible para inscribirse.'}
+                    {' '}<Link to="/mi-club">Configurar mi equipo</Link>
                 </AlertDescription>
             </Alert>
         );
@@ -170,12 +182,17 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
                             id="access-code"
                             type="password"
                             value={accessCode}
-                            onChange={(event) =>
-                                setAccessCode(event.target.value)
-                            }
+                            onChange={(event) => {
+                                setAccessCode(event.target.value);
+                                setPasswordError('');
+                            }}
+                            autoComplete="off"
+                            aria-invalid={Boolean(passwordError)}
+                            aria-describedby={passwordError ? 'access-code-error' : undefined}
                             className="w-full rounded-md border p-2"
                             placeholder="Ingresá el código"
                         />
+                        {passwordError && <p id="access-code-error" role="alert">{passwordError}</p>}
                     </div>
                 )}
 
@@ -191,9 +208,11 @@ export default function InscripcionLigaPage({league: suppliedLeague} = {}) {
                     </Alert>
                 )}
 
+                {retryAfter > 0 && <p role="alert">Alcanzaste el límite de intentos. Podés volver a intentar en {retryAfter} segundos.</p>}
+
                 <Button
                     onClick={handleJoin}
-                    disabled={joining || team.lineUp.length !== 6 || needsAccessCode && !accessCode.trim()}
+                    disabled={joining || retryAfter > 0 || team.lineUp.length !== 6 || needsAccessCode && !accessCode.trim()}
                 >
                     {joining
                         ? 'Inscribiendo...'
