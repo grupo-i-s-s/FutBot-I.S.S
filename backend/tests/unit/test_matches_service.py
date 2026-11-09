@@ -246,13 +246,16 @@ def test_my_matches_marks_creator_and_preserves_joined_finished_matches(db, now,
 
 
 @pytest.mark.parametrize("creator_name", [None, "RiVeR", "%_"])
-def test_available_matches_use_current_club_and_time(db, now, freeze_time, monkeypatch, creator_name):
+@pytest.mark.parametrize("page,page_size", [(1, 20), (3, 5)])
+def test_available_matches_use_current_club_and_time(db, now, freeze_time, monkeypatch, creator_name, page, page_size):
     freeze_time(matches_service)
-    repo = Mock(return_value=[(SimpleNamespace(match_id=42, init_date=now), "Other")])
+    repo = Mock(return_value=([(SimpleNamespace(match_id=42, init_date=now), "Other")], 12))
     monkeypatch.setattr(matches_repository, "list_available", repo)
-    assert matches_service.list_available(db, 7, creator_name=creator_name) == [
-        {"match_id": 42, "creator_club_name": "Other", "start_datetime": now}]
-    repo.assert_called_once_with(db, 7, now, creator_name=creator_name)
+    assert matches_service.list_available(db, 7, creator_name=creator_name, page=page, page_size=page_size) == {
+        "items": [{"match_id": 42, "creator_club_name": "Other", "start_datetime": now}],
+        "total": 12, "page": page, "page_size": page_size,
+    }
+    repo.assert_called_once_with(db, 7, now, creator_name=creator_name, page=page, page_size=page_size)
 
 
 @pytest.mark.parametrize("club_id", [1, 7])

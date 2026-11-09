@@ -1,7 +1,7 @@
 import {request} from '@/api/http.js';
 
 export function listFriendlyMatches(signal) {
-    return request('/friendly-matches', {signal});
+    return request('/friendly-matches', {signal}).then(result => result.items);
 }
 
 export function listMyFriendlyMatches(signal) {

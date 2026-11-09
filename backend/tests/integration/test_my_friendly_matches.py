@@ -71,7 +71,7 @@ def test_creator_can_recover_match_but_cannot_join_it(match_accounts):
     assert own[0]["visitorClubName"] is None
     assert own[0]["status"] == "WAITING_OPPONENT"
     assert creator.get(f"/matches/{match_id}").status_code == 200
-    assert creator.get("/friendly-matches").json() == []
+    assert creator.get("/friendly-matches").json()["items"] == []
 
     rejected = creator.post("/friendly-matches/join", json={"idPartido": match_id})
     assert rejected.status_code == 409
@@ -90,7 +90,7 @@ def test_creator_can_recover_match_but_cannot_join_it(match_accounts):
     assert match.sequence == 0
 
     assert visitor.get("/friendly-matches/me").json() == []
-    assert visitor.get("/friendly-matches").json()[0]["matchId"] == match_id
+    assert visitor.get("/friendly-matches").json()["items"][0]["matchId"] == match_id
     assert visitor.post("/friendly-matches/join", json={"idPartido": match_id}).status_code == 200
     for client, is_creator in ((creator, True), (visitor, False)):
         own = client.get("/friendly-matches/me").json()

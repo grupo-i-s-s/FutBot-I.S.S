@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,7 @@ from test_league_start import database
 from app.controller.matches_controller import matches_router
 from app.database import get_db
 from app.dependencies import get_current_club
+from app.main import validation_error_handler
 from app.models.auth_model import Club, User
 from app.models.matches_model import Matches
 
@@ -52,6 +54,7 @@ def search_context(database):
 
     app = FastAPI()
     app.include_router(matches_router)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
 
     def session():
         with Session(database) as db:
@@ -67,8 +70,10 @@ def search_context(database):
 def test_empty_filter_preserves_available_matches_and_stable_order(search_context, name):
     response = search_context.client.get("/friendly-matches", params={} if name is None else {"creatorName": name})
     assert response.status_code == 200, response.text
-    assert [item["matchId"] for item in response.json()] == search_context.ordered
-    assert all(set(item) == {"matchId", "creatorClubName", "startDateTime"} for item in response.json())
+    result = response.json()
+    assert [item["matchId"] for item in result["items"]] == search_context.ordered
+    assert (result["total"], result["page"], result["pageSize"]) == (4, 1, 20)
+    assert all(set(item) == {"matchId", "creatorClubName", "startDateTime"} for item in result["items"])
 
 
 @pytest.mark.parametrize("name,expected", [
@@ -79,7 +84,8 @@ def test_partial_case_insensitive_search_keeps_availability_restrictions(search_
     assert response.status_code == 200, response.text
     ids = {"both": search_context.ordered[1:], "northern": search_context.northern,
            "southern": search_context.southern, "none": []}
-    assert [item["matchId"] for item in response.json()] == ids[expected]
+    assert [item["matchId"] for item in response.json()["items"]] == ids[expected]
+    assert response.json()["total"] == len(ids[expected])
 
 
 @pytest.mark.parametrize("name", ["%", "_", "%_", "/"])
@@ -90,4 +96,40 @@ def test_wildcards_and_escape_character_are_searched_literally(database, search_
         db.commit()
     response = search_context.client.get("/friendly-matches", params={"creatorName": name})
     assert response.status_code == 200, response.text
-    assert [item["matchId"] for item in response.json()] == search_context.northern
+    assert [item["matchId"] for item in response.json()["items"]] == search_context.northern
+    assert response.json()["total"] == 2
+
+
+@pytest.mark.parametrize("name,total", [("river", 3), ("", 4)])
+def test_pagination_filters_before_counting_and_keeps_stable_order(search_context, name, total):
+    collected = []
+    for page in range(1, total + 1):
+        response = search_context.client.get("/friendly-matches", params={
+            "creatorName": name, "page": page, "pageSize": 1,
+        })
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert (result["total"], result["page"], result["pageSize"]) == (total, page, 1)
+        assert len(result["items"]) == 1
+        collected.append(result["items"][0]["matchId"])
+    assert collected == (search_context.ordered[1:] if name else search_context.ordered)
+
+
+@pytest.mark.parametrize("name,page,total", [("river", 4, 3), ("no existe", 1, 0)])
+def test_empty_pages_keep_the_filtered_total(search_context, name, page, total):
+    response = search_context.client.get("/friendly-matches", params={
+        "creatorName": name, "page": page, "pageSize": 1,
+    })
+    assert response.status_code == 200, response.text
+    assert response.json() == {"items": [], "total": total, "page": page, "pageSize": 1}
+
+
+@pytest.mark.parametrize("field,value", [
+    ("page", "0"), ("page", "-1"), ("page", "abc"), ("page", "1.5"),
+    ("pageSize", "0"), ("pageSize", "-1"), ("pageSize", "101"), ("pageSize", "abc"),
+])
+def test_invalid_pagination_is_rejected(search_context, field, value):
+    response = search_context.client.get("/friendly-matches", params={field: value})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert field in response.json()["error"]["fields"]
