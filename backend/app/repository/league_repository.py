@@ -6,7 +6,8 @@ from typing import Optional
 from app.models.auth_model import Club
 from app.models.league_model import League, LeagueRegistration, LeagueRound, LeagueStanding
 from app.models.matches_model import Matches
-
+from app.models.behaviour_model import Behavior
+from app.models.player_model import Player
 
 def get_league_by_id(db: Session, league_id: int) -> Optional[League]:
     return (
@@ -96,6 +97,7 @@ def create_round_matches(
 ) -> None:
     for home_id, away_id in pairings:
         db.add(Matches(
+            league_id=round_.league_id,
             league_round_id=round_.id,
             creator_id=home_id,
             visitor_id=away_id,
@@ -236,3 +238,58 @@ def get_completed_matches(league_id: int, db: Session):
         select(Matches).join(LeagueRound, Matches.league_round_id == LeagueRound.id)
         .where(LeagueRound.league_id == league_id, Matches.status == "FINISHED")
     ).all()
+
+def delete_league(db: Session, league: League) -> None:
+    db.delete(league)
+
+#Busca incscripcion de un club en una liga especifica
+def get_lineup_context(db: Session, league_id: int, club_id: int, *, lock: bool = False):
+    """Busca la liga y la inscripción del club autenticado."""
+    league_query = (
+        select(League)
+        .where(League.id == league_id)
+        .execution_options(populate_existing=True)
+    )
+
+    if lock:
+        league_query = league_query.with_for_update()
+
+    league = db.scalar(league_query)
+
+    if league is None:
+        return None, None
+
+    registration_query = (
+        select(LeagueRegistration)
+        .where(
+            LeagueRegistration.league_id == league_id,
+            LeagueRegistration.club_id == club_id,
+        )
+        .execution_options(populate_existing=True)
+    )
+
+    if lock:
+        registration_query = registration_query.with_for_update()
+
+    return league, db.scalar(registration_query)
+
+
+def get_lineup_catalogs(db: Session, club_id: int):
+    """Lee registros propios y activos, bloqueando sus modificaciones."""
+    catalogs = []
+
+    for model in (Player, Behavior):
+        rows = db.scalars(
+            select(model)
+            .where(
+                model.club_id == club_id,
+                model.is_deleted.is_(False),
+            )
+            .order_by(model.id)
+            .with_for_update(read=True)
+            .execution_options(populate_existing=True)
+        ).all()
+
+        catalogs.append({row.id: row for row in rows})
+
+    return catalogs[0], catalogs[1]

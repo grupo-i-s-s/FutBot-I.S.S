@@ -108,8 +108,9 @@ def test_readiness_rejects_migration_history_without_application_tables(isolated
         "migrations": "ok",
         "schema": "incomplete",
         "missing_tables": [
-            "auth_sessions", "behaviors", "clubs", "default_teams",
-            "league_registrations", "league_rounds", "league_standings", "leagues", "matches", "players", "users",
+            "Club_Stats", "auth_sessions", "behaviors", "clubs", "default_teams", "dt", "dt_behaviours",
+            "league_registrations", "league_rounds", "league_standings", "leagues", "matches",
+            "pending_email_verifications", "planned_substitutions", "players", "users",
         ],
         "missing_columns": {},
     }
@@ -118,7 +119,7 @@ def test_readiness_rejects_migration_history_without_application_tables(isolated
 def test_readiness_rejects_missing_matches_table_with_complete_history(isolated_readiness):
     client, session = isolated_readiness
     apply_schema_migrations(session)
-    session.execute(text("DROP TABLE matches"))
+    session.execute(text("DROP TABLE matches CASCADE"))
 
     response = client.get("/health/ready")
 

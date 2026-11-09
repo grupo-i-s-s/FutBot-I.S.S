@@ -1,0 +1,154 @@
+.verify-email-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 32px 16px;
+}
+
+.verify-email-page__content {
+    width: 100%;
+    max-width: 460px;
+}
+
+.verify-email-page__brand {
+    margin: 0 0 28px;
+    font-weight: bold;
+    font-size: 40px;
+    text-align: center;
+}
+
+.verify-email-card {
+    padding: 36px;
+    border: 1px solid #d5e1d5;
+    border-radius: 20px;
+    background: white;
+    box-shadow: 0 16px 40px rgba(25, 54, 43, 0.12);
+}
+
+.verify-email-card__icon {
+    display: grid;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    place-items: center;
+    border-radius: 50%;
+    background: #e8f2eb;
+    font-size: 30px;
+}
+
+.verify-email-card h2 {
+    margin: 0 0 12px;
+    font-size: 30px;
+    text-align: center;
+}
+
+.verify-email-card__description {
+    margin: 0 0 24px;
+    color: #53665b;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.verify-email-card__description strong {
+    color: #19362b;
+}
+
+.verify-email-card__code {
+    display: block;
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid #d5e1d5;
+    border-radius: 10px;
+    background: #fbfdfb;
+    color: #19362b;
+    font: inherit;
+    font-size: 1.5rem;
+    letter-spacing: 0.4em;
+    text-align: center;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.verify-email-card__code::placeholder {
+    color: #89978e;
+    font-size: 1rem;
+    letter-spacing: normal;
+}
+
+.verify-email-card__code:focus {
+    border-color: var(--color-brand);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(22, 75, 53, 0.15);
+}
+
+.verify-email-card__actions {
+    display: grid;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.verify-email-card__button {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 16px;
+    border: 1px solid var(--color-brand);
+    border-radius: 10px;
+    background: var(--color-brand);
+    color: white;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.formulary-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.verify-email-card .formulary-box {
+    margin-bottom: 0px;
+}
+
+.verify-email-card [role="alert"],
+.verify-email-card [role="status"] {
+    margin: 18px 0 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    line-height: 1.5;
+}
+
+.verify-email-card [role="alert"] {
+    border: 1px solid #f0c4c4;
+    background: #fff3f3;
+    color: #9c2828;
+}
+
+.verify-email-card [role="status"] {
+    border: 1px solid #c8e3d0;
+    background: #f0faf3;
+    color: #205a35;
+}
+
+.verify-email-card__login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+    padding: 14px 20px;
+    border-radius: 10px;
+    background: #164b35;
+    color: white;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.verify-email-card__register {
+    margin: 16px 0 0;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.verify-email-card__register a {
+    color: #164b35;
+}

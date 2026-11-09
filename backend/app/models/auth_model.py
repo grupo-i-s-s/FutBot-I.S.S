@@ -1,8 +1,9 @@
 from datetime import datetime
-from sqlalchemy import (DateTime, ForeignKey, String, UniqueConstraint)
+from sqlalchemy import (DateTime, ForeignKey, Integer, String, UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.dt_model import Dt
 from app.models.player_model import Player
 from app.models.stats_model import Stats
 
@@ -36,6 +37,7 @@ class Club(Base):
     )
     players: Mapped[list[Player]] = relationship(back_populates="club")
     stats: Mapped["Stats"] = relationship(back_populates="club")
+    dt: Mapped[Dt | None] = relationship(back_populates="club", uselist=False)
 
 
 class AuthSession(Base):
@@ -53,3 +55,17 @@ class AuthSession(Base):
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
+
+class PendingEmailVerification(Base):
+    __tablename__ = "pending_email_verifications"
+
+    email: Mapped[str] = mapped_column(String(254), primary_key=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    club_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    last_sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    resend_window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    resend_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

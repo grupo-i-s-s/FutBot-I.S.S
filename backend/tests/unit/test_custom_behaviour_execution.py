@@ -245,7 +245,7 @@ def test_checkpoint_preserves_source_version_cooldown_and_physical_state(make_ma
     restored = simulation.Match.from_checkpoint(checkpoint)
     try:
         profile = restored.player_profiles[0]
-        assert checkpoint["version"] == 4
+        assert checkpoint["version"] == 6
         assert profile.behaviour_code == source
         assert profile.behaviour_version == 2
         assert profile.behaviour_api_version == API_VERSION

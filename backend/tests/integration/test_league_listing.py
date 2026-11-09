@@ -1,4 +1,7 @@
 """Verifica creación, listado y lobby en PostgreSQL sin dejar datos de prueba."""
+import email
+from http import client
+
 import pytest
 from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
@@ -33,8 +36,10 @@ def league_database_client():
         transaction.rollback()
 
 
-def test_create_list_filter_and_read_lobby_with_authenticated_club(league_database_client):
+def test_create_list_filter_and_read_lobby_with_authenticated_club(league_database_client, monkeypatch):
     client, db = league_database_client
+    verification_codes = {}
+    monkeypatch.setattr("app.services.auth_service.email_service.send_verification_code",lambda email, code: verification_codes.__setitem__(email, code),)
     prefix = f"Merge {uuid4().hex[:10]}"
     email = f"{uuid4().hex}@example.com"
     credentials = {"email": email, "password": "password-segura"}
@@ -43,7 +48,11 @@ def test_create_list_filter_and_read_lobby_with_authenticated_club(league_databa
         "passwordConfirmation": credentials["password"],
         "clubName": f"Club {prefix}",
     })
-    assert response.status_code == 201, response.text
+    assert response.status_code == 202, response.text
+
+    verified = client.post("/auth/verify-email", json={"email": email, "code": verification_codes[email],})
+    assert verified.status_code == 200, verified.text
+
     assert client.post("/auth/login", json=credentials).status_code == 200
     club = db.scalar(select(Club).join(User).where(User.email == email))
     payload = {

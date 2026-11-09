@@ -1,5 +1,5 @@
 from primitives.behaviour_api.context import PRESSURE_RADIUS, PlayerView, Point, TickSnapshot, distance
-
+from primitives.dt_behaviour import DtObservation
 
 class Queries:
     def __init__(self, snapshot: TickSnapshot, player_id: int):
@@ -122,3 +122,26 @@ class Queries:
 
     def closest_opponent(self) -> Point | None:
         return self._closest_position(self._opponents())
+
+
+class DtQueries:
+    def __init__(self, observation: DtObservation):
+        self.obs = observation
+
+    def winning(self) -> bool:
+        return self.obs.my_goals > self.obs.rival_goals
+
+    def drawing(self) -> bool:
+        return self.obs.my_goals == self.obs.rival_goals
+
+    def losing(self) -> bool:
+        return self.obs.my_goals < self.obs.rival_goals
+
+    def time_played(self) -> float:
+        return self.obs.time_played
+
+    def losing_by(self, goals: int) -> bool:
+        return self.obs.rival_goals - self.obs.my_goals >= goals
+
+    def winning_by(self, goals: int) -> bool:
+        return self.obs.my_goals - self.obs.rival_goals >= goals

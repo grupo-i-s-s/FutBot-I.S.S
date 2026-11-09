@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import select
@@ -16,9 +15,9 @@ from primitives.behaviours import (
 )
 from primitives.behaviour_api.actions import Command
 from primitives.behaviour_api.context import to_point
-from primitives.behaviour_api.registry import API_VERSION
-from primitives.behaviour_api.validation import validate_static
-from primitives.behaviour_api.validation import validate_action
+from primitives.behaviour_api.registry import API_VERSION, program_key
+from primitives.behaviour_api.validation import validate_action, validate_dt_action, validate_static
+from primitives.dt_behaviour import DtAction, DtObservation
 
 
 MAX_MESSAGE = 512 * 1024
@@ -270,10 +269,8 @@ class BehaviourRuntime:
 
         return response
 
-    def load(self, source: str) -> str:
-        key = hashlib.sha256(
-            f"{API_VERSION}\0{source}".encode("utf-8")
-        ).hexdigest()
+    def load(self, source: str, kind: str = "PLAYER") -> str:
+        key = program_key(source, kind)
 
         if key in self._loaded:
             self._loaded.move_to_end(key)
@@ -288,6 +285,7 @@ class BehaviourRuntime:
                 "op": "load",
                 "key": key,
                 "source": source,
+                "kind": kind,
             },
             self.startup_timeout,
         )
@@ -359,6 +357,41 @@ class BehaviourRuntime:
             raise BehaviourWorkerDead(
                 "INVALID_COMMAND",
                 "El ejecutor devolvió una orden inválida.",
+            ) from error
+
+    def dt_decide(self, key: str, observation: DtObservation) -> DtAction:
+        response = self._request(
+            {
+                "op": "decide_dt",
+                "key": key,
+                "observation": asdict(observation),
+            },
+            self.decision_timeout,
+        )
+        try:
+            data = response["action"]
+            if (
+                type(data) is not dict or data.keys() != {"tactical_changes", "substitutions"}
+                or type(data["tactical_changes"]) is not list
+            ):
+                raise ValueError("Formato de orden de DT inválido.")
+
+            action = DtAction(
+                tactical_changes=[
+                    {**change, "mode": BehaviourMode(change["mode"])}
+                    for change in data["tactical_changes"]
+                ],
+                substitutions=data["substitutions"],
+            )
+            if validate_dt_action(action, observation):
+                raise ValueError("La orden de DT no es válida.")
+            return action
+
+        except (KeyError, TypeError, ValueError) as error:
+            self.close()
+            raise BehaviourWorkerDead(
+                "INVALID_COMMAND",
+                "El ejecutor devolvió una orden de DT inválida.",
             ) from error
 
     def close(self) -> None:

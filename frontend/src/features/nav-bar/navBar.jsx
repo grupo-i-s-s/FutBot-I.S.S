@@ -72,6 +72,9 @@ export default function NavBar() {
                 <Link to="/partidos-disponibles" className="home-register">
                     Amistosos Disponibles
                 </Link>
+                <Link to="/clubes" className="home-register">
+                    Clubes
+                </Link>
             </nav>
         </header>
     );

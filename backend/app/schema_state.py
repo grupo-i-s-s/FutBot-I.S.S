@@ -1,17 +1,20 @@
-from app.models.auth_model import AuthSession, Club, User
+from app.models.auth_model import AuthSession, Club, PendingEmailVerification, User
 from app.models.behaviour_model import Behavior
+from app.models.dt_model import Dt, DtBehaviour
 from app.models.league_model import League, LeagueRegistration, LeagueRound, LeagueStanding
 from app.models.matches_model import Matches
 from app.models.player_model import Player
-from app.models.team_model import DefaultTeam
+from app.models.planned_substitution_model import PlannedSubstitution
 from app.models.stats_model import Stats
+from app.models.team_model import DefaultTeam
 
 
 REQUIRED_COLUMNS = {
     model.__tablename__: frozenset(column.name for column in model.__table__.columns)
     for model in (
         User, Club, AuthSession, Behavior, Player, League, LeagueRegistration,
-        LeagueRound, LeagueStanding, DefaultTeam, Matches,Stats,
+        LeagueRound, LeagueStanding, DefaultTeam, Matches, PlannedSubstitution,
+        PendingEmailVerification, Dt, DtBehaviour, Stats,
     )
 }
 
