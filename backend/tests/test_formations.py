@@ -58,7 +58,7 @@ def context():
             db.add(User(id=club_id, email=f"club{club_id}@test.com", password_hash="unused"))
             db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}", avatar="shield"))
             db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
-                            code=DEFAULT_CODES["Equilibrado"], kind="PLAYER",
+                            code=DEFAULT_CODES["Equilibrado"], kind="PLAYER", version=1,
                             validation_status="VALID"))
             for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,

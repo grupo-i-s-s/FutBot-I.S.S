@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from app.errors import AppError
 from app.models.behaviour_model import Behavior
 from app.repository import behaviour_repository
-from app.schemas.behaviour_schemas import BehaviourCreate
+from app.schemas.behaviour_schemas import BehaviourCreate, BehaviourReadDetail, BehaviourUpdate
 from primitives.behaviour_api.validation import validate_program
 from app.models.league_model import LeagueRegistration
 from app.models.matches_model import Matches
@@ -160,6 +160,36 @@ def _match_uses_behaviour( match: Matches, club_id: int, behaviour_id: int) -> b
         behaviour_id,
     )
 
+def _get_behaviour_references( db: Session, club_id: int, behaviour_id: int) -> dict[str, str]:
+    players = behaviour_repository.get_players_using_behaviour(db, club_id, behaviour_id)
+    assigned_player_ids = {player.id for player in players}
+
+    references = {
+        f"players.{player.id}": f"Jugador {player.name} (#{player.id})"
+        for player in players
+        if not player.is_deleted
+    }
+
+    default_team = behaviour_repository.get_default_team(db, club_id)
+
+    if default_team and _lineup_uses_behaviour( default_team.line_up, behaviour_id, assigned_player_ids):
+        references["defaultTeam"] = "Equipo predeterminado"
+
+    for registration in behaviour_repository.get_league_lineups(
+        db, club_id
+    ):
+        if _lineup_uses_behaviour( registration.line_up, behaviour_id, assigned_player_ids):
+            references[f"leagues.{registration.league_id}"] = (
+                f"Alineación de liga #{registration.league_id}"
+            )
+
+    for match in behaviour_repository.get_active_matches(db, club_id):
+        if _match_uses_behaviour(match, club_id, behaviour_id):
+            references[f"matches.{match.match_id}"] = (
+                f"Partido activo #{match.match_id}"
+            )
+
+    return references
 
 def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
     try:
@@ -174,35 +204,7 @@ def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
                 "No se encontró el comportamiento."
             )
 
-        players = behaviour_repository.get_players_using_behaviour(db, club_id, behaviour_id)
-        
-        assigned_player_ids = {player.id for player in players}
-
-        references = {
-            f"players.{player.id}": (
-                f"Jugador {player.name} (#{player.id})"
-            )
-            for player in players
-            if not player.is_deleted
-        }
-
-
-        default_team = behaviour_repository.get_default_team(db, club_id)
-
-        if default_team and _lineup_uses_behaviour( default_team.line_up, behaviour_id, assigned_player_ids):
-            references["defaultTeam"] = "Equipo predeterminado"
-
-        for registration in behaviour_repository.get_league_lineups(db, club_id):
-            if _lineup_uses_behaviour( registration.line_up, behaviour_id, assigned_player_ids):
-                references[f"leagues.{registration.league_id}"] = (
-                    f"Alineación de liga #{registration.league_id}"
-                )
-
-        for match in behaviour_repository.get_active_matches(db, club_id):
-            if _match_uses_behaviour(match, club_id, behaviour_id):
-                references[f"matches.{match.match_id}"] = (
-                    f"Partido activo #{match.match_id}"
-                )
+        references = _get_behaviour_references( db, club_id, behaviour_id)
 
         if references:
             raise AppError(
@@ -218,3 +220,93 @@ def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
     except Exception:
         db.rollback()
         raise
+
+def update_behaviour( db: Session, club_id: int, behaviour_id: int, data: BehaviourUpdate) -> BehaviourReadDetail:
+    try:
+        behaviour_repository.lock_club(db, club_id)
+
+        behaviour = behaviour_repository.get_behaviour_by_id( db, club_id, behaviour_id)
+        if behaviour is None:
+            raise AppError(
+                "BEHAVIOUR_NOT_FOUND",
+                "No se encontró el comportamiento.",
+            )
+
+        references = _get_behaviour_references( db, club_id, behaviour_id)
+        if references:
+            raise AppError(
+                "BEHAVIOUR_IN_USE",
+                "Reemplazá el comportamiento en sus asignaciones "
+                "antes de editarlo.",
+                fields=references,
+            )
+
+        if data.expected_version != behaviour.version:
+            raise AppError(
+                "VERSION_CONFLICT",
+                "Otra edición cambió este comportamiento. "
+                "Recargalo antes de guardar.",
+            )
+
+        diagnostics = validate_program( data.code, kind=behaviour.kind)
+        if diagnostics:
+            raise AppError(
+                "BEHAVIOUR_INVALID",
+                "El programa del comportamiento es inválido.",
+                diagnostics=diagnostics,
+            )
+
+        updated = behaviour_repository.update_behaviour( db, behaviour, name=data.name, code=data.code)
+
+        result = BehaviourReadDetail.model_validate(updated)
+        db.commit()
+        return result
+
+    except IntegrityError as error:
+        db.rollback()
+
+        constraint = getattr(
+            getattr(error.orig, "diag", None),
+            "constraint_name",
+            None,
+        )
+
+        if constraint == "uq_behaviors_club_name":
+            message = (
+                "Ya existe un comportamiento con ese nombre en tu club."
+            )
+            raise AppError(
+                "BEHAVIOUR_NAME_DUPLICATE",
+                message,
+                fields={"name": message},
+            ) from error
+
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
+
+#Consulta para saber si el comportamiento esta en uso.
+def get_behaviour_usage(
+    db: Session,
+    club_id: int,
+    behaviour_id: int,
+) -> dict:
+    behaviour = behaviour_repository.get_behaviour_by_id(
+        db, club_id, behaviour_id
+    )
+    if behaviour is None:
+        raise AppError(
+            "BEHAVIOUR_NOT_FOUND",
+            "No se encontró el comportamiento.",
+        )
+
+    references = _get_behaviour_references(
+        db, club_id, behaviour_id
+    )
+
+    return {
+        "inUse": bool(references),
+        "references": references,
+    }

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within} from '@testing-library
 import BehaviourList from './BehaviourList';
 import {fetchBehaviours} from '../services/behavioursApi';
 import {MemoryRouter, Route, Routes} from 'react-router';
-import {deleteBehaviour, getBehaviour} from '../api';
+import {deleteBehaviour,getBehaviourUsage, getBehaviour} from '../api';
 import BehaviourDetailPage from '../BehaviourDetailPage';
 
 // Mockeamos el servicio de API
@@ -13,6 +13,9 @@ vi.mock('../services/behavioursApi', () => ({
 vi.mock('../api', () => ({
     deleteBehaviour: vi.fn(),
     getBehaviour: vi.fn(),
+    getBehaviourUsage: vi.fn(),
+    updateBehaviour: vi.fn(),
+    createBehaviourTestMatch: vi.fn(),
 }));
 
 async function openDeletion() {
@@ -57,6 +60,10 @@ async function openDeletion() {
 describe('BehaviourList Component', () => {
     beforeEach(() => {
         vi.resetAllMocks();
+        getBehaviourUsage.mockResolvedValue({
+            inUse: false,
+            references: {},
+        });
     });
 
     it('muestra el estado de carga y luego renderiza la lista con nombres, descripciones, marca default y enlaces de navegación', async () => {
@@ -90,9 +97,8 @@ describe('BehaviourList Component', () => {
         expect(links[1].getAttribute('href')).toBe('/behaviours/2');
 
         // Verificar los controles disponibles en el catálogo.
-        expect(screen.queryByText(/crear/i)).not.toBeInTheDocument();
+        expect(screen.getByRole('link', {name: 'Crear nuevo comportamiento'})).toHaveAttribute('href', '/crear-comportamiento');
         expect(screen.getByRole('button', {name: 'Eliminar Ofensivo'})).toBeInTheDocument();
-        expect(screen.queryByText(/nuevo/i)).not.toBeInTheDocument();
     });
 
     it('maneja el estado de error y permite reintentar la carga', async () => {

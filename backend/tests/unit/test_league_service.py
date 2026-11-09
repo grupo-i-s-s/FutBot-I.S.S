@@ -216,7 +216,7 @@ def test_leave_rejects_without_removing_registration(db, leagues, now, case, sta
     db.commit.assert_not_called()
 
 
-def test_creator_leaving_deletes_league_without_removing_only_their_registration(db, leagues):
+def test_creator_cancels_open_league(db, leagues):
     leagues.row.creator_club_id = 7
 
     result = service.leave_league(db, 42, 7)

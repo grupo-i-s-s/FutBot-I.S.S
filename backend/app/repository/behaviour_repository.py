@@ -119,3 +119,12 @@ def get_league_lineups(db: Session, club_id:int) -> list[LeagueRegistration]:
 def soft_delete(db: Session, behaviour: Behavior) -> None:
     behaviour.is_deleted = True
     db.flush()
+
+def update_behaviour( db: Session, behaviour: Behavior, *, name: str, code: str) -> Behavior:
+    behaviour.name = name
+    behaviour.code = code
+    behaviour.version += 1
+    behaviour.validation_status = "VALID"
+
+    db.flush()
+    return behaviour

@@ -1,7 +1,7 @@
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 export class ApiError extends Error {
-    constructor({status, code, message, fields = {}, diagnostics, retryAfter}) {
+    constructor({ status, code, message, fields = {}, diagnostics = [], retryAfter}) {
         super(message);
         this.name = 'ApiError';
         this.status = status;
@@ -48,7 +48,7 @@ export async function request(path, {method = 'GET', body, signal} = {}) {
             code: error?.code ?? 'HTTP_ERROR',
             message: error?.message ?? (typeof data?.detail === 'string' ? data.detail : null) ?? 'Ocurrió un error inesperado.',
             fields: error?.fields ?? {},
-            diagnostics: error?.diagnostics,
+            diagnostics: error?.diagnostics ?? [],
             retryAfter: response.headers?.get('Retry-After') ?? error?.fields?.retryAfter,
         });
     }

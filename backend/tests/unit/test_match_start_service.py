@@ -15,6 +15,7 @@ def start(monkeypatch, now):
                           status="SCHEDULED", init_date=now, sequence=3, snapshot=None)
     snapshot = {"sequence": 3, "state": {"status": "WAITING", "teams": [{"id": 1}]}}
     repository = Mock()
+    repository.get_active_test_match.return_value = None
     repository.get_clubs_for_update.return_value = [SimpleNamespace(id=1), SimpleNamespace(id=7)]
     repository.clubs_have_running_match.return_value = False
     repository.get_active_test_match.return_value = None

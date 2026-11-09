@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { createMemoryRouter, RouterProvider, useLocation } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import CreateBehaviourPage from './CreateBehaviourPage';
 
 vi.mock('@monaco-editor/react', () => ({
-    default: ({defaultValue, onChange, options}) => (
-        <textarea aria-label={options.ariaLabel} defaultValue={defaultValue}
+    default: ({value, onChange, options}) => (
+        <textarea aria-label={options.ariaLabel} value={value}
                   readOnly={options.readOnly} onChange={event => onChange(event.target.value)} />
     ),
 }));
@@ -23,13 +23,12 @@ function Destination() {
 }
 
 function renderEditor(kind) {
-    render(<MemoryRouter initialEntries={['/editor']}>
-        <Routes>
-            <Route path="/editor" element={<CreateBehaviourPage kind={kind} />} />
-            <Route path="/mi-club" element={<Destination />} />
-            <Route path="/behaviours" element={<Destination />} />
-        </Routes>
-    </MemoryRouter>);
+    const router = createMemoryRouter([
+        {path: '/editor', element: <CreateBehaviourPage kind={kind}/>},
+        {path: '/mi-club', element: <Destination/>},
+        {path: '/behaviours', element: <Destination/>},
+    ], {initialEntries: ['/editor']});
+    render(<RouterProvider router={router}/>);
 }
 
 it('valida la plantilla del DT y guarda el comportamiento en su catálogo', async () => {
@@ -65,7 +64,8 @@ it('muestra el diagnóstico del servidor sin perder el código editado', async (
     fireEvent.change(editor, {target: {value: 'Mi código'}});
     fireEvent.change(screen.getByLabelText('Nombre del comportamiento'), {target: {value: 'Mi táctica'}});
     fireEvent.click(screen.getByRole('button', {name: 'Guardar Comportamiento'}));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Línea 3 · Revisá las órdenes.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('El programa del DT es inválido.');
+    expect(screen.getByRole('list', {name: 'Diagnósticos del código'})).toHaveTextContent('Línea 3, columna 1: Revisá las órdenes.');
     expect(editor).toHaveValue('Mi código');
 });
 
@@ -77,7 +77,7 @@ it('conserva el catálogo y la ruta de guardado de los comportamientos de jugado
     fireEvent.change(screen.getByLabelText('Código del comportamiento'), {target: {value: code}});
     fireEvent.change(screen.getByLabelText('Nombre del comportamiento'), {target: {value: 'Mi jugador'}});
     fireEvent.click(screen.getByRole('button', {name: 'Guardar Comportamiento'}));
-    expect(await screen.findByText('Catálogo de jugadores')).toBeInTheDocument();
+    expect(await screen.findByText('Comportamiento creado exitosamente.')).toBeInTheDocument();
     expect(fetchMock.mock.calls[0][0]).toBe('/api/behaviours');
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({name: 'Mi jugador', code, kind: 'PLAYER'});
 });

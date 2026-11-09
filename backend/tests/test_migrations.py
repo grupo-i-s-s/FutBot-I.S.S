@@ -263,7 +263,7 @@ def test_dt_backfill_provisions_existing_clubs_and_preserves_assigned_strategies
 
 @pytest.mark.parametrize("last_sql", [
     "BEGIN; SELECT * FROM missing_migration_test_table; COMMIT;",
-    "BEGIN; SELECT 1; COMMIT;",
+    "BEGIN; ALTER TABLE matches DROP COLUMN runtime_state; COMMIT;",
 ], ids=["sql_error", "incomplete_schema"])
 def test_failed_rebuild_rolls_back_ddl_and_preserves_original_history(
     migration_database, monkeypatch, tmp_path, last_sql,

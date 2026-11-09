@@ -124,13 +124,12 @@ def test_create_list_filter_and_read_lobby_with_authenticated_club(league_databa
 
     public_id = leagues["public"].id
     response = client.post(f"/leagues/{public_id}/leave")
-    assert response.status_code == 409, response.text
+    assert response.status_code == 200, response.text
+    assert response.json()["leagueId"] == public_id
     response = client.get("/leagues", params={"name": f"{prefix} public"})
     assert response.status_code == 200
-    assert response.json()["items"][0]["registeredCount"] == 1
-    assert response.json()["items"][0]["availableSlots"] == 2
-    assert response.json()["items"][0]["isMember"] is True
-    assert client.get(f"/leagues/{public_id}/lobby").json()["isRegistered"] is True
+    assert response.json()["items"] == []
+    assert client.get(f"/leagues/{public_id}/lobby").status_code == 404
 
 
 def test_listing_requires_session(league_database_client):
