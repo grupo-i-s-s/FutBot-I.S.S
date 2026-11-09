@@ -58,10 +58,8 @@ export default function VerifyEmailPage() {
                     </>
                 ) : (
                     <form onSubmit={handleVerify}>
-                        <p>Enviamos un código a <strong>{email}</strong>.</p>
-
+                        <p>Se ha enviado un código de 6 digitos a la cuenta <strong>{email}</strong>, revisa la sección recibidos y la carpeta de spam.</p>
                         <div className="formulary-box">
-                            <label htmlFor="verification-code">Código de 6 dígitos</label>
                             <input
                                 id="verification-code"
                                 type="text"
@@ -70,6 +68,7 @@ export default function VerifyEmailPage() {
                                 pattern="[0-9]{6}"
                                 maxLength={6}
                                 value={code}
+                                placeholder="Ingrese el código"
                                 onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
                                 required
                             />
