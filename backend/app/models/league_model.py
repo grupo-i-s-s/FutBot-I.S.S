@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, BigInteger
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 
@@ -107,6 +107,17 @@ class LeagueRegistration(Base):
             "club_id",
             name="uq_league_registrations_league_club",
         ),
+        CheckConstraint(
+            "lineup_version >= 0",
+            name="ck_league_registrations_lineup_version",
+        ),
+    )
+
+    lineup_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
     )
 
 

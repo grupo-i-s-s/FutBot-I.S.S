@@ -365,3 +365,22 @@
         font-size: 14px;
     }
 }
+.match-substitution {
+    padding: 16px;
+    border: 1px solid #496457;
+    border-radius: 8px;
+}
+
+.match-substitution fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    border: 0;
+    padding: 0;
+}
+
+.match-substitution label { display: grid; gap: 6px; }
+.match-substitution select, .match-substitution button { padding: 8px; }
+.match-substitution select { color: #111; background: #fff; }
+.match-substitution button { border: 1px solid #496457; border-radius: 4px; }
+.match-substitution button:disabled { opacity: 0.5; }

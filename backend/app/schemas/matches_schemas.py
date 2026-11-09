@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 
 class InputSchema(BaseModel):
@@ -9,6 +9,22 @@ class InputSchema(BaseModel):
 
 class JoinMatchRequest(InputSchema):
     match_id: int = Field(alias="idPartido", gt=0)
+
+
+class PlannedSubstitutionRequest(InputSchema):
+    out_player_id: StrictInt = Field(alias="outPlayerId", gt=0)
+    in_player_id: StrictInt = Field(alias="inPlayerId", gt=0)
+    command_id: str = Field(alias="commandId", min_length=1, pattern=r"\S")
+
+    @model_validator(mode="after")
+    def validate_different_players(self) -> "PlannedSubstitutionRequest":
+        if self.out_player_id == self.in_player_id:
+            raise ValueError("El jugador entrante debe ser distinto del saliente.")
+        return self
+
+
+class SubstitutionRequest(PlannedSubstitutionRequest):
+    pause_id: str = Field(alias="pauseId", min_length=1, pattern=r"\S")
 
 
 class CreateFriendlyMatchRequest(InputSchema):

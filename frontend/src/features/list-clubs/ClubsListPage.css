@@ -1,0 +1,99 @@
+.clubs-page .clubs-card {
+    max-width: 640px;
+}
+
+.clubs-page .clubs-results {
+    margin-top: 28px;
+}
+
+.clubs-page .clubs-summary {
+    margin-bottom: 16px;
+    color: #19362b;
+}
+
+.clubs-page .clubs-list {
+    display: grid;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.clubs-page .club-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    border: 1px solid #d5e1d5;
+    border-radius: 12px;
+    color: #19362b;
+    overflow-wrap: anywhere;
+}
+
+.clubs-page .club-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.clubs-page .club-name {
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.clubs-page .clubs-message {
+    text-align: center;
+    color: #19362b;
+}
+
+.clubs-page .clubs-error {
+    text-align: center;
+    color: #a12622;
+}
+
+.clubs-page .clubs-link {
+    display: block;
+    margin-top: 24px;
+    text-align: center;
+    color: #164b35;
+    text-decoration: underline;
+}
+
+.clubs-page .club-item .clubs-link {
+    margin-top: 8px;
+    text-align: left;
+}
+
+.clubs-page .clubs-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 24px;
+    color: #19362b;
+}
+
+.clubs-page .clubs-pagination button {
+    padding: 8px 12px;
+    border: 1px solid #164b35;
+    border-radius: 8px;
+    background-color: white;
+    color: #164b35;
+    cursor: pointer;
+}
+
+.clubs-page .clubs-pagination button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.clubs-page :is(input, button, a):focus-visible {
+    outline: 2px solid #164b35;
+    outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+    .clubs-page .clubs-card {
+        padding: 24px 16px;
+    }
+}

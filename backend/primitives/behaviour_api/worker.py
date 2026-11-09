@@ -7,7 +7,7 @@ from primitives.behaviour_api.context import snapshot_from_dict
 from primitives.behaviour_api.registry import API_VERSION
 from primitives.behaviour_api.validation import ExecutionError, _restrict_worker, execute_once, execution_diagnostic, execute_dt_once, \
     validate_static
-from dt_behaviour import DtObservation
+from primitives.dt_behaviour import DtObservation
 
 MAX_MESSAGE = 512 * 1024
 MAX_PROGRAMS = 6
