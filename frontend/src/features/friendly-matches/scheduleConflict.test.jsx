@@ -11,17 +11,14 @@ vi.mock('./components/MatchCanvas.jsx', () => ({default: () => null}));
 const conflictCode = 'LEAGUE_SCHEDULE_CONFLICT';
 const conflictStart = new Date(2040, 5, 12, 20, 0).toISOString();
 const conflictEnd = new Date(2040, 5, 12, 20, 6).toISOString();
+const leagueConflict = {
+    code: conflictCode,
+    message: 'Tu club tiene un partido de liga en esa franja.',
+    fields: {conflictStart, conflictEnd},
+};
 
 function jsonResponse(body, status = 200) {
     return {ok: status < 400, status, json: async () => body};
-}
-
-function conflictResponse() {
-    return jsonResponse({error: {
-        code: conflictCode,
-        message: 'Tu club tiene un partido de liga en esa franja.',
-        fields: {conflictStart, conflictEnd},
-    }}, 409);
 }
 
 afterEach(() => {
@@ -30,7 +27,7 @@ afterEach(() => {
 });
 
 it('muestra la franja ocupada en hora local al crear un amistoso', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => conflictResponse()));
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({error: leagueConflict}, 409)));
     render(<MemoryRouter><CreateFriendlyMatch/></MemoryRouter>);
 
     const input = screen.getByLabelText('Horario para comenzar el partido');
@@ -41,10 +38,14 @@ it('muestra la franja ocupada en hora local al crear un amistoso', async () => {
     expect(input).toHaveValue('2040-06-12T20:00');
 });
 
-it('muestra la franja ocupada al intentar unirse a un amistoso', async () => {
+it.each([leagueConflict, {
+    code: 'FRIENDLY_SCHEDULE_CONFLICT',
+    message: 'El club rival ya tiene un amistoso confirmado en ese horario. Elegí otro horario.',
+    fields: {conflictStart, conflictEnd},
+}])('muestra la franja ocupada al unirse a un amistoso ($code)', async error => {
     vi.stubGlobal('fetch', vi.fn(async (url) => {
         if (url === '/api/friendly-matches/me') return jsonResponse([]);
-        if (url === '/api/friendly-matches/42/join') return conflictResponse();
+        if (url === '/api/friendly-matches/42/join') return jsonResponse({error}, 409);
         return jsonResponse({
             items: [{matchId: 42, creatorClubName: 'Club local', startDateTime: conflictStart}],
             total: 1, page: 1, pageSize: 20,
@@ -54,7 +55,9 @@ it('muestra la franja ocupada al intentar unirse a un amistoso', async () => {
 
     fireEvent.click(await screen.findByRole('button', {name: 'Unirse'}));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/franja ocupada es .*20:00.*20:06/);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(error.message);
+    expect(alert).toHaveTextContent(/franja ocupada es .*20:00.*20:06/);
     expect(await screen.findByRole('button', {name: 'Unirse'})).toBeEnabled();
 });
 

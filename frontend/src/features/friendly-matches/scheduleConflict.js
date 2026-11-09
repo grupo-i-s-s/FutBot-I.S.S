@@ -6,7 +6,7 @@ const scheduleFormatter = new Intl.DateTimeFormat('es-AR', {
 
 export function friendlyMatchError(error, fallback) {
     const message = error.message || fallback;
-    if (error.code !== 'LEAGUE_SCHEDULE_CONFLICT') return message;
+    if (error.code !== 'LEAGUE_SCHEDULE_CONFLICT' && error.code !== 'FRIENDLY_SCHEDULE_CONFLICT') return message;
 
     const {conflictStart, conflictEnd} = error.fields ?? {};
     if (typeof conflictStart !== 'string' || typeof conflictEnd !== 'string') return message;
