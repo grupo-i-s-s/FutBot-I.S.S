@@ -3,6 +3,7 @@ import {buttonVariants} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Empty, EmptyDescription, EmptyHeader, EmptyTitle} from '@/components/ui/empty';
 import {Item, ItemContent, ItemDescription, ItemFooter, ItemTitle} from '@/components/ui/item';
+import {routePath, routes} from '@/routes.js';
 
 export default function ClubBehaviourList({behaviours}) {
     return (
@@ -12,7 +13,7 @@ export default function ClubBehaviourList({behaviours}) {
                     <CardTitle className="text-lg font-bold">Comportamientos</CardTitle>
                     <CardDescription>Catálogo de comportamientos de tu club.</CardDescription>
                 </div>
-                <Link to="/behaviours" className={buttonVariants({variant: 'outline', size: 'sm'})}>
+                <Link to={routes.behaviours} className={buttonVariants({variant: 'outline', size: 'sm'})}>
                     Gestionar comportamientos
                 </Link>
             </CardHeader>
@@ -36,7 +37,7 @@ export default function ClubBehaviourList({behaviours}) {
                                 </ItemContent>
                                 <ItemFooter>
                                     <Link
-                                        to={`/behaviours/${behaviour.id}`}
+                                        to={routePath(routes.behaviourDetail, {behaviourId: behaviour.id})}
                                         className={buttonVariants({variant: 'outline', size: 'sm'})}
                                         aria-label={`Ver detalle de ${behaviour.name}`}
                                     >

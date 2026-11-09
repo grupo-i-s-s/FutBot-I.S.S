@@ -4,6 +4,7 @@ import ClubAvatar from '../my-club/components/ClubAvatar';
 import {getClubs} from './api';
 import '../login/LoginPage.css';
 import './ClubsListPage.css';
+import {routePath, routes} from '@/routes.js';
 
 const PAGE_SIZE = 20;
 
@@ -145,7 +146,7 @@ export default function ClubsListPage() {
                             </p>
 
                             {error.status === 401 ? (
-                                <Link to="/login" className="clubs-link">
+                                <Link to={routes.signIn} className="clubs-link">
                                     Iniciar sesión
                                 </Link>
                             ) : (
@@ -191,7 +192,7 @@ export default function ClubsListPage() {
                                                     </h2>
 
                                                     <Link
-                                                        to={`/club/${club.id}`}
+                                                        to={routePath(routes.clubProfile, {clubId: club.id})}
                                                         className="clubs-link"
                                                         aria-label={`Ver perfil de ${club.name}`}
                                                     >
@@ -234,7 +235,7 @@ export default function ClubsListPage() {
                     )}
                 </div>
 
-                <Link to="/mi-club" className="clubs-link">
+                <Link to={routes.myClub} className="clubs-link">
                     Volver a mi club
                 </Link>
             </section>

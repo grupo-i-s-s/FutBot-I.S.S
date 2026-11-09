@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { createBehaviour, createDtBehaviour, validateBehaviour } from './api';
 import { Button } from '@/components/ui/button';
+import {routes} from '@/routes.js';
 
 const PLAYER_TEMPLATE = `def decide(observation):
     #return ir_a_pelota()`;
@@ -110,13 +111,13 @@ export default function CreateBehaviourPage({ kind = 'PLAYER' }) {
         try {
             if (isDt) {
                 await createDtBehaviour(name.trim(), code);
-                navigate('/mi-club', {
+                navigate(routes.myClub, {
                     replace: true,
                     state: { tab: 'dt', notice: 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.' },
                 });
             } else {
                 await createBehaviour(name, code);
-                navigate('/behaviours', { replace: true });
+                navigate(routes.behaviours, { replace: true });
             }
         } catch (err) {
             const fields = Object.values(err.fields || {});
@@ -131,7 +132,7 @@ export default function CreateBehaviourPage({ kind = 'PLAYER' }) {
 
     return (
         <div className="max-w-4xl mx-auto p-6 flex flex-col">
-            {isDt && <Link to="/mi-club" state={{tab: 'dt'}} className="mb-4 text-sm underline">Volver a Mi club</Link>}
+            {isDt && <Link to={routes.myClub} state={{tab: 'dt'}} className="mb-4 text-sm underline">Volver a Mi club</Link>}
             <h2 className="text-2xl font-bold mb-6 text-gray-800">
                 {isDt ? 'Crear comportamiento del DT' : 'Crear Comportamiento'}
             </h2>

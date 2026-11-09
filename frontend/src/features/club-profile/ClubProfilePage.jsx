@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 import {Link, useParams} from 'react-router';
 import ClubAvatar from '../my-club/components/ClubAvatar';
 import {getClubProfile} from './api';
+import {routes} from '@/routes.js';
 
 const PAGE_CLASSES = 'mx-auto max-w-4xl space-y-6 px-4 py-8';
 const SECTION_CLASSES = 'space-y-4 rounded-xl border bg-card p-6';
@@ -113,7 +114,7 @@ function ClubProfileContent({clubId}) {
                     <p>{message}</p>
 
                     {isSessionError ? (
-                        <Link to="/login" className="underline">
+                        <Link to={routes.signIn} className="underline">
                             Iniciar sesión
                         </Link>
                     ) : !isNotFound && (
@@ -126,7 +127,7 @@ function ClubProfileContent({clubId}) {
                         </button>
                     )}
 
-                    <Link to="/clubes" className="block underline">
+                    <Link to={routes.clubs} className="block underline">
                         Volver a clubes
                     </Link>
                 </div>
@@ -226,7 +227,7 @@ function ClubProfileContent({clubId}) {
                 )}
             </section>
 
-            <Link to="/clubes" className="block underline">
+            <Link to={routes.clubs} className="block underline">
                 Volver a clubes
             </Link>
         </main>

@@ -28,7 +28,7 @@ export default function TeamPlayerCombobox({id, player, excludedPlayerIds, disab
         const controller = new AbortController();
         const timer = setTimeout(async () => {
             try {
-                const {items} = await listPlayers({search, page: 1, limit: 10, signal: controller.signal});
+                const {items} = await listPlayers({search, page: 1, pageSize: 10, signal: controller.signal});
                 if (!controller.signal.aborted) setResult({search, items});
             } catch (error) {
                 if (!controller.signal.aborted) {

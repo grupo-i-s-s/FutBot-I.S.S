@@ -5,6 +5,7 @@ import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/co
 import {Item, ItemActions, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemTitle} from '@/components/ui/item';
 import {Link} from 'react-router';
 import {buttonVariants} from '@/components/ui/button';
+import {routePath, routes} from '@/routes.js';
 
 const LEAGUE_TYPE_LABELS = {
     PUBLIC: 'Pública',
@@ -22,7 +23,7 @@ export default function LeagueList({leagues}) {
                 <CardDescription>Ligas en las que participa tu club.</CardDescription>
                 <CardAction>
                     <Link
-                        to="/ligas-disponibles"
+                        to={routes.leagues}
                         className={buttonVariants({size: 'sm'})}
                     >
                         Unirme a liga
@@ -55,7 +56,7 @@ export default function LeagueList({leagues}) {
                                 </ItemActions>
                                 <ItemFooter>
                                     <Link
-                                        to={`/leagues/${league.id}/lobby`}
+                                        to={routePath(routes.leagueLobby, {id: league.id})}
                                         className={buttonVariants({variant: 'outline', size: 'sm'})}
                                         aria-label={`Ver lobby de ${league.name}`}
                                     >

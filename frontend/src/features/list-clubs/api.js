@@ -13,5 +13,5 @@ export function getClubs(
         params.set('name', name.trim());
     }
 
-    return request(`/club?${params.toString()}`, {signal});
+    return request(`/clubs?${params.toString()}`, {signal});
 }

@@ -8,7 +8,7 @@ export function createBehaviour(name, code) {
 }
 
 export function createDtBehaviour(name, code) {
-    return request('/dt/behaviours', {
+    return request('/clubs/me/dt/behaviours', {
         method: 'POST',
         body: { name, code },
     });

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { getBehaviour } from './api';
 import './BehaviourDetailPage.css';
 import DeleteBehaviourButton from './components/DeleteBehaviourButton';
+import {routes} from '@/routes.js';
 
 export default function BehaviourDetailPage() {
     const { behaviourId } = useParams();
@@ -85,7 +86,7 @@ export default function BehaviourDetailPage() {
                         <DeleteBehaviourButton
                             behaviour={behaviour}
                             onDeleted={(deletedBehaviour) => {
-                                navigate('/behaviours', {
+                                navigate(routes.behaviours, {
                                     replace: true,
                                     state: {
                                         notice: `El comportamiento “${deletedBehaviour.name}” se eliminó correctamente.`,

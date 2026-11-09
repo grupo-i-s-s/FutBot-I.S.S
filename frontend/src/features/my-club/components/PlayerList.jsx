@@ -5,6 +5,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { buttonVariants } from '@/components/ui/button';
+import {routes} from '@/routes.js';
 
 const PACSS_ATTRIBUTES = [
     ['Power', 'power'],
@@ -28,7 +29,7 @@ export default function PlayerList({
                 {totalPlayers != null && <CardDescription>{totalPlayers} jugadores en el plantel</CardDescription>}
 
                 <CardAction className="flex flex-col items-stretch gap-2">
-                    <Link to="/crear-jugador" className={buttonVariants({size: 'sm'})}>
+                    <Link to={routes.createPlayer} className={buttonVariants({size: 'sm'})}>
                         <Plus className="size-4" aria-hidden="true"/>
                         Crear Nuevo jugador
                     </Link>

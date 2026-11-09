@@ -5,6 +5,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { listDtBehaviours, updateDtSettings } from '../api';
+import {routes} from '@/routes.js';
 
 function errorMessage(error, fallback) {
     return Object.values(error.fields ?? {}).join(' ') || error.message || fallback;
@@ -111,7 +112,7 @@ export default function DtSettings({ dt, onSaveSuccess }) {
                         {error && <p role="alert" className="text-destructive">{error}</p>}
                     </>
                 )}
-                <Link to="/crear-comportamiento-dt" className={buttonVariants({ variant: 'outline' })}>
+                <Link to={routes.createDtBehaviour} className={buttonVariants({ variant: 'outline' })}>
                     <Plus className="size-4" aria-hidden="true" />
                     Crear comportamiento del DT
                 </Link>

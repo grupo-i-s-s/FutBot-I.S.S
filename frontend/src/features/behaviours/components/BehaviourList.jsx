@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react';
 import DeleteBehaviourButton from './DeleteBehaviourButton';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { createBehaviourTestMatch } from '../api.js';
+import {routePath, routes} from '@/routes.js';
 
 
 export default function BehaviourList() {
@@ -38,7 +39,7 @@ export default function BehaviourList() {
 
         try {
             const match = await createBehaviourTestMatch();
-            navigate(`/partidos/${match.matchId}`, { replace: true });
+            navigate(routePath(routes.match, {matchId: match.matchId}), { replace: true });
         } catch (error) {
             setTestError(error.message || 'No se pudo crear el partido de prueba.');
         } finally {
@@ -87,11 +88,11 @@ export default function BehaviourList() {
             )}
 
             <div className="mb-6 flex justify-between items-center gap-4">
-                <Link to="/mi-club" className={buttonVariants({ size: 'sm' })}>
+                <Link to={routes.myClub} className={buttonVariants({ size: 'sm' })}>
                     Volver a Mi Club
                 </Link>
                 <div className="flex gap-2">
-                    <Link to="/crear-comportamiento" className={buttonVariants({ size: 'sm' })}>
+                    <Link to={routes.createBehaviour} className={buttonVariants({ size: 'sm' })}>
                         <Plus className="size-4" aria-hidden="true" />
                         Crear nuevo comportamiento
                     </Link>
@@ -128,12 +129,12 @@ export default function BehaviourList() {
                             <p className="text-gray-600 text-sm mb-4">{behaviour.description || 'Sin descripción.'}</p>
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-3">
-                            <a
-                                href={`/behaviours/${behaviour.id}`}
+                            <Link
+                                to={routePath(routes.behaviourDetail, {behaviourId: behaviour.id})}
                                 className="text-blue-600 hover:underline text-sm font-medium"
                             >
                                 Ver detalle &rarr;
-                            </a>
+                            </Link>
 
                             <DeleteBehaviourButton
                                 behaviour={behaviour}

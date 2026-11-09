@@ -2,6 +2,7 @@ import './CreatePlayersPage.css';
 import {useState} from 'react';
 import {createPlayer} from './api';
 import {useNavigate} from 'react-router';
+import {routes} from '@/routes.js';
 
 export default function CreatePlayerPage() {
     const [name, setName] = useState('');
@@ -48,7 +49,7 @@ export default function CreatePlayerPage() {
             );
 
             setSuccess(`¡El jugador ${player.name} se creó correctamente!`);
-            navigate('/mi-club', {replace: true});
+            navigate(routes.myClub, {replace: true});
         } catch (err) {
             if (err.status === 401) {
                 setError('Tu sesión venció. Iniciá sesión nuevamente.');

@@ -11,7 +11,7 @@ function withBehaviourName(players, behaviours) {
     }));
 }
 
-export function useMyClub(page = 1, limit = 9) {
+export function useMyClub(page = 1, pageSize = 9) {
     const [status, setStatus] = useState('loading');
     const [error, setError] = useState(null);
     const [club, setClub] = useState(null);
@@ -53,11 +53,11 @@ export function useMyClub(page = 1, limit = 9) {
 
     useEffect(() => {
         const controller = new AbortController();
-        const query = {page, limit, attempt: rosterAttempt};
+        const query = {page, pageSize, attempt: rosterAttempt};
 
         async function loadRoster() {
             try {
-                const {items, totalPages, total} = await listPlayers({page, limit, signal: controller.signal});
+                const {items, totalPages, total} = await listPlayers({page, pageSize, signal: controller.signal});
                 if (!controller.signal.aborted) setRoster({items, totalPages, total, query, error: null});
             } catch (loadError) {
                 if (!controller.signal.aborted && loadError.name !== 'AbortError') {
@@ -68,12 +68,12 @@ export function useMyClub(page = 1, limit = 9) {
 
         loadRoster();
         return () => controller.abort();
-    }, [page, limit, rosterAttempt]);
+    }, [page, pageSize, rosterAttempt]);
 
     const reload = useCallback(() => setAttempt((value) => value + 1), []);
     const reloadRoster = useCallback(() => setRosterAttempt(value => value + 1), []);
     const rosterLoading = !roster.query || roster.query.page !== page
-        || roster.query.limit !== limit || roster.query.attempt !== rosterAttempt;
+        || roster.query.pageSize !== pageSize || roster.query.attempt !== rosterAttempt;
 
     return {
         status, error, club, behaviours, leagues, reload, setClub,
