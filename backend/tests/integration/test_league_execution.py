@@ -14,14 +14,16 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from test_league_start import database, league_data
 from app.errors import AppError
+from app.models.auth_model import Club
 from app.models.behaviour_model import Behavior
 from app.models.league_model import League, LeagueRegistration, LeagueRound, LeagueStanding
 from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
 from app.models.team_model import DefaultTeam
-from app.repository import league_repository, matches_repository
+from app.repository import dt_repository, league_repository, matches_repository
 from app.services import league_execution_service as execution
 from app.services import league_service, match_execution_service, match_scheduler_service
 from primitives.behaviours import DEFAULT_CODES
+from primitives.dt_behaviour import DEFAULT_DT_CODES
 from primitives.match_simulation import Match
 
 
@@ -186,6 +188,47 @@ def test_league_captures_custom_behaviour_source_and_version(database, running_l
         assert all(player["behaviour_code"] == source for player in players)
         assert all(player["behaviour_version"] == 4 for player in players)
     assert match_execution_service.run_persisted_match(ids[0])["state"]["status"] == "FINISHED"
+
+
+def test_league_recovers_the_captured_modes_and_dt_error(database, running_league):
+    data, _ = running_league
+    broken_strategy = "import os\n\ndef decide(obs):\n    return None"
+    with Session(database) as db:
+        start(db, data)
+        row = league_repository.get_fixture_matches(db, data.id)[0]
+        match_id, local_id, visitor_id = row.match_id, row.creator_id, row.visitor_id
+        for club_id, active in ((local_id, True), (visitor_id, False)):
+            strategy = dt_repository.create_default_dt_behaviours(db, db.get(Club, club_id).user_id)[0]
+            if active:
+                strategy.code = broken_strategy
+            dt_repository.create_dt(db, club_id, strategy.id).is_active = active
+        db.commit()
+
+    assert match_scheduler_service._get_due_match_ids() == [match_id]
+    stop = Mock(spec=Event)
+    stop.is_set.return_value = False
+    stop.wait.side_effect = [False, True]
+    partial = match_execution_service.run_persisted_match(match_id, stop_event=stop)
+    assert 0 < partial["state"]["clockMs"] < 300
+    local, visitor = partial["state"]["teams"]
+    assert local["id"] == local_id and local["dtActive"] is True and local["dtError"]
+    assert visitor["id"] == visitor_id and visitor["dtActive"] is False
+
+    with Session(database) as db:
+        checkpoint = db.get(Matches, match_id).runtime_state
+        assert checkpoint["local_team"]["dt_code"] == broken_strategy
+        assert checkpoint["dt_errors"] == {str(local_id): local["dtError"]}
+        for club_id, active in ((local_id, False), (visitor_id, True)):
+            dt = dt_repository.get_dt_by_club_id(db, club_id)
+            dt.is_active = active
+            dt.behaviour.code = DEFAULT_DT_CODES["No hacer nada"]
+        db.commit()
+
+    final = match_execution_service.run_persisted_match(match_id)
+    assert final["state"]["status"] == "FINISHED"
+    assert [(team["dtActive"], team["dtError"]) for team in final["state"]["teams"]] == [
+        (True, local["dtError"]), (False, None),
+    ]
 
 
 def test_busy_club_delays_whole_round_without_cancelling_matches(database, running_league):

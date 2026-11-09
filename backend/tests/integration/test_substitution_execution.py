@@ -14,8 +14,11 @@ from app.models.planned_substitution_model import PlannedSubstitution
 from app.repository import matches_repository
 from app.schemas.matches_schemas import PlannedSubstitutionRequest
 from app.services import match_execution_service as execution
+from app.services.match_request_handler import clear_requests, enqueue_request, pending_requests
+from app.services.match_snapshot_service import read_snapshot
 from app.services.planned_substitution_service import plan_substitution
 from primitives import match_simulation
+from primitives.dt_behaviour import DEFAULT_DT_CODES
 from primitives.match_simulation import Match
 
 
@@ -123,6 +126,76 @@ def test_revalidation_failure_does_not_consume_quota(database, league_data, game
         assert restored.substitution_pauses == set()
         restored.substitute(league_data.clubs[0], league_data.lineups[0][0], league_data.lineups[0][3])
         assert len(restored.player_bodies) == 6
+
+
+@pytest.mark.parametrize("published_mode", [None, False])
+def test_recovery_discards_legacy_manual_actions_for_dt_but_applies_the_rivals(
+    database, league_data, game, published_mode,
+):
+    local_id, visitor_id = league_data.clubs[:2]
+    local_players, visitor_players = league_data.lineups[:2]
+    with Session(database) as db:
+        row = db.get(Matches, game)
+        checkpoint = deepcopy(row.runtime_state)
+        checkpoint["local_team"].update(dt_active=True, dt_code=DEFAULT_DT_CODES["No hacer nada"])
+        checkpoint["dt_errors"] = {str(local_id): "La estrategia falló."}
+        row.runtime_state = checkpoint
+        legacy_snapshot = deepcopy(row.snapshot)
+        public_team = legacy_snapshot["state"]["teams"][0]
+        if published_mode is None:
+            del public_team["dtActive"]
+        else:
+            public_team["dtActive"] = published_mode
+        legacy_snapshot["state"]["lineups"][0]["pendingSubstitution"] = {
+            "pauseId": f"{game}:1", "status": "PENDING", "commandId": "legacy-1",
+            "outPlayerId": local_players[0], "inPlayerId": local_players[3],
+        }
+        row.snapshot = legacy_snapshot
+        before_sequence = row.sequence
+        for pause in (1, 2):
+            db.add(PlannedSubstitution(
+                match_id=game, club_id=local_id, pause_index=pause, command_id=f"legacy-{pause}",
+                out_player_id=local_players[0], in_player_id=local_players[3],
+            ))
+        db.commit()
+
+    with Session(database) as db:
+        snapshot = read_snapshot(db, game, local_id)
+        assert snapshot["state"]["teams"][0]["dtActive"] is True
+        assert snapshot["state"]["lineups"][0]["pendingSubstitution"] is None
+        row = db.get(Matches, game)
+        assert row.snapshot == legacy_snapshot and row.sequence == before_sequence
+
+    plan(database, league_data, game, club=1)
+    for club_id, player_id in ((local_id, local_players[1]), (visitor_id, visitor_players[1])):
+        enqueue_request(game, {
+            "action": "CHANGE_BEHAVIOUR", "club_id": club_id, "player_id": player_id,
+            "behaviour_id": 77, "program": {
+                "behaviour_mode": "OFFENSIVE", "behaviour_code": None,
+                "behaviour_version": 1, "behaviour_api_version": 1,
+            },
+        })
+    try:
+        paused = run_until_pause(game)["state"]
+        assert paused["phase"] == "HYDRATION_BREAK"
+        assert pending_requests(game) == []
+    finally:
+        clear_requests(game)
+
+    rejected = [event for event in paused["events"] if event["clubId"] == local_id]
+    assert {event["pauseId"] for event in rejected} == {f"{game}:1", f"{game}:2"}
+    assert all(event["type"] == "SUBSTITUTION_REJECTED" and
+               event["reason"] == "MATCH_DT_MANUAL_ACTION_FORBIDDEN" for event in rejected)
+    accepted, = [event for event in paused["events"] if event["clubId"] == visitor_id]
+    assert accepted["type"] == "SUBSTITUTION_APPLIED"
+    assert accepted["inPlayerId"] == visitor_players[3]
+    players = {player["id"]: player for player in paused["players"]}
+    assert players[local_players[1]]["behaviourMode"] == "BALANCED"
+    assert players[visitor_players[1]]["behaviourMode"] == "OFFENSIVE"
+    assert paused["teams"][0]["dtError"] == "La estrategia falló."
+    with Session(database) as db:
+        saved = {(row.club_id, row.pause_index): row.status for row in db.scalars(select(PlannedSubstitution))}
+        assert saved == {(local_id, 1): "REJECTED", (local_id, 2): "REJECTED", (visitor_id, 1): "APPLIED"}
 
 
 @pytest.mark.parametrize("pause", [1, 2, 3])

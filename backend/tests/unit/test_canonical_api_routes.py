@@ -8,6 +8,7 @@ from app.config import settings
 from app.controller import dt_controller, match_stream_controller, matches_controller, team_controller
 from app.database import get_db
 from app.dependencies import get_current_club, get_current_identity
+from app.errors import AppError
 from app.main import app
 from primitives.behaviours import DEFAULT_CODES
 
@@ -92,18 +93,18 @@ def test_friendly_join_id_can_come_from_path_or_legacy_body(client, db, monkeypa
     join.assert_called_with(db, 42, 7)
 
 
-def test_match_dt_preserves_legacy_response_and_uses_camel_case_in_canonical_route(client, db, monkeypatch):
-    update_dt = Mock(return_value={"message": "Actualizado", "dt_active": True})
-    monkeypatch.setattr(matches_controller.matches_service, "set_match_dt", update_dt)
+def test_match_dt_paths_keep_their_payloads_and_return_the_same_conflict(client, db, monkeypatch):
+    reject_change = Mock(side_effect=AppError("MATCH_DT_MODE_FIXED", "El modo del partido está fijado."))
+    monkeypatch.setattr(matches_controller.matches_service, "reject_match_dt_change", reject_change)
 
     canonical = client.post("/matches/42/dt", json={"dtActive": True})
     legacy = client.post("/friendly-matches/42/dt", json={"dt_active": True})
 
-    assert canonical.status_code == legacy.status_code == 200
-    assert canonical.json() == {"message": "Actualizado", "dtActive": True}
-    assert legacy.json() == {"message": "Actualizado", "dt_active": True}
-    assert update_dt.call_count == 2
-    update_dt.assert_called_with(db=db, match_id=42, club_id=7, dt_active=True)
+    assert canonical.status_code == legacy.status_code == 409
+    assert canonical.json() == legacy.json()
+    assert canonical.json()["error"]["code"] == "MATCH_DT_MODE_FIXED"
+    assert reject_change.call_count == 2
+    reject_change.assert_called_with(db, 42, 7)
 
 
 def test_live_request_paths_enqueue_equivalent_commands(client, monkeypatch):
@@ -155,7 +156,9 @@ def test_openapi_contains_canonical_routes_and_omits_compatibility_aliases():
     assert "patch" in paths["/clubs/me/dt"]
     assert "post" in paths["/friendly-matches/{match_id}/join"]
     assert "get" in paths["/matches/{match_id}"]
-    assert "post" in paths["/matches/{match_id}/dt"]
+    dt = paths["/matches/{match_id}/dt"]["post"]
+    assert dt["deprecated"] is True
+    assert "409" in dt["responses"] and "200" not in dt["responses"]
     assert "post" in paths["/matches/{match_id}/live-requests"]
     assert paths.keys().isdisjoint({
         "/team/default", "/dt", "/dt/behaviours", "/friendly-matches/join",

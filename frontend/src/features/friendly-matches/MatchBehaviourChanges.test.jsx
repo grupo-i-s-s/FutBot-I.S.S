@@ -15,12 +15,14 @@ function jsonResponse(body, status = 200) {
     return {ok: status < 400, status, json: async () => body};
 }
 
-function showSnapshot({status = 'RUNNING', behaviourId = 7, phase} = {}) {
+function showSnapshot({status = 'RUNNING', behaviourId = 7, phase, connectionStatus,
+    localDt = {dtActive: false}, visitorDt = {dtActive: false}} = {}) {
     useMatchConnection.mockReturnValue({
-        connectionStatus: status === 'RUNNING' ? 'connected' : 'finished',
+        connectionStatus: connectionStatus ?? (status === 'RUNNING' ? 'connected' : 'finished'),
         snapshot: {state: {
             status, phase, breakRemainingMs: 5_000, clockMs: 10_000, durationMs: 300_000,
-            teams: [{id: 1, name: 'Club local', score: 0}, {id: 2, name: 'Club visitante', score: 0}],
+            teams: [{id: 1, name: 'Club local', score: 0, ...localDt},
+                {id: 2, name: 'Club visitante', score: 0, ...visitorDt}],
             players: [
                 {id: 11, teamId: 1, name: 'Julia', behaviourId},
                 {id: 12, teamId: 1, name: 'Inés', behaviourId: 7},
@@ -30,10 +32,10 @@ function showSnapshot({status = 'RUNNING', behaviourId = 7, phase} = {}) {
     });
 }
 
-function renderMatch() {
+function renderMatch(state) {
     function page() {
         return (
-            <MemoryRouter initialEntries={['/partidos/42']}>
+            <MemoryRouter initialEntries={[{pathname: '/partidos/42', state}]}>
                 <SessionProvider>
                     <Routes><Route path="/partidos/:matchId" element={<MatchPage/>}/></Routes>
                 </SessionProvider>
@@ -44,9 +46,9 @@ function renderMatch() {
     return () => view.rerender(page());
 }
 
-function mockRequests(sendOrder) {
+function mockRequests(sendOrder, club = {id: 1}) {
     vi.stubGlobal('fetch', vi.fn(async (url, options) => {
-        if (url === '/api/clubs/me') return jsonResponse({id: 1});
+        if (url === '/api/clubs/me') return jsonResponse(club);
         if (url === '/api/behaviours') return jsonResponse({items: behaviours});
         if (url === '/api/matches/42/live-requests') return sendOrder(options);
         throw new Error(`Solicitud inesperada: ${url}`);
@@ -133,4 +135,46 @@ it('solo habilita cambios del equipo propio mientras el partido está en curso',
     expect(selector).toBeDisabled();
     fireEvent.change(selector, {target: {value: '8'}});
     expect(sendOrder).not.toHaveBeenCalled();
+});
+
+it('espera el modo del snapshot y muestra los cambios del DT sin selector manual en un amistoso', async () => {
+    const sendOrder = vi.fn();
+    mockRequests(sendOrder, {id: 1, dt: {isActive: false}});
+    showSnapshot({localDt: {dtConfigured: true}});
+    const rerender = renderMatch({returnTo: '/partidos-disponibles'});
+
+    const lineups = await screen.findByRole('region', {name: 'Jugadores en cancha'});
+    await within(lineups).findAllByText('Comportamiento actual:');
+    expect(within(lineups).queryByRole('combobox')).not.toBeInTheDocument();
+
+    showSnapshot({localDt: {dtActive: true}, behaviourId: 8, connectionStatus: 'reconnecting'});
+    rerender();
+    expect(screen.getByText('Estás viendo el partido en modo espectador.')).toBeInTheDocument();
+    const player = screen.getByRole('heading', {name: '#11 Julia'}).closest('li');
+    await waitFor(() => expect(player).toHaveTextContent('Comportamiento actual: Defensivo'));
+    expect(within(lineups).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(sendOrder).not.toHaveBeenCalled();
+});
+
+it('conserva el control del rival manual en liga aunque su perfil de club tenga el DT activado', async () => {
+    const sendOrder = vi.fn().mockResolvedValue(jsonResponse({queued: true, requestId: 1}));
+    mockRequests(sendOrder, {id: 2, dt: {isActive: true}});
+    const localDt = {dtActive: true};
+    const visitorDt = {dtActive: false, dtConfigured: true, dtError: 'Error anterior'};
+    showSnapshot({localDt, visitorDt, connectionStatus: 'reconnecting'});
+    const rerender = renderMatch({returnTo: '/ligas/14/sala-de-espera'});
+
+    const selector = await screen.findByRole('combobox', {name: 'Cambiar táctica de Bruno (#21)'});
+    await within(selector).findByRole('option', {name: 'Defensivo'});
+    expect(selector).toBeDisabled();
+    expect(screen.queryByText('Error anterior')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', {name: selectorName})).not.toBeInTheDocument();
+
+    showSnapshot({localDt, visitorDt});
+    rerender();
+    expect(selector).toBeEnabled();
+    fireEvent.change(selector, {target: {value: '8'}});
+    await waitFor(() => expect(sendOrder).toHaveBeenCalledWith(expect.objectContaining({
+        method: 'POST', body: JSON.stringify({playerId: 21, behaviourId: 8}),
+    })));
 });

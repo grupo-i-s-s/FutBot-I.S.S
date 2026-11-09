@@ -10,7 +10,7 @@ from app.services import match_stream_services as streams
 @pytest.fixture
 def access(monkeypatch, now):
     repo, users, sessions = Mock(), Mock(), Mock()
-    row = SimpleNamespace(match_id=42, creator_id=1, visitor_id=7, snapshot=None,
+    row = SimpleNamespace(match_id=42, creator_id=1, visitor_id=7, snapshot=None, runtime_state=None,
                           status="SCHEDULED", sequence=5, duration_ms=60000)
     repo.get_by_id.return_value = row
     repo.get_club_names.return_value = {1: "Home", 7: "Away"}

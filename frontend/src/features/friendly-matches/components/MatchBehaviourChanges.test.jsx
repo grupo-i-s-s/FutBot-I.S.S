@@ -11,7 +11,8 @@ it('muestra el cambio predeterminado recibido del motor y conserva los cambios m
     const behaviours = [{id: 10, name: 'Equilibrado'}, {id: 11, name: 'Defensivo'}];
     const player = {id: 1, name: 'Jugador', behaviourId: 10, behaviourMode: 'BALANCED'};
     const roster = updated => (
-        <LiveChangeBehaviour matchId="42" players={[updated]} behaviours={behaviours} isMyTeam canChange />
+        <LiveChangeBehaviour matchId="42" players={[updated]} behaviours={behaviours}
+                             isMyTeam allowManualActions canChange />
     );
     const fetchMock = vi.fn(async () => ({
         ok: true, status: 200, json: async () => ({queued: true}),

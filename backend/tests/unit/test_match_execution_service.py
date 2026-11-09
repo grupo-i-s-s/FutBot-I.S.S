@@ -16,8 +16,8 @@ class Simulation:
         self.finished = steps == 0
         self.match_id = 42
         self.duration_ms = 1000
-        self.local_team = SimpleNamespace(club_id=1)
-        self.visitor_team = SimpleNamespace(club_id=7)
+        self.local_team = SimpleNamespace(club_id=1, dt_active=False)
+        self.visitor_team = SimpleNamespace(club_id=7, dt_active=False)
         self.time = 0
         self.steps_left = steps
         self.steps = []

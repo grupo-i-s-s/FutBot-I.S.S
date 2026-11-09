@@ -24,7 +24,10 @@ beforeEach(() => {
     state = {
         status: 'RUNNING', phase: 'PLAYING', nextPause: {pauseId: '42:1', number: 1}, events: [],
         clockMs: 100, durationMs: 1000,
-        teams: [{id: 1, name: 'Mi club', side: 'LEFT', score: 0}, {id: 2, name: 'Rival', side: 'RIGHT', score: 0}],
+        teams: [
+            {id: 1, name: 'Mi club', side: 'LEFT', score: 0, dtActive: false},
+            {id: 2, name: 'Rival', side: 'RIGHT', score: 0, dtActive: false},
+        ],
         players: [1, 2, 3, 7, 8, 9].map(id => ({id, name: `Jugador ${id}`, teamId: id < 7 ? 1 : 2})),
         lineups: [
             {clubId: 1, starters: [player(1, 'Titular A'), player(2, 'Titular B'), player(3, 'Titular C')],
@@ -49,7 +52,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function panel(overrides = {}) {
-    return <PlannedSubstitutionPanel matchId="42" state={state} sequence={1} clubId={1} connected {...overrides}/>;
+    return <PlannedSubstitutionPanel matchId="42" state={state} sequence={1} clubId={1}
+                                     connected allowManualActions {...overrides}/>;
 }
 
 function matchPage() {
@@ -339,29 +343,25 @@ it.each([false, true])('integra el panel y sólo cambia la cancha al recibir el 
     expect(screen.getByText(/Cambio aplicado:/)).toBeInTheDocument();
 });
 
-it('muestra el estado del DT desde el snapshot y espera la confirmación del motor al desactivarlo', async () => {
-    const fetchDefault = fetchMock.getMockImplementation();
-    fetchMock.mockImplementation(async (url, options) => {
-        if (url === '/api/matches/42/dt') {
-            expect(options.method).toBe('POST');
-            expect(JSON.parse(options.body)).toEqual({dtActive: false});
-            return reply({dtActive: false});
-        }
-        return fetchDefault(url, options);
-    });
-    state.teams[0].dtActive = true;
-    state.teams[0].dtConfigured = true;
+it.each([false, true])('muestra las sustituciones del DT sin controles de cambio; pausa=%s', async paused => {
+    if (paused) pause();
+    state.teams[0] = {...state.teams[0], dtActive: true, dtConfigured: true,
+        dtError: paused ? 'El programa del DT se interrumpió.' : null};
+    state.lineups[0].pendingSubstitution = pending();
+    state.events = [{eventId: 'dt-1', type: 'SUBSTITUTION_APPLIED', source: 'DT',
+        clubId: 1, outPlayerId: 1, inPlayerId: 4}];
     useMatchConnection.mockReturnValue({snapshot: {sequence: 1, state}, connectionStatus: 'connected', error: '', retry: vi.fn()});
-    const view = render(matchPage());
-    fireEvent.click(await screen.findByRole('button', {name: 'Desactivar DT'}));
-    await waitFor(() => expect(screen.getByRole('button', {name: 'Desactivar DT'})).toBeEnabled());
-    expect(fetchMock).toHaveBeenCalledWith('/api/matches/42/dt', expect.anything());
-    expect(screen.getByText('DT activo')).toBeInTheDocument();
-    expect(screen.getByLabelText('Titular que sale')).toBeEnabled();
+    render(matchPage());
 
-    state.teams[0].dtActive = false;
-    useMatchConnection.mockReturnValue({snapshot: {sequence: 2, state}, connectionStatus: 'connected', error: '', retry: vi.fn()});
-    view.rerender(matchPage());
-    expect(screen.getByRole('button', {name: 'Activar DT'})).toBeEnabled();
-    expect(screen.getByText('DT inactivo')).toBeInTheDocument();
+    const substitutions = await screen.findByRole('region', {name: 'Sustituciones'});
+    expect(substitutions).toHaveTextContent('El DT hizo un cambio. Salió Titular A y entró Suplente A.');
+    expect(screen.getByRole('region', {name: 'Marcador del partido'})).toBeInTheDocument();
+    expect(screen.getByTestId('cancha')).toBeInTheDocument();
+    expect(screen.getByText(paused ? 'DT con error' : 'DT activo')).toBeInTheDocument();
+    if (paused) expect(screen.getByRole('alert')).toHaveTextContent('El programa del DT se interrumpió.');
+    expect(screen.queryByRole('button', {name: /activar DT/i})).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Titular que sale')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Suplente que entra')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cambio planificado:/)).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/matches/42/dt');
 });
