@@ -6,6 +6,7 @@ import pytest
 from psycopg import sql
 
 from app import migrate
+from primitives.dt_behaviour import DEFAULT_DT_CODES
 
 
 APPLICATION_TABLES = {
@@ -197,6 +198,38 @@ def test_pending_migrations_can_add_missing_columns_to_an_older_schema(migration
         assert connection.execute(
             "SELECT email FROM users WHERE id = %s", (user_id,),
         ).fetchone() == ("migration-test@example.com",)
+
+
+def test_dt_backfill_provisions_existing_clubs_and_preserves_assigned_strategies(migration_database):
+    files = [path for path in migrate.get_migration_files() if path.name < "016_dt_defaults.sql"]
+    with migration_database.connect() as connection:
+        for path in files:
+            connection.execute(path.read_text(encoding="utf-8"), prepare=False)
+        record_history(connection, files)
+        user_id = insert_user(connection)
+        club_id = connection.execute(
+            "INSERT INTO clubs (user_id, name, avatar) VALUES (%s, 'Club anterior', 'avatar-01.png') RETURNING id",
+            (user_id,),
+        ).fetchone()[0]
+        assigned = connection.execute("""
+            INSERT INTO dt_behaviours (user_id, name, code)
+            SELECT user_id, 'Mi estrategia', 'def decide(observation): return DtAction()' FROM clubs WHERE id = 999
+            RETURNING id
+        """).fetchone()[0]
+        connection.execute("INSERT INTO dt (club_id, is_active, behaviour_id) VALUES (999, true, %s)", (assigned,))
+
+    migrate.main()
+    migrate.main()
+
+    with migration_database.connect() as connection:
+        strategies = connection.execute("SELECT name, code FROM dt_behaviours WHERE user_id = %s", (user_id,)).fetchall()
+        assert len(strategies) == len(DEFAULT_DT_CODES)
+        assert dict(strategies) == DEFAULT_DT_CODES
+        assert connection.execute("""
+            SELECT dt.is_active, dt_behaviours.name FROM dt
+            JOIN dt_behaviours ON dt_behaviours.id = dt.behaviour_id WHERE dt.club_id = %s
+        """, (club_id,)).fetchone() == (False, "No hacer nada")
+        assert connection.execute("SELECT is_active, behaviour_id FROM dt WHERE club_id = 999").fetchone() == (True, assigned)
 
 
 @pytest.mark.parametrize("last_sql", [
