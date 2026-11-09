@@ -29,8 +29,7 @@ def get_rankings(db: Session, limit: int = 100):
             Stats.wins,
             Stats.draws,
             Stats.losses,
-            Stats.gF,
-            Stats.gA,
+            (Stats.gF - Stats.gA).label("dg"),
         )
         .join(Club.stats)
         .order_by(
