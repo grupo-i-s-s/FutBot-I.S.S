@@ -369,6 +369,7 @@ it.each([false, true])('integra el panel y sólo cambia la cancha al recibir el 
     fireEvent.click(screen.getByRole('button', {name: manual ? 'Realizar cambio' : 'Guardar cambio'}));
     await screen.findByText(manual ? /Cambio pendiente:/ : /Cambio planificado:/);
     expect(screen.getByTestId('cancha')).toHaveTextContent('1,2,3,7,8,9');
+    expect(within(screen.getByRole('region', {name: 'Banco de Mi club'})).getByText('Suplente A')).toBeInTheDocument();
     state = {...state, players: state.players.map(p => p.id === 1 ? {...p, id: 4} : p),
         lineups: [{...state.lineups[0], remainingSubstitutions: 0,
             starters: [player(4, 'Suplente A'), ...state.lineups[0].starters.slice(1)],
@@ -378,6 +379,9 @@ it.each([false, true])('integra el panel y sólo cambia la cancha al recibir el 
     useMatchConnection.mockReturnValue({snapshot, connectionStatus: 'connected', error: '', retry: vi.fn()});
     view.rerender(matchPage());
     expect(screen.getByTestId('cancha')).toHaveTextContent('4,2,3,7,8,9');
+    const bench = within(screen.getByRole('region', {name: 'Banco de Mi club'}));
+    expect(bench.getByText('Titular A')).toBeInTheDocument();
+    expect(bench.queryByText('Suplente A')).not.toBeInTheDocument();
     expect(screen.getByText(/Cambio aplicado:/)).toBeInTheDocument();
 });
 

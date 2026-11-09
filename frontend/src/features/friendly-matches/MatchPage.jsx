@@ -1,6 +1,8 @@
 import { Link, useLocation, useParams } from 'react-router';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {Badge} from '@/components/ui/badge';
+import {Card, CardContent, CardHeader} from '@/components/ui/card';
 import { listBehaviours } from '../behaviours/api.js';
 import { useSession } from '../session/SessionProvider.jsx';
 import { useMatchConnection } from './hooks/useMatchConnection.js';
@@ -13,6 +15,7 @@ import MatchBreakNotice, {
 } from './components/MatchBreakNotice.jsx';
 import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx';
 import PlannedSubstitutionPanel from './components/PlannedSubstitutionPanel.jsx';
+import MatchBench from './components/MatchBench.jsx';
 import {myClubBehavioursPath, routePath, routes} from '@/routes.js';
 
 const connectionLabels = {
@@ -45,10 +48,10 @@ function MatchDtStatus({ team }) {
     const status = dtError ? 'DT con error' : active ? 'DT activo' : 'DT inactivo';
 
     return (
-        <div className="match-notice">
-            <p className="font-semibold">{status}</p>
-            {active && <p>Estás viendo el partido en modo espectador.</p>}
-            {dtError && <p className="match-error" role="alert">{dtError}</p>}
+        <div className="ml-auto max-w-sm space-y-1 text-right text-xs">
+            <p className="inline-flex rounded-full bg-secondary px-3 py-1 font-semibold text-primary">{status}</p>
+            {active && <p className="text-muted-foreground">Estás viendo el partido en modo espectador.</p>}
+            {dtError && <p className="text-destructive wrap-anywhere" role="alert">{dtError}</p>}
         </div>
     );
 }
@@ -109,13 +112,15 @@ export default function MatchPage() {
                         {isBehaviourTest ? 'Volver a comportamientos' : leagueLobby ? 'Volver a la liga' : 'Volver a amistosos'}
                     </Link>
                 </header>
-                <p className={`match-connection ${live ? 'match-connection-live' : ''}`} role="status">{label}</p>
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <p className={`match-connection ${live ? 'match-connection-live' : ''}`} role="status">{label}</p>
+                    <MatchDtStatus team={myTeam} />
+                </div>
                 {error && <p className="match-error" role="alert">{error}</p>}
                 {['error', 'disconnected'].includes(connectionStatus) && <Button onClick={retry}>Reintentar</Button>}
                 {state && (
                     <>
                         <MatchScoreboard state={state} />
-                        <MatchDtStatus team={myTeam} />
                         <MatchBreakNotice
                             state={state}
                             connected={connected}
@@ -129,30 +134,40 @@ export default function MatchPage() {
                                                   sequence={snapshot.sequence} clubId={club?.id} connected={connected}
                                                   allowManualActions={allowManualActions}/>
                         {state.players.length > 0 && (
-                            <section className="match-lineups" aria-label="Jugadores en cancha">
+                            <section className="mt-6 grid items-start gap-6 md:grid-cols-2" aria-label="Jugadores en cancha">
                                 {state.teams.map((team) => {
                                     const teamPlayers = state.players.filter((player) => player.teamId === team.id);
 
                                     const isMyTeam = team.id === club?.id;
+                                    const lineup = state.lineups?.find(lineup => lineup.clubId === team.id);
                                     return (
-                                        <div key={team.id}>
-                                            <h2>
-                                                <span style={{ backgroundColor: team.color }} />
-                                                {team.name}
-                                            </h2>
-                                            {isMyTeam && allowManualActions && running && behavioursError && (
-                                                <p role="alert">No se pudieron cargar los comportamientos. {behavioursError}</p>
-                                            )}
-                                            <LiveChangeBehaviour
-                                                key={matchId}
-                                                matchId={matchId}
-                                                players={teamPlayers}
-                                                behaviours={behaviours}
-                                                isMyTeam={isMyTeam}
-                                                allowManualActions={allowManualActions}
-                                                canChange={running && connected}
-                                            />
-                                        </div>
+                                        <Card key={team.id} className="min-w-0 rounded-2xl" role="region" aria-label={`Plantel de ${team.name}`}>
+                                            <CardHeader className="gap-3 border-b px-5 pb-4">
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <h2 className="flex min-w-0 items-center gap-2 text-lg font-bold wrap-anywhere">
+                                                        <span className="size-3 shrink-0 rounded-full" style={{backgroundColor: team.color || 'var(--primary)'}} aria-hidden="true"/>
+                                                        {team.name}
+                                                    </h2>
+                                                    {isMyTeam && <Badge variant="secondary">Tu club</Badge>}
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">{teamPlayers.length} jugadores en cancha</p>
+                                            </CardHeader>
+                                            <CardContent className="space-y-4 px-5">
+                                                {isMyTeam && allowManualActions && running && behavioursError && (
+                                                    <p role="alert">No se pudieron cargar los comportamientos. {behavioursError}</p>
+                                                )}
+                                                <LiveChangeBehaviour
+                                                    key={matchId}
+                                                    matchId={matchId}
+                                                    players={teamPlayers}
+                                                    behaviours={behaviours}
+                                                    isMyTeam={isMyTeam}
+                                                    allowManualActions={allowManualActions}
+                                                    canChange={running && connected}
+                                                />
+                                                <MatchBench teamName={team.name} players={lineup?.substitutes}/>
+                                            </CardContent>
+                                        </Card>
                                     );
                                 })}
                             </section>

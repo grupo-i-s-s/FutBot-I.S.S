@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import { changeBehaviour } from '../matchApi';
-import '../MatchPage.css';
+import {UserRound} from 'lucide-react';
 
 const modeNames = {
     BALANCED: 'Equilibrado',
@@ -34,14 +34,14 @@ function PlayerBehaviour({matchId, player, behaviours, allowManualActions, canCh
 
     return (
         <>
-            <p className="mt-2">
-                <span className="font-medium">Comportamiento actual:</span>{' '}
-                {confirmedName}
+            <p className="mt-1.5 text-xs leading-normal">
+                <span className="text-muted-foreground">Comportamiento actual:</span>{' '}
+                <span className="font-medium text-primary">{confirmedName}</span>
             </p>
-            {allowManualActions && <div className="mt-2">
+            {allowManualActions && <div className="mt-1.5">
                 <select
                     aria-label={`Cambiar táctica de ${player.name} (#${player.id})`}
-                    className="w-full text-sm p-1 border rounded"
+                    className="h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
                     value={confirmedId}
                     disabled={!canChange || sending || behaviours.length === 0}
                     onChange={handleChange}
@@ -58,36 +58,21 @@ function PlayerBehaviour({matchId, player, behaviours, allowManualActions, canCh
 
 export default function LiveChangeBehaviour({matchId, players, behaviours, isMyTeam, allowManualActions, canChange}) {
     return (
-        <div>
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {players.map((player) => (
-                    <li key={player.id}>
-                        <div className="border rounded-lg p-3 shadow-sm bg-white flex items-center gap-3">
-                            <div>
-                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-primary">
-                                    {player.name.charAt(0).toUpperCase()}
-                                </div>
-                            </div>
-                            <div className="min-w-0">
-                                <h4 className="truncate">
-                                    #{player.id} {player.name}
-                                </h4>
-                                {isMyTeam ? (
-                                    <PlayerBehaviour
-                                        matchId={matchId}
-                                        player={player}
-                                        behaviours={behaviours}
-                                        allowManualActions={allowManualActions}
-                                        canChange={canChange}
-                                    />
-                                ) : (
-                                    <p className="text-xs text-gray-400 mt-1 italic">Oculto</p>
-                                )}
-                            </div>
-                        </div>
-                    </li>
-                ))}
-            </ul>
-        </div>
+        <ul className="grid list-none gap-1.5 p-0">
+            {players.map(player => (
+                <li key={player.id} className="min-w-0 rounded-lg border bg-background p-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary text-primary" aria-hidden="true">
+                            <UserRound className="size-3.5"/>
+                        </span>
+                        <h4 className="min-w-0 text-xs font-semibold wrap-anywhere">#{player.id} {player.name}</h4>
+                    </div>
+                    {isMyTeam ? (
+                        <PlayerBehaviour matchId={matchId} player={player} behaviours={behaviours}
+                            allowManualActions={allowManualActions} canChange={canChange}/>
+                    ) : <p className="mt-1.5 text-xs text-muted-foreground">Oculto</p>}
+                </li>
+            ))}
+        </ul>
     );
 }
