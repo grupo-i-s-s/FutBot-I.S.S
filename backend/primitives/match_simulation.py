@@ -734,11 +734,11 @@ class Match:
         for change in action.tactical_changes:
             target = players.get(change["player_id"])
             mode = BehaviourMode(change["mode"])
-            default = team.dt_default_behaviours.get(mode)
-            if target is None or target.behaviour_code is not None or default is None:
+            if target is None or target.behaviour_code is not None:
                 continue
 
-            behaviour_id, version = default
+            # Un club anterior puede haber perdido el preset sin perder el modo del motor.
+            behaviour_id, version = team.dt_default_behaviours.get(mode, (None, 1))
             if (target.behaviour_id, target.behaviour_version, target.behaviour_mode) != (behaviour_id, version, mode):
                 self.change_behaviour(
                     target.id,
@@ -776,7 +776,7 @@ class Match:
             player_id: int,
             *,
             club_id: int,
-            behaviour_id: int,
+            behaviour_id: int | None,
             behaviour_mode: BehaviourMode,
             behaviour_code: str | None,
             behaviour_version: int,

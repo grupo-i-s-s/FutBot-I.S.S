@@ -114,5 +114,16 @@ def resolve_behaviour(code: str, name: str) -> BehaviourMode:
     raise ValueError(f"El comportamiento {name!r} no tiene un programa compatible.")
 
 
+def default_behaviour_mode(name: str, code: str) -> BehaviourMode | None:
+    """Identifica los programas predeterminados que puede aplicar el DT."""
+    expected = DEFAULT_MODES.get(name)
+    if expected is None:
+        return None
+    try:
+        return expected if resolve_behaviour(code, name) == expected else None
+    except ValueError:
+        return None
+
+
 def decide(mode: BehaviourMode, observation: Observation) -> Action:
     return PROGRAMS[mode](observation)

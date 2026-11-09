@@ -14,7 +14,7 @@ from app.repository import (
 )
 from app.schemas.team_schemas import Lineup
 from primitives.behaviour_api.runtime import resolve_program
-from primitives.behaviours import DEFAULT_MODES, BehaviourMode, resolve_behaviour
+from primitives.behaviours import BehaviourMode, default_behaviour_mode
 from primitives.formations import FORMATIONS
 from primitives.match_simulation import Match, PlayerProfile, Team
 
@@ -22,14 +22,10 @@ from primitives.match_simulation import Match, PlayerProfile, Team
 def default_behaviours_for_dt(behaviours: Iterable[Behavior]) -> dict[BehaviourMode, tuple[int, int]]:
     defaults = {}
     for behaviour in behaviours:
-        expected = DEFAULT_MODES.get(behaviour.name)
-        if expected is None or behaviour.kind != "PLAYER" or behaviour.validation_status != "VALID":
+        if behaviour.kind != "PLAYER" or behaviour.validation_status != "VALID":
             continue
-        try:
-            mode = resolve_behaviour(behaviour.code, behaviour.name)
-        except ValueError:
-            continue
-        if mode == expected:
+        mode = default_behaviour_mode(behaviour.name, behaviour.code)
+        if mode is not None:
             defaults[mode] = (behaviour.id, behaviour.version)
     return defaults
 

@@ -144,6 +144,39 @@ def test_assigns_owned_strategy_and_persists_automatic_actions_across_resume(dt_
     assert client.get(f"/matches/{match_id}").json() == final
 
 
+@pytest.mark.parametrize("preset_change", ["replaced", "deleted"])
+def test_dt_applies_builtin_mode_when_a_legacy_club_lost_the_preset(dt_game, database, preset_change):
+    with Session(database) as db:
+        preset = db.get(Behavior, dt_game.offensive_id)
+        if preset_change == "replaced":
+            preset.code = "def decide(observation):\n    return ir_a_pelota()"
+        else:
+            preset.is_deleted = True
+        db.commit()
+
+    assign_strategy(dt_game.client, active=True)
+    stop = Mock(spec=Event)
+    stop.is_set.return_value = False
+    stop.wait.side_effect = [False, False, False, True]
+    paused = execution.run_persisted_match(dt_game.match_id, stop_event=stop)
+    assert paused["state"]["phase"] == "HYDRATION_BREAK"
+
+    def assert_builtin_mode(snapshot):
+        local = [player for player in snapshot["state"]["players"] if player["teamId"] == dt_game.local_id]
+        assert sum(player["behaviourMode"] == "OFFENSIVE" for player in local) >= 2
+        assert all(
+            player["behaviourId"] is None and player["behaviourVersion"] == 1
+            for player in local if player["behaviourMode"] == "OFFENSIVE"
+        )
+        assert snapshot["state"]["teams"][0]["dtError"] is None
+
+    assert_builtin_mode(paused)
+    final = execution.run_persisted_match(dt_game.match_id)
+    assert final["state"]["status"] == "FINISHED"
+    assert_builtin_mode(final)
+    assert dt_game.client.get(f"/matches/{dt_game.match_id}").json() == final
+
+
 @pytest.mark.parametrize("active", [False, True])
 def test_running_mode_rejects_toggles_and_controls_manual_actions(dt_game, league_data, monkeypatch, active):
     client, match_id = dt_game.client, dt_game.match_id

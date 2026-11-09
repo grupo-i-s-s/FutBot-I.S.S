@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from queue import Queue
+from threading import Event
 from time import monotonic, sleep
 from types import SimpleNamespace
 from uuid import uuid4
@@ -24,8 +25,9 @@ from app.models.league_model import League, LeagueRegistration, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
+from app.schemas.behaviour_schemas import BehaviourUpdate
 from app.services import behaviour_service, player_service
-from primitives.behaviours import DEFAULT_CODES
+from primitives.behaviours import DEFAULT_CODES, LEGACY_CODE
 
 
 @pytest.fixture
@@ -602,6 +604,50 @@ def test_free_behaviour_can_be_edited(api):
     assert saved.is_deleted is False
 
 
+@pytest.mark.parametrize("source", [DEFAULT_CODES["Ofensivo"], LEGACY_CODE])
+def test_dt_preset_is_reserved_even_without_active_assignments(api, source):
+    client, db = api
+    db.add(Behavior(
+        id=40, club_id=1, name="Ofensivo", description="Preset", code=source,
+        kind="PLAYER", version=1, validation_status="VALID",
+    ))
+    db.commit()
+
+    usage = client.get("/behaviours/40/usage")
+    assert usage.status_code == 200
+    assert usage.json()["inUse"] is True
+    assert "dtPreset" in usage.json()["references"]
+
+    assert_conflict(
+        client.put("/behaviours/40", json=edit_payload(code=source, expectedVersion=1)),
+        "dtPreset",
+    )
+    assert_conflict(client.put("/behaviours/40", json=edit_payload(expectedVersion=1)), "dtPreset")
+    assert_conflict(client.delete("/behaviours/40"), "dtPreset")
+    db.expire_all()
+    saved = db.get(Behavior, 40)
+    assert (saved.name, saved.code, saved.version, saved.is_deleted) == ("Ofensivo", source, 1, False)
+
+
+@pytest.mark.parametrize("runtime,snapshot,in_use", [
+    (["legacy"], {"state": {"players": [None, {"teamId": 1, "behaviourId": 20}]}}, True),
+    ({"local_team": {"club_id": 1, "dt_default_behaviours": []}}, {"state": []}, False),
+    ({"local_team": {"club_id": 1, "dt_default_behaviours": {"offensive": [20, 1]}}}, ["legacy"], True),
+])
+def test_usage_handles_malformed_active_match_documents(api, runtime, snapshot, in_use):
+    client, db = api
+    row = match_row()
+    row.runtime_state = runtime
+    row.snapshot = snapshot
+    db.add(row)
+    db.commit()
+
+    response = client.get("/behaviours/20/usage")
+    assert response.status_code == 200, response.text
+    assert response.json()["inUse"] is in_use
+    assert ("matches.42" in response.json()["references"]) is in_use
+
+
 @pytest.mark.parametrize(
     "context, reference",
     [
@@ -709,8 +755,6 @@ def test_assignment_before_edit_blocks_edit(
     database,
     monkeypatch,
 ):
-    from app.schemas.behaviour_schemas import BehaviourUpdate
-
     pids = Queue()
 
     def edit_in_second_session():
@@ -747,6 +791,39 @@ def test_assignment_before_edit_blocks_edit(
                 real_commit()
 
             assert future.result(timeout=15) == "BEHAVIOUR_IN_USE"
+
+    with Session(database) as db:
+        assert db.get(Player, 101).behavior_id == 20
+        assert db.get(Behavior, 20).version == 3
+
+
+def test_assignment_during_validation_is_rechecked_after_validation(database, monkeypatch):
+    validating = Event()
+    resume = Event()
+
+    def slow_validation(code, kind):
+        validating.set()
+        assert resume.wait(timeout=5)
+        return []
+
+    monkeypatch.setattr(behaviour_service, "validate_program", slow_validation)
+
+    def edit():
+        with Session(database) as db:
+            with pytest.raises(AppError) as error:
+                behaviour_service.update_behaviour(db, 1, 20, BehaviourUpdate(**edit_payload()))
+            return error.value.code
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(edit)
+        try:
+            assert validating.wait(timeout=5)
+            with Session(database) as db:
+                db.execute(text("SET LOCAL lock_timeout = '500ms'"))
+                player_service.assign_behaviour(db, 1, 101, 20)
+        finally:
+            resume.set()
+        assert future.result(timeout=5) == "BEHAVIOUR_IN_USE"
 
     with Session(database) as db:
         assert db.get(Player, 101).behavior_id == 20

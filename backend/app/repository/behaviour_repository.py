@@ -1,5 +1,5 @@
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 from app.models.league_model import League, LeagueRegistration, TERMINAL_LEAGUE_STATUSES
 from app.models.auth_model import Club
 from app.models.matches_model import Matches
@@ -90,6 +90,7 @@ def get_active_matches(db: Session, club_id: int) -> list[Matches]:
     return list(
         db.scalars(
             select(Matches)
+            .options(load_only(Matches.match_id, Matches.snapshot, Matches.runtime_state))
             .where(
                 or_(Matches.creator_id == club_id, Matches.visitor_id == club_id),
                 Matches.status.in_(("WAITING", "WAITING_OPPONENT", "SCHEDULED", "RUNNING"))
