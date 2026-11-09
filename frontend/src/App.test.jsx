@@ -1,6 +1,7 @@
 import {afterEach, expect, it, vi} from 'vitest';
 import {cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {createMemoryRouter, RouterProvider, useLocation} from 'react-router';
+import {toast} from 'sonner';
 import App from './App.jsx';
 
 const club = {id: 8, name: 'Club de pruebas', avatar: 'avatar-01.png', friendlyAvailable: true};
@@ -8,6 +9,7 @@ const invalidSession = {error: {code: 'SESSION_INVALID', message: 'La sesión ve
 
 afterEach(() => {
     cleanup();
+    toast.dismiss();
     vi.unstubAllGlobals();
 });
 
@@ -62,7 +64,7 @@ it.each([
     expect(within(screen.getByRole('banner')).queryByRole('link', {name: /futbot/i})).not.toBeInTheDocument();
 
     fireEvent.click(nav.getByRole('link', {name: 'Registrarse'}));
-    expect(await screen.findByRole('heading', {name: 'Registro Usuario'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading', {name: 'Registrá tu club'})).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/registro$/);
 });
 
@@ -112,16 +114,19 @@ it('lets an anonymous club verify its email after registering', async () => {
     await screen.findByRole('link', {name: 'Registrarse'});
     fireEvent.change(screen.getByLabelText('Nombre del Club'), {target: {value: 'Nuevo club'}});
     fireEvent.change(screen.getByLabelText('Email'), {target: {value: email}});
-    fireEvent.change(screen.getByPlaceholderText('Contraseña'), {target: {value: 'contraseña-de-prueba'}});
-    fireEvent.change(screen.getByPlaceholderText('Confimar-contraseña'), {target: {value: 'contraseña-de-prueba'}});
+    fireEvent.change(screen.getByLabelText('Contraseña', {exact: true}), {target: {value: 'contraseña-de-prueba'}});
+    fireEvent.change(screen.getByLabelText('Confirmar contraseña', {exact: true}), {target: {value: 'contraseña-de-prueba'}});
     fireEvent.click(screen.getByRole('button', {name: 'Registrar Club'}));
 
     expect(await screen.findByText(email)).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/verificar-email$/);
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(await notifications.findByText('Código de verificación enviado')).toBeVisible();
     fireEvent.change(screen.getByPlaceholderText('Ingrese el código'), {target: {value: '123456'}});
     fireEvent.click(screen.getByRole('button', {name: 'Verificar correo'}));
 
     expect(await screen.findByRole('link', {name: 'Ir a iniciar sesión'})).toHaveAttribute('href', '/iniciar-sesion');
+    expect(await notifications.findByText('Correo verificado')).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith('/api/auth/verify-email', expect.objectContaining({method: 'POST'}));
 });
 
@@ -147,6 +152,8 @@ it('updates the navigation on login and logout', async () => {
 
     expect(await screen.findByRole('img', {name: `Escudo de ${club.name}`})).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/inicio$/));
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(await notifications.findByText('Sesión iniciada')).toBeVisible();
     expect(screen.getByText(club.name)).toBeInTheDocument();
     expect(within(screen.getByRole('banner')).queryByRole('link', {name: /futbot/i})).not.toBeInTheDocument();
     const nav = within(screen.getByRole('navigation'));

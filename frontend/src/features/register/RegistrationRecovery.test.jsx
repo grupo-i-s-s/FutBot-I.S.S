@@ -46,7 +46,7 @@ it('muestra el alta pendiente y permite continuar con los datos anteriores de fo
     change('Nombre del Club', 'Nombre modificado');
     change('Email', email);
     change('Contraseña', 'replacement-password');
-    change('Confirmar Contraseña', 'replacement-password');
+    change('Confirmar contraseña', 'replacement-password');
     fireEvent.click(screen.getByRole('button', {name: 'Registrar Club'}));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Ya hay una verificación pendiente.');
