@@ -14,7 +14,7 @@ REQUIRED_COLUMNS = {
     for model in (
         User, Club, AuthSession, Behavior, Player, League, LeagueRegistration,
         LeagueRound, LeagueStanding, DefaultTeam, Matches, PlannedSubstitution,
-        PendingEmailVerification, Dt, DtBehaviour, Stats PasswordResetRequest
+        PendingEmailVerification, Dt, DtBehaviour, Stats, PasswordResetRequest
     )
 }
 
