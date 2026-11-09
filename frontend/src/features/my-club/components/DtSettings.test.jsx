@@ -18,8 +18,8 @@ function renderSettings(dt, onSaveSuccess) {
 it('recupera y guarda la activación y la estrategia en el endpoint del DT', async () => {
     let saved = {id: 1, isActive: false, activeBehaviourId: 10};
     const fetchMock = vi.fn(async (url, options) => {
-        if (url === '/api/dt/behaviours') return reply({items: strategies});
-        expect(url).toBe('/api/dt');
+        if (url === '/api/clubs/me/dt/behaviours') return reply({items: strategies});
+        expect(url).toBe('/api/clubs/me/dt');
         expect(options.method).toBe('PATCH');
         expect(options.headers['X-FutBot-Request']).toBe('1');
         saved = {...saved, ...JSON.parse(options.body)};
@@ -47,7 +47,7 @@ it('recupera y guarda la activación y la estrategia en el endpoint del DT', asy
 });
 
 it('exige una estrategia para activar el DT y conserva la selección si falla el guardado', async () => {
-    const fetchMock = vi.fn(async (url) => url === '/api/dt/behaviours'
+    const fetchMock = vi.fn(async (url) => url === '/api/clubs/me/dt/behaviours'
         ? reply({items: strategies})
         : reply({error: {message: 'No se pudo guardar el cambio.'}}, 409));
     vi.stubGlobal('fetch', fetchMock);

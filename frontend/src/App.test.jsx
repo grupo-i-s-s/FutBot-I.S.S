@@ -20,13 +20,16 @@ function jsonResponse(body, status = 200) {
 }
 
 function CurrentPath() {
-    const {pathname} = useLocation();
-    return <span hidden data-testid="current-path">{pathname}</span>;
+    const {pathname, search, hash, state} = useLocation();
+    return (
+        <span hidden data-testid="current-path" data-search={search} data-hash={hash}
+              data-navigation-state={JSON.stringify(state)}>{pathname}</span>
+    );
 }
 
 function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
     const fetchMock = vi.fn(async (url, options) => {
-        if (url === '/api/club/me') return getClub();
+        if (url === '/api/clubs/me') return getClub();
         const respond = responses[url];
         if (!respond) throw new Error(`Unexpected request: ${url}`);
         return respond(options);
@@ -37,14 +40,14 @@ function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
 }
 
 it.each([
-    '/ligas-disponibles', '/liga-cancelada', '/clubes', '/club/42',
-    '/crear-comportamiento-dt', '/leagues/42/lineup',
+    '/ligas-disponibles', '/liga-cancelada', '/clubes', '/clubes/42',
+    '/crear-comportamiento-dt', '/ligas/42/plantel', '/leagues/42/lineup',
 ])('redirects anonymous visits to %s to /', async (path) => {
     const fetchMock = renderRoute(path, {}, () => jsonResponse(invalidSession, 401));
 
     expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/$/);
-    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/club/me']);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/clubs/me']);
     const nav = within(screen.getByRole('navigation'));
     expect(nav.getByRole('link', {name: 'Iniciar sesión'})).toBeInTheDocument();
     expect(nav.getByRole('link', {name: 'Registrarse'})).toHaveAttribute('href', '/registro');
@@ -54,6 +57,41 @@ it.each([
     fireEvent.click(nav.getByRole('link', {name: 'Registrarse'}));
     expect(await screen.findByRole('heading', {name: 'Registro Usuario'})).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/registro$/);
+});
+
+it('redirects the old login URL without losing the query, anchor or navigation state', async () => {
+    const state = {returnTo: '/mi-club'};
+    renderRoute({pathname: '/login', search: '?origen=registro', hash: '#sesion', state},
+        {}, () => jsonResponse(invalidSession, 401));
+
+    expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
+    const location = screen.getByTestId('current-path');
+    expect(location).toHaveTextContent(/^\/iniciar-sesion$/);
+    expect(location).toHaveAttribute('data-search', '?origen=registro');
+    expect(location).toHaveAttribute('data-hash', '#sesion');
+    expect(location).toHaveAttribute('data-navigation-state', JSON.stringify(state));
+});
+
+it.each(['/home', '/login'])('redirects %s to the authenticated home with its filters', async (pathname) => {
+    const search = '?creatorName=River&page=2';
+    const hash = '#amistosos';
+    const state = {returnTo: '/mi-club'};
+    const fetchMock = renderRoute({pathname, search, hash, state}, {
+        '/api/leagues?page=1&pageSize=100': () => jsonResponse({items: []}),
+        '/api/friendly-matches?creatorName=River&page=2&pageSize=20': () => jsonResponse({
+            items: [], total: 0, page: 2, pageSize: 20,
+        }),
+    });
+
+    expect(await screen.findByLabelText('Buscar por nombre del club')).toHaveValue('River');
+    const location = screen.getByTestId('current-path');
+    expect(location).toHaveTextContent(/^\/inicio$/);
+    expect(location).toHaveAttribute('data-search', search);
+    expect(location).toHaveAttribute('data-hash', hash);
+    expect(location).toHaveAttribute('data-navigation-state', JSON.stringify(state));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        '/api/friendly-matches?creatorName=River&page=2&pageSize=20', expect.anything(),
+    ));
 });
 
 it('lets an anonymous club verify its email after registering', async () => {
@@ -75,7 +113,7 @@ it('lets an anonymous club verify its email after registering', async () => {
     fireEvent.change(screen.getByPlaceholderText('Ingrese el código'), {target: {value: '123456'}});
     fireEvent.click(screen.getByRole('button', {name: 'Verificar correo'}));
 
-    expect(await screen.findByRole('link', {name: 'Ir a iniciar sesión'})).toHaveAttribute('href', '/login');
+    expect(await screen.findByRole('link', {name: 'Ir a iniciar sesión'})).toHaveAttribute('href', '/iniciar-sesion');
     expect(fetchMock).toHaveBeenCalledWith('/api/auth/verify-email', expect.objectContaining({method: 'POST'}));
 });
 
@@ -90,7 +128,7 @@ it('updates the navigation on login and logout', async () => {
             signedIn = false;
             return jsonResponse(null, 204);
         },
-        '/api/leagues': () => jsonResponse({items: []}),
+        '/api/leagues?page=1&pageSize=100': () => jsonResponse({items: []}),
         '/api/friendly-matches?creatorName=&page=1&pageSize=20': () => jsonResponse({items: [], total: 0, page: 1, pageSize: 20}),
     }, () => signedIn ? jsonResponse(club) : jsonResponse(invalidSession, 401));
 
@@ -100,11 +138,11 @@ it('updates the navigation on login and logout', async () => {
     fireEvent.click(screen.getByRole('button', {name: /iniciar sesión/i}));
 
     expect(await screen.findByRole('img', {name: `Escudo de ${club.name}`})).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/home$/));
+    await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/inicio$/));
     expect(screen.getByText(club.name)).toBeInTheDocument();
     expect(within(screen.getByRole('banner')).queryByRole('link', {name: /futbot/i})).not.toBeInTheDocument();
     const nav = within(screen.getByRole('navigation'));
-    expect(nav.getByRole('link', {name: 'Inicio'})).toHaveAttribute('href', '/home');
+    expect(nav.getByRole('link', {name: 'Inicio'})).toHaveAttribute('href', '/inicio');
     expect(nav.getByRole('link', {name: 'Mi club'})).toHaveAttribute('href', '/mi-club');
     expect(nav.getByRole('link', {name: 'Amistosos'})).toHaveAttribute('href', '/partidos-disponibles');
     expect(nav.getByRole('link', {name: 'Ligas'})).toHaveAttribute('href', '/ligas-disponibles');
@@ -121,13 +159,13 @@ it('updates the navigation on login and logout', async () => {
 
 it('redirects to / when a private request reports an expired session', async () => {
     const fetchMock = renderRoute('/ligas-disponibles', {
-        '/api/leagues': () => jsonResponse(invalidSession, 401),
+        '/api/leagues?page=1&pageSize=100': () => jsonResponse(invalidSession, 401),
     });
 
     expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/$/);
     expect(screen.queryByRole('button', {name: 'Cerrar sesión'})).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/leagues', expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith('/api/leagues?page=1&pageSize=100', expect.anything());
 });
 
 it('opens the available leagues route and filters through the authenticated API', async () => {
@@ -138,18 +176,23 @@ it('opens the available leagues route and filters through the authenticated API'
         }],
     };
     const fetchMock = renderRoute('/ligas-disponibles', {
-        '/api/leagues': () => jsonResponse(leagues),
-        '/api/leagues?name=Liga+integrada': () => jsonResponse(leagues),
+        '/api/leagues?page=1&pageSize=100': () => jsonResponse(leagues),
+        '/api/leagues?page=1&pageSize=100&name=Liga+integrada': () => jsonResponse({...leagues, hasNext: true}),
+        '/api/leagues?page=2&pageSize=100&name=Liga+integrada': () => jsonResponse({
+            items: [{...leagues.items[0], id: 43, name: 'Liga integrada B', isMember: false}],
+            hasNext: false,
+        }),
     });
     expect(await screen.findByText('Liga integrada')).toBeInTheDocument();
     expect(screen.getByText('Tu club ya está inscripto.')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/leagues', expect.objectContaining({credentials: 'same-origin'}));
+    expect(fetchMock).toHaveBeenCalledWith('/api/leagues?page=1&pageSize=100', expect.objectContaining({credentials: 'same-origin'}));
 
     fireEvent.change(screen.getByLabelText('Buscar por nombre'), {
         target: {value: '  Liga integrada  '},
     });
     fireEvent.submit(screen.getByLabelText('Buscar por nombre').closest('form'));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/leagues?name=Liga+integrada', expect.anything()));
+    expect(await screen.findByText('Liga integrada B')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/leagues?page=2&pageSize=100&name=Liga+integrada', expect.anything());
     expect(await screen.findByText('Liga integrada')).toBeInTheDocument();
 });
 
@@ -175,7 +218,7 @@ it('retains the private league creation route and its request contract', async (
     }
     fireEvent.submit(screen.getByRole('button', {name: 'Crear liga'}).closest('form'));
     expect(await screen.findByRole('heading', {name: /Liga privada integrada/})).toBeInTheDocument();
-    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/leagues\/42\/lobby$/);
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/ligas\/42\/sala-de-espera$/);
     const [, options] = fetchMock.mock.calls.find(([url]) => url === '/api/leagues/private');
     expect(options.method).toBe('POST');
     expect(JSON.parse(options.body)).toEqual({
@@ -186,8 +229,9 @@ it('retains the private league creation route and its request contract', async (
     });
 });
 
-it('displays the creator registration and opens the lineup from the league lobby', async () => {
-    const fetchMock = renderRoute('/leagues/42/lobby', {
+it('redirects the old league lobby URL and opens the lineup from the Spanish lobby', async () => {
+    const state = {returnTo: '/ligas-disponibles?page=2'};
+    const fetchMock = renderRoute({pathname: '/leagues/42/lobby', search: '?origen=lista', hash: '#clubes', state}, {
         '/api/leagues/42/lobby': () => jsonResponse({
             name: 'Liga integrada', status: 'open',
             isPrivate: true, minTeams: 3, maxTeams: 8, remainingSlots: 7,
@@ -200,7 +244,7 @@ it('displays the creator registration and opens the lineup from the league lobby
             leagueId: 42, leagueName: 'Liga integrada', clubId: club.id,
             editable: true, version: 0, lineUp: null,
         }),
-        '/api/players?page=1&limit=100': () => jsonResponse({items: [], totalPages: 1}),
+        '/api/players?page=1&pageSize=100': () => jsonResponse({items: [], totalPages: 1}),
         '/api/behaviours?kind=PLAYER': () => jsonResponse({items: []}),
         '/api/catalogs/formations': () => jsonResponse({items: []}),
     });
@@ -209,10 +253,38 @@ it('displays the creator registration and opens the lineup from the league lobby
     expect(screen.getByText('Creador')).toBeInTheDocument();
     expect(screen.getByText('Tu club está inscripto.')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/leagues/42/lobby', expect.anything());
+    const location = screen.getByTestId('current-path');
+    expect(location).toHaveTextContent(/^\/ligas\/42\/sala-de-espera$/);
+    expect(location).toHaveAttribute('data-search', '?origen=lista');
+    expect(location).toHaveAttribute('data-hash', '#clubes');
+    expect(location).toHaveAttribute('data-navigation-state', JSON.stringify(state));
 
     fireEvent.click(screen.getByRole('link', {name: 'Ver plantel'}));
     expect(await screen.findByRole('heading', {name: 'Plantel de Liga integrada'})).toBeInTheDocument();
-    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/leagues\/42\/lineup$/);
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/ligas\/42\/plantel$/);
+});
+
+it.each([
+    '/leagues/42/join?leagueId=42&origen=lista#equipo',
+    '/inscripcion-liga?leagueId=42&origen=lista#equipo',
+])('redirects old registration URL %s to the league registration', async (url) => {
+    renderRoute(url, {
+        '/api/leagues/42/lobby': () => jsonResponse({
+            id: 42, name: 'Liga integrada', isRegistered: true,
+        }),
+    });
+
+    expect(await screen.findByText('Inscripción confirmada')).toBeInTheDocument();
+    const location = screen.getByTestId('current-path');
+    expect(location).toHaveTextContent(/^\/ligas\/42\/inscripcion$/);
+    expect(location).toHaveAttribute('data-search', '?leagueId=42&origen=lista');
+    expect(location).toHaveAttribute('data-hash', '#equipo');
+});
+
+it('keeps the missing-league message on the old registration URL with no league selected', async () => {
+    renderRoute('/inscripcion-liga');
+
+    expect(await screen.findByText('No se seleccionó ninguna liga')).toBeInTheDocument();
 });
 
 it('shows the cancellation page when an authenticated club opens a deleted league lobby', async () => {
@@ -241,10 +313,10 @@ it.each([false, true])('joins a league from the listing and opens its lobby (pri
     };
     const fetchMock = vi.fn(async (url, options) => {
         let response;
-        if (url === '/api/club/me') response = club;
-        else if (url === '/api/leagues') response = {items: [league]};
+        if (url === '/api/clubs/me') response = club;
+        else if (url === '/api/leagues?page=1&pageSize=100') response = {items: [league]};
         else if (url === '/api/auth/me') response = {clubId: 8};
-        else if (url === '/api/team/default') response = {clubId: 8, lineUp};
+        else if (url === '/api/clubs/me/default-team') response = {clubId: 8, lineUp};
         else if (url.startsWith('/api/players/by-ids?')) response = players;
         else if (url === '/api/catalogs/formations') response = {items: [{
             id: 2, name: 'Equilibrada', slots: ['Arquero', 'Defensor', 'Delantero'].map(label => ({label})),

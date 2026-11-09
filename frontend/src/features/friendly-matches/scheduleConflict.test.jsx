@@ -44,7 +44,7 @@ it('muestra la franja ocupada en hora local al crear un amistoso', async () => {
 it('muestra la franja ocupada al intentar unirse a un amistoso', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url) => {
         if (url === '/api/friendly-matches/me') return jsonResponse([]);
-        if (url === '/api/friendly-matches/join') return conflictResponse();
+        if (url === '/api/friendly-matches/42/join') return conflictResponse();
         return jsonResponse({
             items: [{matchId: 42, creatorClubName: 'Club local', startDateTime: conflictStart}],
             total: 1, page: 1, pageSize: 20,
@@ -63,7 +63,7 @@ it.each([
     ['CHECKPOINT_UNRECOVERABLE', 2, /no se pudo recuperar el estado guardado.*partido quedó sin resultado/],
 ])('explica en el detalle la cancelación por %s', async (reason, localScore, message) => {
     vi.stubGlobal('fetch', vi.fn(async (url) => {
-        if (url === '/api/club/me') return jsonResponse({id: 1});
+        if (url === '/api/clubs/me') return jsonResponse({id: 1});
         if (url === '/api/behaviours') return jsonResponse({items: []});
         return jsonResponse({
             schemaVersion: 1, type: 'match.snapshot', matchId: 42, sequence: 1, sentAt: conflictStart,

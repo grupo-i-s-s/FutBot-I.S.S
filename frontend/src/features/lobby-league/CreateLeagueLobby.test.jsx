@@ -57,8 +57,8 @@ afterEach(() => {
 });
 
 function openLobby() {
-    render(<MemoryRouter initialEntries={['/leagues/42/lobby']}>
-        <Routes><Route path="/leagues/:id/lobby" element={<LeagueLobby/>}/></Routes>
+    render(<MemoryRouter initialEntries={['/ligas/42/sala-de-espera']}>
+        <Routes><Route path="/ligas/:id/sala-de-espera" element={<LeagueLobby/>}/></Routes>
     </MemoryRouter>);
 }
 

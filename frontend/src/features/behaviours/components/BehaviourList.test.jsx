@@ -25,7 +25,7 @@ async function openDeletion() {
         ]);
 
         render(
-            <MemoryRouter initialEntries={['/behaviours']}>
+            <MemoryRouter initialEntries={['/comportamientos']}>
                 <BehaviourList/>
             </MemoryRouter>
         );
@@ -86,13 +86,13 @@ describe('BehaviourList Component', () => {
         // Verificar enlaces por ID de navegación al detalle
         const links = screen.getAllByText(/ver detalle/i);
         expect(links).toHaveLength(2);
-        expect(links[0].getAttribute('href')).toBe('/behaviours/1');
-        expect(links[1].getAttribute('href')).toBe('/behaviours/2');
+        expect(links[0].getAttribute('href')).toBe('/comportamientos/1');
+        expect(links[1].getAttribute('href')).toBe('/comportamientos/2');
 
         // Verificar los controles disponibles en el catálogo.
-        expect(screen.queryByText(/crear/i)).not.toBeInTheDocument();
+        expect(screen.getByRole('link', {name: 'Crear nuevo comportamiento'}))
+            .toHaveAttribute('href', '/crear-comportamiento');
         expect(screen.getByRole('button', {name: 'Eliminar Ofensivo'})).toBeInTheDocument();
-        expect(screen.queryByText(/nuevo/i)).not.toBeInTheDocument();
     });
 
     it('maneja el estado de error y permite reintentar la carga', async () => {
@@ -278,14 +278,14 @@ describe('BehaviourList Component', () => {
         deleteBehaviour.mockResolvedValueOnce(null);
 
         render(
-            <MemoryRouter initialEntries={['/behaviours/1']}>
+            <MemoryRouter initialEntries={['/comportamientos/1']}>
                 <Routes>
                     <Route
-                        path="/behaviours/:behaviourId"
+                        path="/comportamientos/:behaviourId"
                         element={<BehaviourDetailPage/>}
                     />
                     <Route
-                        path="/behaviours"
+                        path="/comportamientos"
                         element={<BehaviourList/>}
                     />
                 </Routes>

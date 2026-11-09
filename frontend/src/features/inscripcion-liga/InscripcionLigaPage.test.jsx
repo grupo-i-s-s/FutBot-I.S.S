@@ -30,7 +30,7 @@ beforeEach(() => {
     fetchMock = vi.fn(async (url, options) => {
         if (url.endsWith('/join')) return join(url, options);
         if (url.endsWith('/lobby')) return response(league);
-        if (url === '/api/team/default') {
+        if (url === '/api/clubs/me/default-team') {
             return saved ? response(saved) : response({error: {code: 'ACCOUNT_INCOMPLETE'}}, 409);
         }
         if (url.startsWith('/api/players/by-ids?')) return response(players);
@@ -48,10 +48,10 @@ afterEach(() => {
 });
 
 async function openPage() {
-    render(<MemoryRouter initialEntries={[`/leagues/${league.id}/join`]}>
+    render(<MemoryRouter initialEntries={[`/ligas/${league.id}/inscripcion`]}>
         <Routes>
-            <Route path="/leagues/:id/join" element={<InscripcionLigaPage/>}/>
-            <Route path="/leagues/:id/lobby" element={<p>Inscripción confirmada por el servidor</p>}/>
+            <Route path="/ligas/:id/inscripcion" element={<InscripcionLigaPage/>}/>
+            <Route path="/ligas/:id/sala-de-espera" element={<p>Inscripción confirmada por el servidor</p>}/>
         </Routes>
     </MemoryRouter>);
     return screen.findByRole('button', {name: 'Confirmar inscripción'});

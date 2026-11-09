@@ -27,10 +27,10 @@ let saved;
 
 async function openPage() {
     render(
-        <MemoryRouter initialEntries={['/leagues/7/lineup']}>
+        <MemoryRouter initialEntries={['/ligas/7/plantel']}>
             <Routes>
                 <Route
-                    path="/leagues/:id/lineup"
+                    path="/ligas/:id/plantel"
                     element={<LeagueLineupPage/>}
                 />
             </Routes>

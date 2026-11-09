@@ -13,7 +13,7 @@ vi.mock('./hooks/useMatchConnection.js', () => ({useMatchConnection: () => ({
 const match = {matchId: 42, creatorClubName: 'River Norte', startDateTime: '2030-01-01T12:00:00Z'};
 const reply = (data, status = 200) => ({ok: status < 400, status, json: async () => data});
 const result = (items = [match], page = 1, total = 41) => ({items, total, page, pageSize: 20});
-const pages = ['/partidos-disponibles', '/home'];
+const pages = ['/partidos-disponibles', '/inicio'];
 let fetchMock;
 let available;
 let join;
@@ -26,9 +26,9 @@ beforeEach(() => {
     join = vi.fn(() => reply({matchId: 42}));
     fetchMock = vi.fn(async (url, options) => {
         if (url === '/api/friendly-matches/me') return reply(own);
-        if (url === '/api/friendly-matches/join') return join(options);
+        if (url === '/api/friendly-matches/42/join') return join(options);
         if (url.startsWith('/api/friendly-matches?')) return available(new URL(url, 'http://localhost').searchParams, options);
-        if (url === '/api/club/me') return reply({id: 1});
+        if (url === '/api/clubs/me') return reply({id: 1});
         if (url === '/api/behaviours') return reply({items: []});
         throw new Error(`Solicitud inesperada: ${url}`);
     });
@@ -39,7 +39,7 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 function Location() {
     const location = useLocation();
-    return <output data-testid="url">{location.pathname + location.search}</output>;
+    return <output data-testid="url">{location.pathname + location.search + location.hash}</output>;
 }
 
 async function show(path = '/partidos-disponibles') {
@@ -47,7 +47,7 @@ async function show(path = '/partidos-disponibles') {
         <Routes>
             <Route path="/partidos-disponibles" element={<MatchesPage/>}/>
             <Route path="/partidos/:matchId" element={<SessionProvider><MatchPage/></SessionProvider>}/>
-            <Route path="/home" element={<AvailableFriendlyMatches/>}/>
+            <Route path="/inicio" element={<AvailableFriendlyMatches/>}/>
         </Routes>
         <Location/>
     </MemoryRouter>));
@@ -79,7 +79,7 @@ it.each(pages)('espera 300 ms y vuelve a la primera página al cambiar el nombre
     expect(query.get('creatorName')).toBe('River Sur');
     expect(query.get('page')).toBe('1');
     expect(query.get('pageSize')).toBe('20');
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/friendly-matches/me')).toHaveLength(path === '/home' ? 0 : 1);
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/friendly-matches/me')).toHaveLength(path === '/inicio' ? 0 : 1);
 });
 
 it.each(pages)('cambia de página conservando el filtro en %s', async path => {
@@ -155,7 +155,7 @@ it('informa un conflicto al unirse y vuelve a consultar la misma página y filtr
     expect(query.get('creatorName')).toBe('River');
     expect(query.get('page')).toBe('2');
     expect(available).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(join.mock.calls[0][0].body)).toEqual({idPartido: 42});
+    expect(join).toHaveBeenCalledWith(expect.objectContaining({method: 'POST', body: undefined}));
 });
 
 it.each(['join', 'view'])('recupera el filtro y la página al volver del partido; acceso=%s', async access => {
@@ -173,8 +173,8 @@ it.each(['join', 'view'])('recupera el filtro y la página al volver del partido
 });
 
 it('conserva el contexto desde la portada al listado y al volver del partido', async () => {
-    const query = '?creatorName=River&page=2';
-    await show(`/home${query}`);
+    const query = '?creatorName=River&page=2#amistosos';
+    await show(`/inicio${query}`);
     const listing = screen.getByRole('link', {name: 'Ver mis amistosos y los disponibles'});
     expect(listing).toHaveAttribute('href', `/partidos-disponibles${query}`);
     await act(async () => fireEvent.click(listing));

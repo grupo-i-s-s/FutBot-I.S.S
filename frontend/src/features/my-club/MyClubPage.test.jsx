@@ -25,12 +25,12 @@ const players = Array.from({length: 12}, (_, index) => ({
 }));
 let persisted;
 
-function rosterPage({page, limit, search}) {
+function rosterPage({page, pageSize, search}) {
     const matching = search ? players.filter(player => player.name.includes(search)) : players;
     return {
-        items: matching.slice((page - 1) * limit, page * limit),
+        items: matching.slice((page - 1) * pageSize, page * pageSize),
         total: matching.length,
-        totalPages: Math.ceil(matching.length / limit),
+        totalPages: Math.max(1, Math.ceil(matching.length / pageSize)),
     };
 }
 
@@ -259,15 +259,15 @@ describe('Configuración de formación del club', () => {
         const catalog = within(await screen.findByRole('tabpanel', {name: 'Comportamientos'}));
         for (const {id, name} of behaviours) {
             expect(catalog.getByText(name)).toBeInTheDocument();
-            expect(catalog.getByRole('link', {name: `Ver detalle de ${name}`})).toHaveAttribute('href', `/behaviours/${id}`);
+            expect(catalog.getByRole('link', {name: `Ver detalle de ${name}`})).toHaveAttribute('href', `/comportamientos/${id}`);
         }
-        expect(catalog.getByRole('link', {name: 'Gestionar comportamientos'})).toHaveAttribute('href', '/behaviours');
+        expect(catalog.getByRole('link', {name: 'Gestionar comportamientos'})).toHaveAttribute('href', '/comportamientos');
 
         expect(screen.queryByText('Liga del club')).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole('tab', {name: 'Ligas inscriptas'}));
         const leagues = within(await screen.findByRole('tabpanel', {name: 'Ligas inscriptas'}));
         expect(leagues.getByText('Liga del club')).toBeVisible();
-        expect(leagues.getByRole('link', {name: 'Ver lobby de Liga del club'})).toHaveAttribute('href', '/leagues/42/lobby');
+        expect(leagues.getByRole('link', {name: 'Ver lobby de Liga del club'})).toHaveAttribute('href', '/ligas/42/sala-de-espera');
 
         fireEvent.click(screen.getByRole('tab', {name: 'Mi equipo'}));
         expect((await teamEditor()).getByLabelText('Formación')).toBe(formation);

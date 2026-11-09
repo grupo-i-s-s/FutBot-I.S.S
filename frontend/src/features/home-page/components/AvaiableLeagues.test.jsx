@@ -30,16 +30,16 @@ async function renderLeague(overrides) {
 }
 
 it.each([
-    [{isMember: true, status: 'running', registeredCount: 4, availableSlots: 0}, 'Ver lobby de Liga de prueba', 'lobby'],
-    [{}, 'Unirme a liga Liga de prueba', 'join'],
-    [{isPrivate: true}, 'Unirme a liga Liga de prueba', 'join'],
+    [{isMember: true, status: 'running', registeredCount: 4, availableSlots: 0}, 'Ver lobby de Liga de prueba', 'sala-de-espera'],
+    [{}, 'Unirme a liga Liga de prueba', 'inscripcion'],
+    [{isPrivate: true}, 'Unirme a liga Liga de prueba', 'inscripcion'],
 ])('muestra un único enlace enfocable según la inscripción (%j)', async (overrides, label, path) => {
     const card = await renderLeague(overrides);
     const links = within(card).getAllByRole('link');
     expect(links).toHaveLength(1);
     const [link] = links;
     expect(link).toHaveAccessibleName(label);
-    expect(link).toHaveAttribute('href', `/leagues/42/${path}`);
+    expect(link).toHaveAttribute('href', `/ligas/42/${path}`);
     expect(card.querySelector('a a')).toBeNull();
     expect(link.tabIndex).toBe(0);
     link.focus();

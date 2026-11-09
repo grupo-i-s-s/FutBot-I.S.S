@@ -46,9 +46,9 @@ function renderMatch() {
 
 function mockRequests(sendOrder) {
     vi.stubGlobal('fetch', vi.fn(async (url, options) => {
-        if (url === '/api/club/me') return jsonResponse({id: 1});
+        if (url === '/api/clubs/me') return jsonResponse({id: 1});
         if (url === '/api/behaviours') return jsonResponse({items: behaviours});
-        if (url === '/api/matches/42/live_request') return sendOrder(options);
+        if (url === '/api/matches/42/live-requests') return sendOrder(options);
         throw new Error(`Solicitud inesperada: ${url}`);
     }));
 }
@@ -108,7 +108,7 @@ it('muestra la táctica aceptada cuando la confirma el partido', async () => {
     fireEvent.change(selector, {target: {value: '8'}});
     await waitFor(() => expect(selector).toBeEnabled());
     expect(sendOrder).toHaveBeenCalledWith(expect.objectContaining({
-        method: 'POST', body: JSON.stringify({player_id: 11, behaviour_id: 8}),
+        method: 'POST', body: JSON.stringify({playerId: 11, behaviourId: 8}),
     }));
     expect(selector).toHaveValue('7');
 

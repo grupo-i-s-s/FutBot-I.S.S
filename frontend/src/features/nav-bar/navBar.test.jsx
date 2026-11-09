@@ -69,7 +69,7 @@ describe('Actualización del club en la barra de navegación', () => {
     it('espera el guardado y muestra inmediatamente el avatar y nombre devueltos por el servidor', async () => {
         const patch = deferred();
         fetchMock.mockImplementation((url, options) => {
-            expect(url).toBe('/api/club/me');
+            expect(url).toBe('/api/clubs/me');
             return options.method === 'PATCH'
                 ? patch.promise
                 : Promise.resolve(jsonResponse(originalClub));
@@ -101,7 +101,7 @@ describe('Actualización del club en la barra de navegación', () => {
         expectClub(savedClub);
         expect(screen.queryByText(originalClub.name)).not.toBeInTheDocument();
         expect(fetchMock).toHaveBeenCalledTimes(2);
-        expect(fetchMock).toHaveBeenLastCalledWith('/api/club/me', expect.objectContaining({
+        expect(fetchMock).toHaveBeenLastCalledWith('/api/clubs/me', expect.objectContaining({
             method: 'PATCH',
             body: JSON.stringify(requestedChanges),
         }));
@@ -109,7 +109,7 @@ describe('Actualización del club en la barra de navegación', () => {
 
     it('conserva el escudo y nombre anteriores si el guardado falla', async () => {
         fetchMock.mockImplementation((url, options) => {
-            expect(url).toBe('/api/club/me');
+            expect(url).toBe('/api/clubs/me');
             return Promise.resolve(options.method === 'PATCH'
                 ? jsonResponse({error: {
                     code: 'CLUB_NAME_DUPLICATE',
@@ -138,7 +138,7 @@ describe('Actualización del club en la barra de navegación', () => {
             const initialGet = deferred();
             const savedClub = {...originalClub, name: 'Club actualizado', avatar: 'avatar-15.png'};
             fetchMock.mockImplementation((url, options) => {
-                expect(url).toBe('/api/club/me');
+                expect(url).toBe('/api/clubs/me');
                 // Esta respuesta queda pendiente incluso si se aborta su señal.
                 return options.method === 'GET'
                     ? initialGet.promise
@@ -174,7 +174,7 @@ describe('Actualización del club en la barra de navegación', () => {
         const savedClubs = [firstSavedClub, secondSavedClub];
         let saveIndex = 0;
         fetchMock.mockImplementation((url, options) => {
-            expect(url).toBe('/api/club/me');
+            expect(url).toBe('/api/clubs/me');
             return Promise.resolve(jsonResponse(
                 options.method === 'PATCH' ? savedClubs[saveIndex++] : originalClub,
             ));

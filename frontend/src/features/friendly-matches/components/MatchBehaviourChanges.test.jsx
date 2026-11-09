@@ -24,8 +24,8 @@ it('muestra el cambio predeterminado recibido del motor y conserva los cambios m
     expect(select).toHaveValue('11');
 
     fireEvent.change(select, {target: {value: '10'}});
-    expect(fetchMock).toHaveBeenCalledWith('/api/matches/42/live_request', expect.objectContaining({
-        method: 'POST', body: JSON.stringify({player_id: 1, behaviour_id: 10}),
+    expect(fetchMock).toHaveBeenCalledWith('/api/matches/42/live-requests', expect.objectContaining({
+        method: 'POST', body: JSON.stringify({playerId: 1, behaviourId: 10}),
     }));
     expect(await screen.findByRole('combobox')).toHaveValue('11');
 });

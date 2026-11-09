@@ -80,7 +80,7 @@ def test_list_returns_available_matches(match_client, monkeypatch, creator_name)
         "matchId": 42,
         "creatorClubName": "Otro club",
         "startDateTime": start.isoformat().replace("+00:00", "Z"),
-    }], "total": 1, "page": 1, "pageSize": 20}
+    }], "total": 1, "page": 1, "pageSize": 20, "totalPages": 1, "hasNext": False}
     assert calls == [(db, club.id, creator_name, 1, 20)]
 
 

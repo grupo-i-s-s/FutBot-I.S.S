@@ -82,7 +82,7 @@ async function open(path = '/clubes') {
     await act(async () => {
         render(
             <MemoryRouter initialEntries={[path]}>
-                <Link to="/club/2">Otro club</Link>
+                <Link to="/clubes/2">Otro club</Link>
                 <App/>
             </MemoryRouter>,
         );
@@ -228,7 +228,7 @@ it('ignora una respuesta vieja de la búsqueda', async () => {
 
 it('abre el perfil elegido desde el listado', async () => {
     request.mockImplementation(async (path) => {
-        if (path.startsWith('/club?')) {
+        if (path.startsWith('/clubs?')) {
             return listing([club(1, 'River')]);
         }
 
@@ -244,7 +244,7 @@ it('abre el perfil elegido desde el listado', async () => {
     });
 
     expect(request).toHaveBeenLastCalledWith(
-        '/club/1',
+        '/clubs/1',
         expect.objectContaining({signal: expect.anything()}),
     );
     expect(screen.getByRole('heading', {
@@ -257,7 +257,7 @@ it('abre el perfil elegido desde el listado', async () => {
 it('muestra ceros y ranking inicial sin controles de edición', async () => {
     request.mockResolvedValue(profile(1, 'Club nuevo'));
 
-    await open('/club/1');
+    await open('/clubes/1');
 
     for (const label of [
         'Partidos jugados',
@@ -285,7 +285,7 @@ it('limpia el perfil anterior mientras carga otro club', async () => {
         .mockResolvedValueOnce(profile(1, 'Primero'))
         .mockReturnValueOnce(second.promise);
 
-    await open('/club/1');
+    await open('/clubes/1');
 
     await act(async () => {
         fireEvent.click(screen.getByRole('link', {name: 'Otro club'}));
@@ -309,12 +309,12 @@ it('ignora un perfil anterior que termina de cargar más tarde', async () => {
     const first = deferred();
 
     request.mockImplementation((path) => (
-        path === '/club/1'
+        path === '/clubs/1'
             ? first.promise
             : Promise.resolve(profile(2, 'Segundo'))
     ));
 
-    await open('/club/1');
+    await open('/clubes/1');
 
     await act(async () => {
         fireEvent.click(screen.getByRole('link', {name: 'Otro club'}));
@@ -340,7 +340,7 @@ it.each([
 ])('distingue el error de perfil con estado %s', async (status, message) => {
     request.mockRejectedValue({status});
 
-    await open('/club/1');
+    await open('/clubes/1');
 
     expect(screen.getByRole('alert')).toHaveTextContent(message);
 
@@ -353,7 +353,7 @@ it.each([
     if (status === 401) {
         expect(screen.getByRole('link', {
             name: 'Iniciar sesión',
-        })).toHaveAttribute('href', '/login');
+        })).toHaveAttribute('href', '/iniciar-sesion');
     }
 });
 
@@ -362,7 +362,7 @@ it('permite reintentar la carga del perfil', async () => {
         .mockRejectedValueOnce({status: 0})
         .mockResolvedValueOnce(profile(1, 'Recuperado'));
 
-    await open('/club/1');
+    await open('/clubes/1');
     await click('Reintentar');
 
     expect(screen.getByRole('heading', {

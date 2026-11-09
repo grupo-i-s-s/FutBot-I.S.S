@@ -36,7 +36,7 @@ beforeEach(() => {
         ],
     };
     fetchMock = vi.fn(async (url, options) => {
-        if (url === '/api/club/me') return reply({id: 1});
+        if (url === '/api/clubs/me') return reply({id: 1});
         if (url === '/api/behaviours') return reply({items: []});
         const manual = url === '/api/matches/42/substitutions';
         if (!manual) expect(url).toBe('/api/matches/42/planned-substitution');
@@ -53,9 +53,9 @@ function panel(overrides = {}) {
 }
 
 function matchPage() {
-    return <MemoryRouter initialEntries={['/matches/42']}>
+    return <MemoryRouter initialEntries={['/partidos/42']}>
         <SessionProvider>
-            <Routes><Route path="/matches/:matchId" element={<MatchPage/>}/></Routes>
+            <Routes><Route path="/partidos/:matchId" element={<MatchPage/>}/></Routes>
         </SessionProvider>
     </MemoryRouter>;
 }
@@ -342,10 +342,10 @@ it.each([false, true])('integra el panel y sólo cambia la cancha al recibir el 
 it('muestra el estado del DT desde el snapshot y espera la confirmación del motor al desactivarlo', async () => {
     const fetchDefault = fetchMock.getMockImplementation();
     fetchMock.mockImplementation(async (url, options) => {
-        if (url === '/api/friendly-matches/42/dt') {
+        if (url === '/api/matches/42/dt') {
             expect(options.method).toBe('POST');
-            expect(JSON.parse(options.body)).toEqual({dt_active: false});
-            return reply({dt_active: false});
+            expect(JSON.parse(options.body)).toEqual({dtActive: false});
+            return reply({dtActive: false});
         }
         return fetchDefault(url, options);
     });
@@ -355,7 +355,7 @@ it('muestra el estado del DT desde el snapshot y espera la confirmación del mot
     const view = render(matchPage());
     fireEvent.click(await screen.findByRole('button', {name: 'Desactivar DT'}));
     await waitFor(() => expect(screen.getByRole('button', {name: 'Desactivar DT'})).toBeEnabled());
-    expect(fetchMock).toHaveBeenCalledWith('/api/friendly-matches/42/dt', expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith('/api/matches/42/dt', expect.anything());
     expect(screen.getByText('DT activo')).toBeInTheDocument();
     expect(screen.getByLabelText('Titular que sale')).toBeEnabled();
 

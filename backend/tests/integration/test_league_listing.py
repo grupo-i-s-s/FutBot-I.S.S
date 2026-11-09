@@ -124,6 +124,12 @@ def test_create_list_filter_and_read_lobby_with_authenticated_club(league_databa
         assert response.json() == {
             "items": items[page - 1:page], "total": 2, "page": page, "limit": 1, "totalPages": 2,
         }
+        canonical = client.get("/leagues", params={"name": prefix, "page": page, "pageSize": 1})
+        assert canonical.status_code == 200, canonical.text
+        assert canonical.json() == {
+            "items": items[page - 1:page], "total": 2, "page": page, "pageSize": 1,
+            "totalPages": 2, "hasNext": page == 1,
+        }
 
     filtered = client.get("/leagues", params={"name": f"{prefix} private 100%_"})
     assert filtered.status_code == 200
