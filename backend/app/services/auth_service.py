@@ -9,6 +9,7 @@ from app.models.auth_model import Club, User
 from app.repository import (
     session_repository,
     user_repository,
+    club_repository,
     behaviour_repository,
     player_repository,
     team_repository,
@@ -53,11 +54,8 @@ def session_error() -> AppError:
 
 
 def duplicate_error(field: str) -> AppError:
-    if field == "email":
-        messages = {"email": "El email ya está registrado.", "clubName": "Ya existe un club con ese nombre."}
-        message = messages[field]
-    else:
-        message = "El nombre de usuario ya está registrado."
+    messages = {"email": "El email ya está registrado.", "clubName": "Ya existe un club con ese nombre."}
+    message = messages.get(field, "El nombre de usuario ya está registrado.")
 
     return AppError(
         "ACCOUNT_DUPLICATE",
@@ -134,6 +132,9 @@ def register(db: Session, data: RegisterRequest) -> dict[str, str]:
     try:
         if user_repository.get_by_email(db, email):
             raise duplicate_error("email")
+
+        if club_repository.get_by_name(db, data.club_name):
+            raise duplicate_error("clubName")
 
         pending = pending_email_verification_repository.get_by_email(db, email, lock=True)
 

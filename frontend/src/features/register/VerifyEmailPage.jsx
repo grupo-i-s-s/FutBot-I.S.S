@@ -92,6 +92,9 @@ export default function VerifyEmailPage() {
 
                             {error && <p role="alert">{error}</p>}
                             {message && <p role="status">{message}</p>}
+                            <p className="verify-email-card__register">
+                                <Link to="/registro">Volver al registro</Link>
+                            </p>
                         </form>
                     )}
                 </section>
