@@ -33,7 +33,8 @@ def delete_behaviour(behaviour_id: int, club: CurrentClub, db:Database) -> None:
 
 @behaviour_router.post("/validate", response_model=BehaviourValidateResponse)
 def validate_behaviour( payload: BehaviourValidateRequest, club: CurrentClub) -> BehaviourValidateResponse:
-    diagnostics = validate_program(payload.code, kind=payload.kind)
+    kind = "DT" if payload.kind == "COACH" else payload.kind
+    diagnostics = validate_program(payload.code, kind=kind)
 
     return BehaviourValidateResponse(
         valid=not diagnostics,

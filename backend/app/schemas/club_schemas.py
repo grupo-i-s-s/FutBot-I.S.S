@@ -1,6 +1,10 @@
-from pydantic import BaseModel, ConfigDict, Field, StrictBool
-from app.schemas.avatar_schemas import AvatarFilename
 from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
+
+from app.schemas.avatar_schemas import AvatarFilename
+from app.schemas.Dt_schemas import DtRead
+
 
 class ClubRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -11,6 +15,8 @@ class ClubRead(BaseModel):
     friendly_available: bool = Field(
         serialization_alias="friendlyAvailable"
     )
+
+    dt: DtRead | None = None
 
 
 class ClubUpdate(BaseModel):

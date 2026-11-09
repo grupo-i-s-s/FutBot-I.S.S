@@ -216,6 +216,7 @@ def test_creator_cancels_open_league(db, leagues):
 
     assert result["league_id"] == 42
     leagues.repo.delete_league.assert_called_once_with(db, leagues.row)
+    leagues.repo.get_registration.assert_not_called()
     leagues.repo.delete_registration.assert_not_called()
     db.commit.assert_called_once()
 

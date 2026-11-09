@@ -4,7 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import MyClubPage from './MyClubPage';
 import {useMyClub} from './hooks/useMyClub';
-import {getDefaultTeam, getFormations, getPlayersByIds, updateDefaultTeam, updateMyClub} from './api';
+import {getDefaultTeam, getFormations, getPlayersByIds, listDtBehaviours, updateDefaultTeam, updateMyClub} from './api';
 
 vi.mock('./hooks/useMyClub', () => ({useMyClub: vi.fn()}));
 vi.mock('./api', () => ({
@@ -13,6 +13,7 @@ vi.mock('./api', () => ({
     assignPlayerBehaviour: vi.fn(),
     getPlayersByIds: vi.fn(),
     listPlayers: vi.fn(),
+    listDtBehaviours: vi.fn(),
 }));
 
 const club = {id: 7, name: 'Club de prueba', avatar: 'shield', friendlyAvailable: true};
@@ -37,6 +38,7 @@ async function openSettings() {
 describe('Configuración de formación del club', () => {
     beforeEach(() => {
         vi.resetAllMocks();
+        listDtBehaviours.mockResolvedValue({items: []});
         persisted = {
             clubId: 7,
             lineUp: {

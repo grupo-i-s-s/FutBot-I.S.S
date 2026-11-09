@@ -39,6 +39,8 @@ export default function BehaviourCodeEditor({
     documentId = 'new',
     kind = 'PLAYER',
     readOnly = false,
+    functions = apiFunctions,
+    helpDescription = 'Escribí una función decide(observation). Consultá el estado del partido y devolvé una acción válida. La validación se realiza en el servidor.',
 }) {
     const [editor, setEditor] = useState(null);
 
@@ -124,13 +126,11 @@ export default function BehaviourCodeEditor({
                     </h3>
 
                     <p className="mb-4 text-sm text-gray-600">
-                        Escribí una función <code>decide(observation)</code>.
-                        Consultá el estado del partido y devolvé una acción
-                        válida. La validación se realiza en el servidor.
+                        {helpDescription}
                     </p>
 
                     <ul className="space-y-3">
-                        {apiFunctions.map((fn) => (
+                        {functions.map((fn) => (
                             <li key={fn.name} className="text-sm">
                                 <code className="font-semibold text-blue-700">
                                     {fn.name}

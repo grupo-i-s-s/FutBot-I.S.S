@@ -17,8 +17,10 @@ from app.errors import AppError
 from app.main import app
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
+from app.models.dt_model import Dt, DtBehaviour
 from app.models.matches_model import Matches
 from app.models.player_model import Player
+from app.models.planned_substitution_model import PlannedSubstitution
 from app.models.team_model import DefaultTeam
 from app.repository import matches_repository
 from app.services import match_execution_service as execution
@@ -40,7 +42,9 @@ def database(monkeypatch, sqlite_match_dates):
     )
     # Persistencia real con sesiones independientes, sin requerir Docker.
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
-    tables = [model.__table__ for model in (User, Club, Behavior, Player, DefaultTeam, Matches)]
+    tables = [model.__table__ for model in (
+        User, Club, Behavior, Player, DefaultTeam, Matches, PlannedSubstitution, Dt, DtBehaviour,
+    )]
     Base.metadata.create_all(engine, tables=tables)
     with Session(engine) as db:
         for club_id in (1, 2):
@@ -91,7 +95,7 @@ def test_executor_persists_result_and_second_call_does_not_play_again(database, 
         assert row.local_score == 0 and row.visitor_score == 6
         assert row.started_at is not None and row.finished_at is not None
         assert row.snapshot == final
-        assert row.runtime_state["version"] == 4
+        assert row.runtime_state["version"] == 6
         assert [team["avatar"] for team in final["state"]["teams"]] == [
             "avatar-01.png", "avatar-02.png",
         ]
