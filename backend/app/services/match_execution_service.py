@@ -11,7 +11,6 @@ from app.services.match_builder_service import default_behaviours_for_dt
 from app.services.match_snapshot_service import empty_match_snapshot
 from app.services.match_start_service import prepare_match_start
 from app.services.planned_substitution_service import with_pending_substitutions
-from app.services.stats_service import process_match_for_global_ranking
 from app.services.substitution_execution_service import apply_planned_substitutions
 from primitives.match_simulation import Match
 from app.services.match_request_handler import live_request
@@ -32,10 +31,8 @@ def _persist(db: Session, row, simulation: Match) -> dict:
     snapshot = simulation.snapshot(row.sequence + 1, now.isoformat())
     snapshot = with_pending_substitutions(db, row.match_id, snapshot)
     matches_repository.save_progress(db, row, simulation, snapshot, now)
-    if simulation.finished:
-        process_match_for_global_ranking(db, row)
-        if row.league_round_id is not None:
-            update_fixture_schedule(db, row.league_round_id)
+    if simulation.finished and row.league_round_id is not None:
+        update_fixture_schedule(db, row.league_round_id)
     db.commit()
     return snapshot
 
