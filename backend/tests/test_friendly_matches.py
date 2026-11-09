@@ -58,13 +58,14 @@ def test_create_uses_authenticated_club_and_returns_match_id(match_client, monke
     assert calls[0][1] == club.id
 
 
-def test_list_returns_available_matches(match_client, monkeypatch):
+@pytest.mark.parametrize("creator_name", [None, "RiVeR", "%_"])
+def test_list_returns_available_matches(match_client, monkeypatch, creator_name):
     client, db, club = match_client
     start = datetime.now(timezone.utc) + timedelta(hours=1)
     calls = []
 
-    def available(session, club_id):
-        calls.append((session, club_id))
+    def available(session, club_id, *, creator_name=None):
+        calls.append((session, club_id, creator_name))
         return [{
             "match_id": 42,
             "creator_club_name": "Otro club",
@@ -72,7 +73,7 @@ def test_list_returns_available_matches(match_client, monkeypatch):
         }]
 
     monkeypatch.setattr(matches_service, "list_available", available)
-    response = client.get("/friendly-matches")
+    response = client.get("/friendly-matches", params={} if creator_name is None else {"creatorName": creator_name})
 
     assert response.status_code == 200
     assert response.json() == [{
@@ -80,7 +81,7 @@ def test_list_returns_available_matches(match_client, monkeypatch):
         "creatorClubName": "Otro club",
         "startDateTime": start.isoformat().replace("+00:00", "Z"),
     }]
-    assert calls == [(db, club.id)]
+    assert calls == [(db, club.id, creator_name)]
 
 
 def test_create_returns_readable_error_for_past_date(match_client):

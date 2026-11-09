@@ -33,7 +33,7 @@ def _require_available_clubs(
         )
 
 
-def list_available(db: Session, club_id: int) -> list[dict]:
+def list_available(db: Session, club_id: int, *, creator_name: str | None = None) -> list[dict]:
     return [
         {
             "match_id": match.match_id,
@@ -41,7 +41,7 @@ def list_available(db: Session, club_id: int) -> list[dict]:
             "start_datetime": match.init_date,
         }
         for match, club_name in matches_repository.list_available(
-            db, club_id, datetime.now(timezone.utc)
+            db, club_id, datetime.now(timezone.utc), creator_name=creator_name,
         )
     ]
 

@@ -245,13 +245,14 @@ def test_my_matches_marks_creator_and_preserves_joined_finished_matches(db, now,
     db.commit.assert_not_called()
 
 
-def test_available_matches_use_current_club_and_time(db, now, freeze_time, monkeypatch):
+@pytest.mark.parametrize("creator_name", [None, "RiVeR", "%_"])
+def test_available_matches_use_current_club_and_time(db, now, freeze_time, monkeypatch, creator_name):
     freeze_time(matches_service)
     repo = Mock(return_value=[(SimpleNamespace(match_id=42, init_date=now), "Other")])
     monkeypatch.setattr(matches_repository, "list_available", repo)
-    assert matches_service.list_available(db, 7) == [
+    assert matches_service.list_available(db, 7, creator_name=creator_name) == [
         {"match_id": 42, "creator_club_name": "Other", "start_datetime": now}]
-    repo.assert_called_once_with(db, 7, now)
+    repo.assert_called_once_with(db, 7, now, creator_name=creator_name)
 
 
 @pytest.mark.parametrize("club_id", [1, 7])

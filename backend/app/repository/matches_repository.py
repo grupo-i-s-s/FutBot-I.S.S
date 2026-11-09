@@ -100,8 +100,8 @@ def save_progress(db: Session, row: Matches, simulation, snapshot: dict, now: da
     db.add(row)
 
 
-def list_available(db: Session, club_id: int, now: datetime):
-    return db.execute(
+def list_available(db: Session, club_id: int, now: datetime, *, creator_name: str | None = None):
+    query = (
         select(Matches, Club.name)
         .join(Club, Club.id == Matches.creator_id)
         .where(
@@ -111,8 +111,10 @@ def list_available(db: Session, club_id: int, now: datetime):
             Matches.init_date > now,
             Matches.status.in_(("WAITING", "WAITING_OPPONENT")),
         )
-        .order_by(Matches.init_date, Matches.match_id)
-    ).all()
+    )
+    if creator_name:
+        query = query.where(Club.name.icontains(creator_name, autoescape=True))
+    return db.execute(query.order_by(Matches.init_date, Matches.match_id)).all()
 
 
 def list_for_club(db: Session, club_id: int):
