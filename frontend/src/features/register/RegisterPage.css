@@ -53,6 +53,11 @@
     font-size: 16px;
 }
 
+.formulary-box input::placeholder {
+    color: #9ca3af;
+    font-style: italic;
+}
+
 .register-button {
     display: block;
     width: 200px;

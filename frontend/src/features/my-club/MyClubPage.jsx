@@ -20,6 +20,7 @@ import { updateMyClub } from './api';
 
 
 const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-6xl space-y-6 py-8 sm:py-12';
+const ROSTER_PAGE_SIZE = 9;
 const SAVE_TOAST_ID = 'my-club-save';
 const CLUB_TABS = [
     {value: 'team', label: 'Mi equipo', icon: Shirt},
@@ -42,7 +43,7 @@ export default function MyClubPage() {
     const {
         status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub,
         rosterLoading, rosterError, reloadRoster,
-    } = useMyClub(page, 9);
+    } = useMyClub(page, ROSTER_PAGE_SIZE);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const [isSaving, setIsSaving] = useState(false);
@@ -69,6 +70,12 @@ export default function MyClubPage() {
         if (value === 'team') searchParams.delete('tab');
         else searchParams.set('tab', value);
         navigate({search: searchParams.toString(), hash}, {replace: true});
+    }
+
+    function handlePlayerCreated() {
+        const targetPage = totalPlayers == null ? page : Math.ceil((totalPlayers + 1) / ROSTER_PAGE_SIZE);
+        if (targetPage === page) reloadRoster();
+        else setPage(targetPage);
     }
 
     async function handleSettingsSave(changes) {
@@ -163,6 +170,7 @@ export default function MyClubPage() {
                         loading={rosterLoading}
                         error={rosterError}
                         onRetry={reloadRoster}
+                        onPlayerCreated={handlePlayerCreated}
                     />
                 </TabsContent>
 

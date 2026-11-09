@@ -1,9 +1,11 @@
 import {act, cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {Link, MemoryRouter, Route, Routes, useLocation} from 'react-router';
+import {toast} from 'sonner';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {Toaster} from '@/components/ui/sonner';
 
 import MyClubPage from './MyClubPage';
+import {createPlayer} from '../create-players/api.js';
 import {listMyFriendlyMatches} from '../friendly-matches/api.js';
 import {
     getDefaultTeam, getFormations, getMyClub, getPlayersByIds, listBehaviours, listDtBehaviours,
@@ -19,6 +21,7 @@ vi.mock('./api', () => ({
 }));
 
 vi.mock('../friendly-matches/api.js', () => ({listMyFriendlyMatches: vi.fn()}));
+vi.mock('../create-players/api.js', () => ({createPlayer: vi.fn()}));
 
 const club = {id: 7, name: 'Club de prueba', avatar: 'shield', friendlyAvailable: true};
 const behaviours = [{id: 10, name: 'Equilibrado'}, {id: 11, name: 'Ofensivo'}];
@@ -29,8 +32,8 @@ const players = Array.from({length: 12}, (_, index) => ({
 }));
 let persisted;
 
-function rosterPage({page, pageSize, search}) {
-    const matching = search ? players.filter(player => player.name.includes(search)) : players;
+function rosterPage({page, pageSize, search}, roster = players) {
+    const matching = search ? roster.filter(player => player.name.includes(search)) : roster;
     return {
         items: matching.slice((page - 1) * pageSize, page * pageSize),
         total: matching.length,
@@ -105,7 +108,10 @@ describe('Configuración de formación del club', () => {
         });
     });
 
-    afterEach(cleanup);
+    afterEach(() => {
+        cleanup();
+        toast.dismiss();
+    });
 
     it('guarda primero la formación y luego un comportamiento en Mi equipo y recupera ambos al volver', async () => {
         const {unmount} = renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
@@ -406,6 +412,36 @@ describe('Configuración de formación del club', () => {
         for (const fetchOnce of [getMyClub, listBehaviours, listMyLeagues, getDefaultTeam, getFormations]) {
             expect(fetchOnce).toHaveBeenCalledTimes(1);
         }
+    });
+
+    it('crea un jugador desde el modal y lo muestra en la última página de Jugadores', async () => {
+        const newPlayer = {...players[0], id: 13, name: 'Fichaje nuevo'};
+        let roster = players;
+        listPlayers.mockImplementation(async params => rosterPage(params, roster));
+        createPlayer.mockImplementation(async () => {
+            roster = [...players, newPlayer];
+            return newPlayer;
+        });
+
+        renderWithToaster(<MemoryRouter initialEntries={['/mi-club?tab=players']}><MyClubPage/></MemoryRouter>);
+        const panel = within(await screen.findByRole('tabpanel', {name: 'Jugadores'}));
+        expect(await panel.findByText('Jugador 1')).toBeVisible();
+        expect(panel.getByText('Página 1 de 2')).toBeVisible();
+
+        fireEvent.click(panel.getByRole('button', {name: 'Crear jugador'}));
+        const dialog = within(await screen.findByRole('dialog', {name: 'Crear jugador'}));
+        fireEvent.change(dialog.getByLabelText('Nombre del jugador'), {target: {value: newPlayer.name}});
+        fireEvent.click(dialog.getByRole('button', {name: 'Crear jugador'}));
+
+        expect(await panel.findByText(newPlayer.name)).toBeVisible();
+        expect(panel.getByText('Página 2 de 2')).toBeVisible();
+        expect(panel.getByText('13 jugadores en el plantel')).toBeVisible();
+        expect(screen.getByRole('tab', {name: 'Jugadores', selected: true})).toBeVisible();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(await saveToast('Jugador creado')).toBeVisible();
+        expect(createPlayer).toHaveBeenCalledExactlyOnceWith(newPlayer.name, 60, 60, 60, 60, 60);
+        expect(listPlayers.mock.calls.map(([params]) => params.page)).toEqual([1, 2]);
+        expect(getMyClub).toHaveBeenCalledTimes(1);
     });
 
     it('reintenta solamente la página del plantel que falló y mantiene el borrador disponible', async () => {

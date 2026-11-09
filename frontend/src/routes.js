@@ -13,7 +13,6 @@ export const routes = {
     globalRanking: '/ranking-global',
     friendlyMatches: '/partidos-disponibles',
     match: '/partidos/:matchId',
-    createPlayer: '/crear-jugador',
     changePassword: '/cambiar-contrasena',
     behaviours: '/comportamientos',
     behaviourDetail: '/comportamientos/:behaviourId',
