@@ -1,13 +1,21 @@
 import {useState} from 'react';
 import { changeBehaviour } from '../matchApi';
-import '../MatchPage.css'
+import '../MatchPage.css';
+
+const modeNames = {
+    BALANCED: 'Equilibrado',
+    OFFENSIVE: 'Ofensivo',
+    DEFENSIVE: 'Defensivo',
+    CUSTOM: 'Personalizado',
+};
 
 function PlayerBehaviourSelector({matchId, player, behaviours, canChange}) {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const confirmedId = String(player.behaviourId ?? '');
     const confirmedBehaviour = behaviours.find(({id}) => String(id) === confirmedId);
-    const confirmedName = confirmedBehaviour?.name ?? player.behaviourName ?? 'Sin identificar';
+    const confirmedName = confirmedBehaviour?.name ?? player.behaviourName
+        ?? modeNames[player.behaviourMode] ?? 'Sin identificar';
 
     async function handleChange(event) {
         const behaviourId = event.target.value;

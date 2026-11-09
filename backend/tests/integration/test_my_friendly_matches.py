@@ -9,7 +9,9 @@ from app.database import engine, get_db
 from app.main import app
 from app.models.league_model import League
 from app.models.matches_model import Matches
-from app.repository import league_repository
+from app.repository import league_repository, user_repository
+from app.schemas.avatar_schemas import DEFAULT_AVATAR
+from app.security import hash_password
 from app.services.match_start_service import cancel_match
 
 
@@ -36,12 +38,14 @@ def match_accounts():
                         "email": f"{prefix}_{label}@example.com",
                         "password": "friendly-match-password",
                     }
-                    response = client.post("/auth/register", json={
-                        **credentials,
-                        "passwordConfirmation": credentials["password"],
-                        "clubName": f"{prefix} {label}",
-                    })
-                    assert response.status_code == 201, response.text
+                    user = user_repository.create_user(
+                        db, email=credentials["email"], password_hash=hash_password(credentials["password"]),
+                    )
+                    seeded_club = user_repository.create_club(
+                        db, user_id=user.id, name=f"{prefix} {label}", avatar=DEFAULT_AVATAR,
+                    )
+                    club_id = seeded_club.id
+                    db.commit()
                     assert client.post("/auth/login", json=credentials).status_code == 200
                     club = client.get("/club/me").json()
                     availability = client.patch("/club/me", json={
@@ -50,7 +54,7 @@ def match_accounts():
                         "friendlyAvailable": True,
                     })
                     assert availability.status_code == 200, availability.text
-                    accounts.append((client, response.json()["clubId"]))
+                    accounts.append((client, club_id))
                 yield db, accounts
             finally:
                 for client in clients:
@@ -74,7 +78,7 @@ def test_creator_can_recover_match_but_cannot_join_it(match_accounts):
     assert own[0]["visitorClubName"] is None
     assert own[0]["status"] == "WAITING_OPPONENT"
     assert creator.get(f"/matches/{match_id}").status_code == 200
-    assert creator.get("/friendly-matches").json() == []
+    assert creator.get("/friendly-matches").json()["items"] == []
 
     rejected = creator.post("/friendly-matches/join", json={"idPartido": match_id})
     assert rejected.status_code == 409
@@ -93,7 +97,7 @@ def test_creator_can_recover_match_but_cannot_join_it(match_accounts):
     assert match.sequence == 0
 
     assert visitor.get("/friendly-matches/me").json() == []
-    assert visitor.get("/friendly-matches").json()[0]["matchId"] == match_id
+    assert visitor.get("/friendly-matches").json()["items"][0]["matchId"] == match_id
     assert visitor.post("/friendly-matches/join", json={"idPartido": match_id}).status_code == 200
     for client, is_creator in ((creator, True), (visitor, False)):
         own = client.get("/friendly-matches/me").json()

@@ -5,10 +5,13 @@ from time import monotonic, sleep
 
 from app.errors import AppError
 from app.models.matches_model import CHECKPOINT_UNRECOVERABLE
-from app.repository import matches_repository
-from app.services.match_start_service import prepare_match_start
+from app.repository import behaviour_repository, matches_repository
 from app.services.league_fixture_service import update_fixture_schedule
+from app.services.match_builder_service import default_behaviours_for_dt
 from app.services.match_snapshot_service import empty_match_snapshot
+from app.services.match_start_service import prepare_match_start
+from app.services.planned_substitution_service import with_pending_substitutions
+from app.services.substitution_execution_service import apply_planned_substitutions
 from primitives.match_simulation import Match
 from app.services.match_request_handler import live_request
 import logging
@@ -26,6 +29,7 @@ STEPS_PER_SNAPSHOT = 3
 def _persist(db: Session, row, simulation: Match) -> dict:
     now = datetime.now(timezone.utc)
     snapshot = simulation.snapshot(row.sequence + 1, now.isoformat())
+    snapshot = with_pending_substitutions(db, row.match_id, snapshot)
     matches_repository.save_progress(db, row, simulation, snapshot, now)
     if simulation.finished and row.league_round_id is not None:
         update_fixture_schedule(db, row.league_round_id)
@@ -72,9 +76,22 @@ def _execute(
 
         if row.status == "RUNNING":
             try:
-                if row.runtime_state is None:
-                    raise ValueError("Falta el estado para reanudar el partido.")
-                simulation = Match.from_checkpoint(row.runtime_state)
+                state = row.runtime_state
+                if not isinstance(state, dict):
+                    raise ValueError("Falta un estado válido para reanudar el partido.")
+
+                for key, club_id in (("local_team", row.creator_id), ("visitor_team", row.visitor_id)):
+                    team = state.get(key, {})
+                    if (
+                        team.get("club_id") == club_id
+                        and team.get("dt_code")
+                        and "dt_default_behaviours" not in team
+                    ):
+                        behaviours = behaviour_repository.get_all_behaviours(db, club_id)
+                        defaults = default_behaviours_for_dt(behaviours)
+                        state = {**state, key: {**team, "dt_default_behaviours": defaults}}
+
+                simulation = Match.from_checkpoint(state)
                 resources.callback(simulation.close_runtime)
                 if (
                     simulation.match_id != row.match_id
@@ -126,6 +143,24 @@ def _execute(
 
             snapshot = _persist(db, row, simulation)
 
+        def apply_pause_changes():
+            planned = apply_planned_substitutions(db, match_id, simulation)
+            automatic = simulation.run_dt_pause()
+            return planned or automatic
+
+        def on_pause():
+            current = matches_repository.get_by_id_for_update(db, match_id)
+            if current is None or current.status != "RUNNING":
+                return False
+            return apply_pause_changes()
+
+        simulation.on_pause = on_pause
+        if simulation.pause_index:
+            if on_pause():
+                snapshot = _persist(db, row, simulation)
+            else:
+                db.rollback()
+
         deadline = monotonic()
 
         while not simulation.finished:
@@ -139,6 +174,23 @@ def _execute(
 
             elif stop_event.wait(delay):
                 return snapshot
+
+            # Aceptar comandos y cerrar la pausa usan el mismo bloqueo.
+            # Todo cambio admitido se aplica antes de avanzar el reloj de la pausa.
+            row = matches_repository.get_by_id_for_update(db, match_id)
+            if row is None:
+                raise AppError("MATCH_NOT_FOUND", "El partido fue eliminado durante la ejecución.")
+            if row.status == "CANCELLED":
+                snapshot = row.snapshot
+                db.rollback()
+                clear_requests(match_id)
+                return snapshot
+            for key in ("local_team", "visitor_team"):
+                team = (row.runtime_state or {}).get(key, {})
+                if "dt_active" in team:
+                    simulation.set_dt_active(team["club_id"], team["dt_active"])
+            if simulation.paused:
+                apply_pause_changes()
 
             batch = pending_requests(match_id)
 
@@ -165,20 +217,6 @@ def _execute(
 
                 if simulation.finished:
                     break
-
-            row = matches_repository.get_by_id_for_update(db, match_id)
-
-            if row is None:
-                raise AppError(
-                    "MATCH_NOT_FOUND",
-                    "El partido fue eliminado durante la ejecución.",
-                )
-
-            if row.status == "CANCELLED":
-                snapshot = row.snapshot
-                db.rollback()
-                clear_requests(match_id)
-                return snapshot
 
             snapshot = _persist(db, row, simulation)
 

@@ -36,7 +36,7 @@ function renderRoute(path, responses = {}, getClub = () => jsonResponse(club)) {
     return fetchMock;
 }
 
-it.each(['/ligas-disponibles', '/liga-cancelada'])('redirects anonymous visits to %s to /', async (path) => {
+it.each(['/ligas-disponibles', '/liga-cancelada', '/clubes', '/club/42', '/crear-comportamiento-dt'])('redirects anonymous visits to %s to /', async (path) => {
     const fetchMock = renderRoute(path, {}, () => jsonResponse(invalidSession, 401));
 
     expect(await screen.findByRole('heading', {name: /inicio de sesión/i})).toBeInTheDocument();
@@ -53,6 +53,29 @@ it.each(['/ligas-disponibles', '/liga-cancelada'])('redirects anonymous visits t
     expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/registro$/);
 });
 
+it('lets an anonymous club verify its email after registering', async () => {
+    const email = 'nuevo-club@example.com';
+    const fetchMock = renderRoute('/registro', {
+        '/api/auth/register': () => jsonResponse({message: 'Código enviado'}, 202),
+        '/api/auth/verify-email': () => jsonResponse({id: 1, email, clubId: 8}),
+    }, () => jsonResponse(invalidSession, 401));
+
+    await screen.findByRole('link', {name: 'Registrarse'});
+    fireEvent.change(screen.getByLabelText('Nombre del Club'), {target: {value: 'Nuevo club'}});
+    fireEvent.change(screen.getByLabelText('Email'), {target: {value: email}});
+    fireEvent.change(screen.getByPlaceholderText('Contraseña'), {target: {value: 'contraseña-de-prueba'}});
+    fireEvent.change(screen.getByPlaceholderText('Confimar-contraseña'), {target: {value: 'contraseña-de-prueba'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Registrar Club'}));
+
+    expect(await screen.findByText(email)).toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/verificar-email$/);
+    fireEvent.change(screen.getByPlaceholderText('Ingrese el código'), {target: {value: '123456'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Verificar correo'}));
+
+    expect(await screen.findByRole('link', {name: 'Ir a iniciar sesión'})).toHaveAttribute('href', '/login');
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/verify-email', expect.objectContaining({method: 'POST'}));
+});
+
 it('updates the navigation on login and logout', async () => {
     let signedIn = false;
     const fetchMock = renderRoute('/', {
@@ -65,7 +88,7 @@ it('updates the navigation on login and logout', async () => {
             return jsonResponse(null, 204);
         },
         '/api/leagues': () => jsonResponse({items: []}),
-        '/api/friendly-matches': () => jsonResponse([]),
+        '/api/friendly-matches?creatorName=&page=1&pageSize=20': () => jsonResponse({items: [], total: 0, page: 1, pageSize: 20}),
     }, () => signedIn ? jsonResponse(club) : jsonResponse(invalidSession, 401));
 
     await screen.findByRole('link', {name: 'Iniciar sesión'});
@@ -78,9 +101,11 @@ it('updates the navigation on login and logout', async () => {
     expect(screen.getByText(club.name)).toBeInTheDocument();
     expect(within(screen.getByRole('banner')).queryByRole('link', {name: /futbot/i})).not.toBeInTheDocument();
     const nav = within(screen.getByRole('navigation'));
+    expect(nav.getByRole('link', {name: 'Inicio'})).toHaveAttribute('href', '/home');
     expect(nav.getByRole('link', {name: 'Mi club'})).toHaveAttribute('href', '/mi-club');
     expect(nav.getByRole('link', {name: 'Amistosos'})).toHaveAttribute('href', '/partidos-disponibles');
     expect(nav.getByRole('link', {name: 'Ligas'})).toHaveAttribute('href', '/ligas-disponibles');
+    expect(nav.getByRole('link', {name: 'Clubes'})).toHaveAttribute('href', '/clubes');
     expect(nav.queryByRole('link', {name: 'Registrarse'})).not.toBeInTheDocument();
     fireEvent.click(nav.getByRole('button', {name: 'Cerrar sesión'}));
 

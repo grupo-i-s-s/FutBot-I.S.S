@@ -296,6 +296,11 @@
 
 /* Amistosos */
 
+.home-matches .home-list {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
 .home-match-heading {
     display: flex;
     align-items: center;

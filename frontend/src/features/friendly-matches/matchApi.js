@@ -10,6 +10,14 @@ export function getMatchSnapshot(matchId, signal) {
     return request(`/matches/${validateMatchId(matchId)}`, {signal});
 }
 
+export function planSubstitution(matchId, body, signal) {
+    return request(`/matches/${validateMatchId(matchId)}/planned-substitution`, {method: 'PUT', body, signal});
+}
+
+export function requestSubstitution(matchId, body, signal) {
+    return request(`/matches/${validateMatchId(matchId)}/substitutions`, {method: 'POST', body, signal});
+}
+
 export function matchStreamUrl(matchId) {
     const id = validateMatchId(matchId);
 
@@ -28,5 +36,13 @@ export function changeBehaviour(matchId, playerId, behaviourId) {
             player_id: playerId,
             behaviour_id: behaviourId
         }
+    });
+}
+
+export function activateMatchDt(matchId, active) {
+    const id = validateMatchId(matchId);
+    return request(`/friendly-matches/${id}/dt`, {
+        method: 'POST',
+        body: { dt_active: active }
     });
 }

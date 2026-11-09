@@ -228,7 +228,9 @@ function LeagueLobbyContent({ id }) {
                         ) : (
                             lobby.clubs.map((club) => (
                                 <div className="player-item" key={club.id}>
-                                    <span className="player-name">{club.name}</span>
+                                    <Link to={`/club/${club.id}`} className="player-name">
+                                        {club.name}
+                                    </Link>
 
                                     {club.id === lobby.creatorClub?.id && (
                                         <span className="host-badge">Creador</span>

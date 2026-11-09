@@ -124,3 +124,5 @@ class MatchBreaks:
                         self.durations_ms[self.next_index] / 1000
                     )
                     self.next_index += 1
+                    if self.paused and match.on_pause is not None:
+                        match.on_pause()

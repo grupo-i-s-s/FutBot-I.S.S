@@ -12,7 +12,7 @@ from app.main import app
 from app.models.auth_model import Club, User
 from app.models.league_model import League, LeagueRegistration
 from app.migrate_league_passwords import migrate_league_passwords
-from app.services import league_access_service
+from app.services import email_service, league_access_service
 
 
 @pytest.fixture
@@ -33,19 +33,31 @@ def league_database_client():
         transaction.rollback()
 
 
-def test_create_list_filter_and_read_lobby_with_authenticated_club(league_database_client):
+@pytest.fixture
+def register_and_login(league_database_client, monkeypatch):
+    client, _ = league_database_client
+    codes = {}
+    monkeypatch.setattr(email_service, "send_verification_code", codes.__setitem__)
+
+    def register(email, club_name):
+        credentials = {"email": email, "password": "password-segura"}
+        response = client.post("/auth/register", json={
+            **credentials, "passwordConfirmation": credentials["password"], "clubName": club_name,
+        })
+        assert response.status_code == 202, response.text
+        response = client.post("/auth/verify-email", json={"email": email, "code": codes[email]})
+        assert response.status_code == 200, response.text
+        assert client.post("/auth/login", json=credentials).status_code == 200
+        return response.json()["clubId"]
+
+    return register
+
+
+def test_create_list_filter_and_read_lobby_with_authenticated_club(league_database_client, register_and_login):
     client, db = league_database_client
     prefix = f"Merge {uuid4().hex[:10]}"
     email = f"{uuid4().hex}@example.com"
-    credentials = {"email": email, "password": "password-segura"}
-    response = client.post("/auth/register", json={
-        **credentials,
-        "passwordConfirmation": credentials["password"],
-        "clubName": f"Club {prefix}",
-    })
-    assert response.status_code == 201, response.text
-    assert client.post("/auth/login", json=credentials).status_code == 200
-    club = db.scalar(select(Club).join(User).where(User.email == email))
+    club = db.get(Club, register_and_login(email, f"Club {prefix}"))
     payload = {
         "minTeams": 3,
         "maxTeams": 3,
@@ -154,23 +166,13 @@ def test_listing_requires_session(league_database_client):
 
 
 @pytest.mark.parametrize("kind", ["public", "private", "legacy"])
-def test_join_updates_listing_and_lobby_for_newly_created_league(league_database_client, kind, monkeypatch):
+def test_join_updates_listing_and_lobby_for_newly_created_league(league_database_client, register_and_login, kind, monkeypatch):
     client, db = league_database_client
     clock = [100.0]
     monkeypatch.setattr(league_access_service, "monotonic", lambda: clock[0])
     prefix = uuid4().hex[:10]
 
-    def register_and_login(label):
-        credentials = {"email": f"{prefix}_{label}@example.com", "password": "password-segura"}
-        response = client.post("/auth/register", json={
-            **credentials, "passwordConfirmation": credentials["password"],
-            "clubName": f"{prefix} {label}",
-        })
-        assert response.status_code == 201, response.text
-        assert client.post("/auth/login", json=credentials).status_code == 200
-        return response.json()["clubId"]
-
-    creator_id = register_and_login("creator")
+    creator_id = register_and_login(f"{prefix}_creator@example.com", f"{prefix} creator")
     creator_line_up = client.get("/team/default").json()["lineUp"]
     name = f"Merge Join {prefix}"
     response = client.post(f"/leagues/{'private' if kind == 'private' else 'public'}", json={
@@ -187,7 +189,7 @@ def test_join_updates_listing_and_lobby_for_newly_created_league(league_database
         migrate_league_passwords(db)
         assert league.access_code is None
 
-    club_id = register_and_login("member")
+    club_id = register_and_login(f"{prefix}_member@example.com", f"{prefix} member")
     line_up = client.get("/team/default").json()["lineUp"]
     payload = {"clubId": club_id, "lineUp": line_up}
     listed = client.get("/leagues", params={"name": name}).json()["items"][0]

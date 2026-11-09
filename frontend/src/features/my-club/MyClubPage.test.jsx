@@ -4,8 +4,8 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import MyClubPage from './MyClubPage';
 import {
-    getDefaultTeam, getFormations, getMyClub, getPlayersByIds, listBehaviours, listMyLeagues,
-    listPlayers, updateDefaultTeam, updateMyClub,
+    getDefaultTeam, getFormations, getMyClub, getPlayersByIds, listBehaviours, listDtBehaviours,
+    listMyLeagues, listPlayers, updateDefaultTeam, updateDtSettings, updateMyClub,
 } from './api';
 
 vi.mock('./api', () => ({
@@ -13,6 +13,7 @@ vi.mock('./api', () => ({
     updateDefaultTeam: vi.fn(), updateMyClub: vi.fn(),
     getMyClub: vi.fn(), getPlayersByIds: vi.fn(),
     listBehaviours: vi.fn(), listMyLeagues: vi.fn(), listPlayers: vi.fn(),
+    listDtBehaviours: vi.fn(), updateDtSettings: vi.fn(),
 }));
 
 const club = {id: 7, name: 'Club de prueba', avatar: 'shield', friendlyAvailable: true};
@@ -71,6 +72,7 @@ describe('Configuración de formación del club', () => {
         };
         getMyClub.mockResolvedValue(club);
         listBehaviours.mockResolvedValue({items: behaviours});
+        listDtBehaviours.mockResolvedValue({items: []});
         listMyLeagues.mockResolvedValue({items: []});
         listPlayers.mockImplementation(async params => rosterPage(params));
         getPlayersByIds.mockImplementation(async ids => players.filter(player => ids.includes(player.id)));
@@ -187,6 +189,25 @@ describe('Configuración de formación del club', () => {
         expect(await saveToast(message)).toBeVisible();
         fireEvent.click(await screen.findByRole('button', {name: 'Cerrar notificación'}));
         await waitFor(() => expect(screen.queryByText(message)).not.toBeInTheDocument());
+    });
+
+    it('confirma la creación y el guardado del DT con toasts de Mi club', async () => {
+        const notice = 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.';
+        const entry = {pathname: '/mi-club', state: {notice}};
+        const updatedDt = {isActive: true, activeBehaviourId: 42};
+        listDtBehaviours.mockResolvedValue({items: [{id: 42, name: 'Cuidar el resultado'}]});
+        updateDtSettings.mockResolvedValue(updatedDt);
+        render(<MemoryRouter initialEntries={[entry]}><MyClubPage/></MemoryRouter>);
+
+        const editor = await teamEditor();
+        expect(await saveToast(notice)).toBeVisible();
+        const select = await editor.findByLabelText('Comportamiento del DT');
+        fireEvent.change(select, {target: {value: '42'}});
+        fireEvent.click(editor.getByRole('switch', {name: 'Activar DT para próximos partidos'}));
+        fireEvent.click(editor.getByRole('button', {name: 'Guardar DT'}));
+
+        expect(updateDtSettings).toHaveBeenCalledWith(updatedDt);
+        expect(await saveToast('Configuración del DT guardada.')).toBeVisible();
     });
 
     it('mantiene el borrador al cambiar de pestaña y paginar el plantel', async () => {

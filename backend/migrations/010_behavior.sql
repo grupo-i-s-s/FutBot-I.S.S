@@ -1,12 +1,24 @@
 BEGIN;
 
 ALTER TABLE behaviors
-    ADD COLUMN kind VARCHAR(20) NOT NULL DEFAULT 'PLAYER',
-    ADD COLUMN version INT NOT NULL DEFAULT 1,
-    ADD COLUMN validation_status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-; 
-ALTER TABLE behaviors
-    ADD CONSTRAINT ck_behaviors_version CHECK (version >= 1);
+    ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'PLAYER',
+    ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS validation_status VARCHAR(20) NOT NULL DEFAULT 'PENDING';
+
+DO $migration$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'ck_behaviors_version'
+          AND conrelid = 'behaviors'::regclass
+    ) THEN
+        ALTER TABLE behaviors
+            ADD CONSTRAINT ck_behaviors_version
+            CHECK (version >= 1);
+    END IF;
+END;
+$migration$;
 
 UPDATE behaviors
 SET validation_status = 'VALID'

@@ -45,7 +45,7 @@ def test_merged_checkpoint_recovers_formations_breaks_and_sides(elapsed):
     checkpoint = json.loads(json.dumps(simulation.checkpoint()))
     restored = Match.from_checkpoint(checkpoint)
 
-    assert checkpoint["version"] == 4
+    assert checkpoint["version"] == 6
     assert json.loads(json.dumps(restored.checkpoint())) == checkpoint
     assert restored.local_team.formation_id == 2
     assert restored.visitor_team.formation_id == 3

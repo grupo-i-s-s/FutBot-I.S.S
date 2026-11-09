@@ -1,16 +1,37 @@
 import Editor from "@monaco-editor/react";
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { createBehaviour } from './api';
+import { Link, useNavigate } from 'react-router';
+import { createBehaviour, createDtBehaviour, validateBehaviour } from './api';
+import { Button } from '@/components/ui/button';
 
-export default function CreateBehaviourPage() {
-    const [name, setName] = useState('');
-    const [code, setCode] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const navigate = useNavigate();
+const PLAYER_TEMPLATE = `def decide(observation):
+    #return ir_a_pelota()`;
 
-    const apiFunctions = [
+const DT_TEMPLATE = `from primitives.dt_behaviour import DtAction
+from primitives.behaviours import BehaviourMode
+
+def decide(obs):
+    cambios = [
+        cambiar_comportamiento(jugador, BehaviourMode.DEFENSIVE)
+        for jugador in obs.players_id
+    ]
+    if obs.can_substitute:
+        cambio = sustituir(obs.players_id[0], obs.substitutes_id[0])
+        return DtAction(cambios, [cambio])
+    return DtAction(cambios)`;
+
+const dtApiFunctions = [
+    { name: 'obs.time_played', description: 'Tiempo de juego transcurrido en segundos.' },
+    { name: 'obs.my_goals / obs.rival_goals', description: 'Goles de tu equipo y del rival.' },
+    { name: 'obs.players_id / obs.substitutes_id', description: 'Identificadores de los jugadores en cancha y del banco.' },
+    { name: 'obs.can_substitute', description: 'Indica que el DT puede pedir una sustitución en la pausa actual.' },
+    { name: 'obs.pause_index', description: 'Vale 1, 2 o 3 durante una pausa. El 2 corresponde al entretiempo.' },
+    { name: 'cambiar_comportamiento(jugador, modo)', description: 'Acepta BehaviourMode.BALANCED, BehaviourMode.OFFENSIVE y BehaviourMode.DEFENSIVE.' },
+    { name: 'sustituir(titular, suplente)', description: 'Pide un cambio durante una pausa con cuota disponible.' },
+    { name: 'DtAction(cambios, sustituciones)', description: 'Devuelve las órdenes que evaluará el motor. La lista de sustituciones es opcional.' },
+];
+
+const playerApiFunctions = [
         { name: 'tiempo_jugado()', description: 'Devuelve el tiempo de juego transcurrido.', returnType: 'Número' },
         { name: 'tiempo_restante()', description: 'Devuelve el tiempo de juego restante.', returnType: 'Número' },
         { name: 'vamos_ganando()', description: 'Indica si nuestro equipo está ganando.', returnType: 'bool' },
@@ -39,40 +60,91 @@ export default function CreateBehaviourPage() {
         { name: 'quedarse(posicion)', description: 'Ordena desplazarse a la posición indicada.', returnType: 'Command' },
         { name: 'cubrir_arco()', description: 'Busca ubicarse entre la pelota y el arco propio.', returnType: 'Command' },
         { name: 'conducir_hacia(direccion)', description: 'Intenta avanzar hacia una dirección acompañando la pelota.', returnType: 'Command' },
-    ];
+];
 
+export default function CreateBehaviourPage({ kind = 'PLAYER' }) {
+    const isDt = kind === 'DT';
+    const template = isDt ? DT_TEMPLATE : PLAYER_TEMPLATE;
+    const apiFunctions = isDt ? dtApiFunctions : playerApiFunctions;
+    const [name, setName] = useState('');
+    const [code, setCode] = useState(isDt ? template : '');
+    const [error, setError] = useState('');
+    const [diagnostics, setDiagnostics] = useState([]);
+    const [isValid, setIsValid] = useState(false);
+    const [action, setAction] = useState('');
+    const navigate = useNavigate();
+
+    function clearFeedback() {
+        setError('');
+        setDiagnostics([]);
+        setIsValid(false);
+    }
+
+    async function handleValidate() {
+        if (action || !code.trim()) return;
+        clearFeedback();
+        setAction('validate');
+        try {
+            const result = await validateBehaviour(isDt ? 'COACH' : 'PLAYER', code);
+            setIsValid(result.valid);
+            setDiagnostics(result.diagnostics);
+            if (!result.valid) setError('Revisá el código antes de guardarlo.');
+        } catch (err) {
+            setError(err.message || 'No se pudo validar el comportamiento.');
+        } finally {
+            setAction('');
+        }
+    }
 
     async function handleSubmit(event) {
         event.preventDefault();
-        setError('');
-        setSuccess('');
+        if (action) return;
+        clearFeedback();
 
         if (!name.trim() || !code.trim()) {
             setError('Deben completarse todos los campos.');
             return;
         }
 
+        setAction('save');
         try {
-            await createBehaviour(name, code);
-            setSuccess('Comportamiento creado exitosamente.');
-            navigate('/behaviours', { replace: true });
+            if (isDt) {
+                await createDtBehaviour(name.trim(), code);
+                navigate('/mi-club', {
+                    replace: true,
+                    state: { notice: 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.' },
+                });
+            } else {
+                await createBehaviour(name, code);
+                navigate('/behaviours', { replace: true });
+            }
         } catch (err) {
             const fields = Object.values(err.fields || {});
             setError(
                 fields.join(' ') || err.message || 'No se pudo crear el comportamiento.'
             );
+            setDiagnostics(err.diagnostics ?? []);
+        } finally {
+            setAction('');
         }
     }
 
     return (
         <div className="max-w-4xl mx-auto p-6 flex flex-col">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 ">Crear Comportamiento</h2>
+            {isDt && <Link to="/mi-club" className="mb-4 text-sm underline">Volver a Mi club</Link>}
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">
+                {isDt ? 'Crear comportamiento del DT' : 'Crear Comportamiento'}
+            </h2>
             <form onSubmit={handleSubmit} className="w-full space-y-4">
                 <div>
+                    <label htmlFor="behaviour-name" className="sr-only">Nombre del comportamiento</label>
                     <input
+                        id="behaviour-name"
                         type="text"
                         placeholder="Ingrese el nombre"
+                        maxLength={isDt ? 30 : 50}
                         defaultValue=""
+                        disabled={Boolean(action)}
                         className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
                         onChange={(event) => setName(event.target.value)}
                     />
@@ -82,10 +154,13 @@ export default function CreateBehaviourPage() {
                         height="300px"
                         width="100%"
                         defaultLanguage="python"
-                        defaultValue={`def decide(observation):
-    #return ir_a_pelota()`}
+                        defaultValue={template}
                         theme="vs-dark"
-                        onChange={(value) => setCode(value ?? '')}
+                        options={{ readOnly: Boolean(action), ariaLabel: 'Código del comportamiento' }}
+                        onChange={(value) => {
+                            setCode(value ?? '');
+                            clearFeedback();
+                        }}
                     />
 
                     <aside
@@ -104,25 +179,30 @@ export default function CreateBehaviourPage() {
                         </ul>
                     </aside>
                 </div>
-                <button
-                    type="submit"
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow"
-                >
-                    Guardar Comportamiento
-                </button>
+                <div className="flex flex-wrap justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={handleValidate} disabled={Boolean(action) || !code.trim()}>
+                        {action === 'validate' ? 'Validando…' : 'Validar código'}
+                    </Button>
+                    <Button type="submit" disabled={Boolean(action)}>
+                        {action === 'save' ? 'Guardando…' : 'Guardar Comportamiento'}
+                    </Button>
+                </div>
 
                 {error && (
-                    <p role="alert">
-                        {error}
-                    </p>
+                    <div role="alert" className="text-destructive">
+                        <p>{error}</p>
+                        {diagnostics.length > 0 && (
+                            <ul className="list-disc pl-5">
+                                {diagnostics.map((item, index) => (
+                                    <li key={index}>{item.line > 0 && `Línea ${item.line} · `}{item.message}</li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
                 )}
 
-                {success && (
-                    <p role="status">
-                        {success}
-                    </p>
-                )}
+                {isValid && <p role="status">El código es válido.</p>}
             </form>
         </div>
     );
-} 
+}

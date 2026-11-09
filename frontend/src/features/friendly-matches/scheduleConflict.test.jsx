@@ -45,7 +45,10 @@ it('muestra la franja ocupada al intentar unirse a un amistoso', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url) => {
         if (url === '/api/friendly-matches/me') return jsonResponse([]);
         if (url === '/api/friendly-matches/join') return conflictResponse();
-        return jsonResponse([{matchId: 42, creatorClubName: 'Club local', startDateTime: conflictStart}]);
+        return jsonResponse({
+            items: [{matchId: 42, creatorClubName: 'Club local', startDateTime: conflictStart}],
+            total: 1, page: 1, pageSize: 20,
+        });
     }));
     render(<MemoryRouter><MatchesPage/></MemoryRouter>);
 

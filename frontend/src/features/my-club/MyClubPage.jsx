@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { Brain, CircleAlert, Shirt, Trophy, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -9,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClubBehaviourList from './components/ClubBehaviourList';
 import ClubHeader from './components/ClubHeader';
 import ClubSettingsDialog from './components/ClubSettingsDialog';
+import DtSettings from './components/DtSettings';
 import TeamSettings from './components/TeamSettings';
 import LeagueList from './components/LeagueList';
 import PlayerList from './components/PlayerList';
@@ -27,6 +29,7 @@ const CLUB_TABS = [
 ];
 
 export default function MyClubPage() {
+    const { key: locationKey, state } = useLocation();
     const mounted = useRef(false);
     const [page, setPage] = useState(1);
     const {
@@ -37,6 +40,7 @@ export default function MyClubPage() {
 
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
+    const notice = state?.notice;
 
     useEffect(() => {
         mounted.current = true;
@@ -45,6 +49,10 @@ export default function MyClubPage() {
             toast.dismiss(SAVE_TOAST_ID);
         };
     }, []);
+
+    useEffect(() => {
+        if (status === 'ready' && notice) toast.success(notice, {id: SAVE_TOAST_ID});
+    }, [locationKey, notice, status]);
 
     function showSaveToast(message) {
         if (mounted.current) toast.success(message, {id: SAVE_TOAST_ID});
@@ -124,13 +132,14 @@ export default function MyClubPage() {
                         ))}
                     </TabsList>
 
-                    <TabsContent value="team" keepMounted>
+                    <TabsContent value="team" keepMounted className="space-y-4">
                         <TeamSettings
                             key={club.id}
                             clubId={club.id}
                             behaviours={behaviours}
                             onSaveSuccess={showSaveToast}
                         />
+                        <DtSettings key={`dt-${club.id}`} dt={club.dt} onSaveSuccess={showSaveToast} />
                     </TabsContent>
 
                     <TabsContent value="players">

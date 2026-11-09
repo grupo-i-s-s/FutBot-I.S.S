@@ -21,6 +21,9 @@ import BehaviourList from './features/behaviours/components/BehaviourList.jsx';
 import LeagueListPage from './features/list-leagues/LeagueListPage.jsx';
 import NavBar from './features/nav-bar/navBar.jsx';
 import {SessionProvider, useSession} from './features/session/SessionProvider.jsx';
+import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
+import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
+import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
 
 function SessionLoading() {
     return <main className="mx-auto max-w-md px-4 py-8">
@@ -55,6 +58,7 @@ export default function App() {
                 <Route path="/" element={<SignIn/>} />
                 <Route path="/login" element={<SignIn/>} />
                 <Route path="/registro" element={<RegisterPage />} />
+                <Route path="/verificar-email" element={<VerifyEmailPage />} />
                 <Route element={<RequireSession/>}>
                     <Route path="/home" element={<HomePage />} />
                     <Route path="/mi-club" element={<MyClubPage />} />
@@ -73,6 +77,9 @@ export default function App() {
                     <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
                     <Route path="/behaviours" element={<BehaviourList />} />
                     <Route path="/crear-comportamiento" element={<CreateBehaviourPage />} />
+                    <Route path="/crear-comportamiento-dt" element={<CreateBehaviourPage key="dt" kind="DT" />} />
+                    <Route path="/clubes" element={<ClubsListPage />} />
+                    <Route path="/club/:clubId" element={<ClubProfilePage />} />
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
             </Routes>

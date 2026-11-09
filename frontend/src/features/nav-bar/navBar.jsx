@@ -24,9 +24,11 @@ function ClubNavigation({signOut}) {
 
     return <>
         <nav className="app-nav-links" aria-label="Navegación principal">
+            <NavLink to="/home" className="app-nav-action">Inicio</NavLink>
             <NavLink to="/mi-club" className="app-nav-action">Mi club</NavLink>
             <NavLink to="/partidos-disponibles" className="app-nav-action">Amistosos</NavLink>
             <NavLink to="/ligas-disponibles" className="app-nav-action">Ligas</NavLink>
+            <NavLink to="/clubes" className="app-nav-action">Clubes</NavLink>
             <button type="button" className="app-nav-action" onClick={handleSignOut} disabled={signingOut}>
                 {signingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </button>
