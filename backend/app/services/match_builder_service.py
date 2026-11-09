@@ -7,11 +7,13 @@ from app.repository import (
     matches_repository,
     player_repository,
     team_repository,
+    dt_repository
 )
 from app.schemas.team_schemas import Lineup
 from primitives.behaviour_api.runtime import resolve_program
 from primitives.formations import FORMATIONS
 from primitives.match_simulation import Match, PlayerProfile, Team
+from app.models.auth_model import Club
 
 
 def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=None) -> Team:
@@ -107,12 +109,16 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
             )
         )
 
+    dt = dt_repository.get_dt_by_club_id(db, club_id)
+    is_dt_active = dt.is_active if dt else False
+        
     return Team(
         club_id=club_id,
         name=name,
         players=tuple(profiles),
         formation_id=lineup.formation_id,
         avatar=avatar,
+        dt_active = is_dt_active,
     )
 
 
