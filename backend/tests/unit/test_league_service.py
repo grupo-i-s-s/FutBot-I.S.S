@@ -192,8 +192,17 @@ def test_password_hash_protects_league_even_if_private_flag_is_missing(db, leagu
     assert error.value.code == "LEAGUE_ACCESS_INVALID"
     leagues.repo.create_registration.assert_not_called()
 
+def test_creator_leave_deletes_league(db, leagues):
+    leagues.row.creator_club_id = 7
 
-@pytest.mark.parametrize("case, status", [("missing", 404), ("creator", 409), ("closed", 409),
+    result = service.leave_league(db, 42, 7)
+
+    assert result["league_id"] == 42
+    leagues.repo.delete_league.assert_called_once_with(db, leagues.row)
+    db.commit.assert_called_once()
+
+
+@pytest.mark.parametrize("case, status", [("missing", 404), ("closed", 409),
                                           ("started", 409), ("not_member", 409)])
 def test_leave_rejects_without_removing_registration(db, leagues, now, case, status):
     if case == "missing":
