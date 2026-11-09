@@ -1,4 +1,7 @@
+from typing import Annotated
+
 from fastapi import APIRouter, status, Body
+from pydantic import StrictBool
 
 from app.dependencies import CurrentClub, Database
 from app.schemas.matches_schemas import (
@@ -51,9 +54,9 @@ def create_behaviour_test_match(db: Database, club: CurrentClub):
 @matches_router.post("/{match_id}/dt")
 def update_match_dt(
     match_id: int,
-    dt_active: bool = Body(..., embed=True),
-    db: Database = None,  
-    club: CurrentClub = None,
+    db: Database,
+    club: CurrentClub,
+    dt_active: Annotated[StrictBool, Body(embed=True)],
 ):
     return matches_service.set_match_dt(
         db=db, match_id=match_id, club_id=club.id, dt_active=dt_active

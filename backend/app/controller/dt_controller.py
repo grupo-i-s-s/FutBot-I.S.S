@@ -1,15 +1,14 @@
 from fastapi import APIRouter, status
 from app.dependencies import Database, CurrentClub, CurrentIdentity
-from app.schemas.Dt_schemas import DtBehaviourCreate, DtBehaviourRead, DtUpdate, DtRead
+from app.schemas.Dt_schemas import DtBehaviourCreate, DtBehaviourList, DtBehaviourRead, DtUpdate, DtRead
 from app.services import dt_service
 
 dt_router = APIRouter(prefix="/dt", tags=["dt"])
 
 
-@dt_router.get("/behaviours", response_model=dict)
+@dt_router.get("/behaviours", response_model=DtBehaviourList)
 def get_dt_behaviours(db: Database, identity: CurrentIdentity):
-    behaviours = dt_service.list_dt_behaviours(db, identity.user_id)
-    return {"items": behaviours}
+    return {"items": dt_service.list_dt_behaviours(db, identity.user_id)}
 
 
 @dt_router.post(

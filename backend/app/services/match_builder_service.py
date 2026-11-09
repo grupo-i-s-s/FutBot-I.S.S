@@ -1,7 +1,10 @@
+from collections.abc import Iterable
+
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
+from app.models.behaviour_model import Behavior
 from app.repository import (
     behaviour_repository,
     matches_repository,
@@ -11,9 +14,24 @@ from app.repository import (
 )
 from app.schemas.team_schemas import Lineup
 from primitives.behaviour_api.runtime import resolve_program
+from primitives.behaviours import DEFAULT_MODES, BehaviourMode, resolve_behaviour
 from primitives.formations import FORMATIONS
 from primitives.match_simulation import Match, PlayerProfile, Team
-from app.models.auth_model import Club
+
+
+def default_behaviours_for_dt(behaviours: Iterable[Behavior]) -> dict[BehaviourMode, tuple[int, int]]:
+    defaults = {}
+    for behaviour in behaviours:
+        expected = DEFAULT_MODES.get(behaviour.name)
+        if expected is None or behaviour.kind != "PLAYER" or behaviour.validation_status != "VALID":
+            continue
+        try:
+            mode = resolve_behaviour(behaviour.code, behaviour.name)
+        except ValueError:
+            continue
+        if mode == expected:
+            defaults[mode] = (behaviour.id, behaviour.version)
+    return defaults
 
 
 def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=None) -> Team:
@@ -110,13 +128,7 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
         )
 
     dt = dt_repository.get_dt_by_club_id(db, club_id)
-    is_dt_active =  False
-    dt_code = None
-
-    if dt:
-        is_dt_active = dt.is_active
-        if dt.behaviour_id and dt.behaviour:
-            dt_code = dt.behaviour.code
+    dt_code = dt.behaviour.code if dt and dt.behaviour else None
 
     return Team(
         club_id=club_id,
@@ -125,8 +137,9 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
         substitutes=tuple(profiles[len(lineup.starters):]),
         formation_id=lineup.formation_id,
         avatar=avatar,
-        dt_active = is_dt_active,
-        dt_code = dt_code
+        dt_active=bool(dt_code and dt.is_active),
+        dt_code=dt_code,
+        dt_default_behaviours=default_behaviours_for_dt(behaviours.values()) if dt_code else {},
     )
 
 

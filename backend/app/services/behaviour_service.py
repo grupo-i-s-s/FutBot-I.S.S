@@ -132,9 +132,11 @@ def _match_uses_behaviour( match: Matches, club_id: int, behaviour_id: int) -> b
 
     for key in ("local_team", "visitor_team"):
         team = runtime.get(key, {})
-        if (
-            team.get("club_id") == club_id
-            and _contains_id(team, BEHAVIOUR_KEYS, behaviour_id)
+        if team.get("club_id") != club_id:
+            continue
+        if _contains_id(team, BEHAVIOUR_KEYS, behaviour_id) or any(
+            isinstance(entry, (list, tuple)) and entry and entry[0] == behaviour_id
+            for entry in team.get("dt_default_behaviours", {}).values()
         ):
             return True
 
