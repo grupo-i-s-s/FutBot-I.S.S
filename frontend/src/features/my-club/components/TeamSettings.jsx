@@ -303,9 +303,9 @@ export default function TeamSettings({clubId, behaviours, onSaveSuccess}) {
                                         <fieldset
                                             key={index}
                                             disabled={isSaving}
-                                            className="min-w-0 space-y-2 rounded-md border p-2"
+                                            className="min-w-0 space-y-4 rounded-xl border bg-card p-5 shadow-xs"
                                         >
-                                            <legend className="px-1 text-sm font-semibold">
+                                            <legend className="rounded-md border bg-secondary px-3 py-1 text-sm font-semibold text-primary">
                                                 {index < 3
                                                     ? `Titular ${index + 1}${selectedFormation?.slots?.[index]?.label
                                                         ? ` — ${selectedFormation.slots[index].label}` : ''}`
