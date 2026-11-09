@@ -52,9 +52,6 @@ export default function LeagueList({leagues}) {
                                 </ItemContent>
                                 <ItemActions>
                                     <Badge variant="secondary">{league.status}</Badge>
-                                    <Link to={`/leagues/${league.id}/lineup`} className={buttonVariants({size: 'sm', variant: 'outline'})}>   
-                                         Ver plantel
-                                    </Link>
                                 </ItemActions>
                             </Item>
                         ))}
