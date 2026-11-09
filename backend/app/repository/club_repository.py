@@ -60,5 +60,16 @@ def get_club_profile_data(db: Session, club_id: int) -> dict | None:
     return get_club_profile_stats(db, club_id)
 
 
-def get_by_name(db: Session, name: str) -> Club | None:
-    return db.scalar(select(Club).where(func.lower(Club.name) == name.strip().lower()))
+def get_by_name(
+    db: Session, name: str, *, exclude_club_id: int | None = None, lock: bool = False,
+) -> Club | None:
+    normalized_name = func.lower(name.strip())
+    if lock and db.get_bind().dialect.name == "postgresql":
+        # Serializa las altas y los cambios que compiten por el mismo nombre.
+        # No exige renombrar los clubes históricos que ya tienen colisiones.
+        db.execute(select(func.pg_advisory_xact_lock(46002, func.hashtext(normalized_name))))
+
+    query = select(Club).where(func.lower(Club.name) == normalized_name)
+    if exclude_club_id is not None:
+        query = query.where(Club.id != exclude_club_id)
+    return db.scalar(query.limit(1))

@@ -84,6 +84,9 @@ def _create_account(
     if existing_email:
         raise duplicate_error("email")
 
+    if club_repository.get_by_name(db, club_name, lock=True):
+        raise duplicate_error("clubName")
+
     user = user_repository.create_user(
         db,
         email=email,
@@ -136,9 +139,6 @@ def register(db: Session, data: RegisterRequest) -> dict[str, str]:
         if user_repository.get_by_email(db, email):
             raise duplicate_error("email")
 
-        if club_repository.get_by_name(db, data.club_name):
-            raise duplicate_error("clubName")
-
         pending = pending_email_verification_repository.get_by_email(db, email, lock=True)
 
         if pending and pending.expires_at > now:
@@ -147,6 +147,9 @@ def register(db: Session, data: RegisterRequest) -> dict[str, str]:
                 "Ya hay una verificación pendiente para ese email. "
                 "Usá el código que recibiste o solicitá uno nuevo.",
             )
+
+        if club_repository.get_by_name(db, data.club_name):
+            raise duplicate_error("clubName")
 
         if pending:
             pending_email_verification_repository.delete_by_email(db, email)
@@ -359,11 +362,19 @@ def verify_email(db: Session, data: VerifyEmailRequest) -> UserResponse:
                 "El código no es válido o venció.",
             )
 
+        club_name = pending.club_name
+        password_hash = pending.password_hash
+        if data.registration is not None:
+            if data.registration.club_name is not None:
+                club_name = data.registration.club_name
+            if data.registration.password is not None:
+                password_hash = hash_password(data.registration.password)
+
         result = _create_account(
             db,
             email=email,
-            password_hash=pending.password_hash,
-            club_name=pending.club_name,
+            password_hash=password_hash,
+            club_name=club_name,
         )
         pending_email_verification_repository.delete_by_email(db, email)
         db.commit()

@@ -79,9 +79,27 @@ class UserResponse(BaseModel):
         serialization_alias="clubId",
     )
 
+class RegistrationCorrections(InputSchema):
+    club_name: Name | None = Field(default=None, alias="clubName")
+    password: NewPassword | None = None
+    password_confirmation: str | None = Field(default=None, alias="passwordConfirmation", max_length=128)
+
+    @field_validator("club_name", mode="before")
+    @classmethod
+    def normalize_club_name(cls, value):
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validate_password_confirmation(self):
+        if self.password != self.password_confirmation:
+            raise ValueError("Las contraseñas no coinciden")
+        return self
+
+
 class VerifyEmailRequest(InputSchema):
     email: EmailStr = Field(max_length=254)
     code: str = Field(pattern=r"^\d{6}$")
+    registration: RegistrationCorrections | None = None
 
     @field_validator("email")
     @classmethod
