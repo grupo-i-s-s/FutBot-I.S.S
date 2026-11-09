@@ -152,6 +152,40 @@ describe('Configuración de formación del club', () => {
         expect(reopened.getByRole('combobox', {name: 'Comportamiento del lugar 1'})).toHaveValue('Ofensivo');
     });
 
+    it('intercambia un titular y un suplente con sus comportamientos y guarda los seis lugares en orden', async () => {
+        const original = persisted.lineUp;
+        original.substitutes[0].behaviourId = 11;
+        const {unmount} = render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        const editor = await teamEditor();
+        const starter = await editor.findByRole('combobox', {name: 'Jugador del lugar 1'});
+
+        function expectSwappedLineup(view) {
+            expect(view.getAllByRole('combobox', {name: /^Jugador del lugar /}).map(input => input.value)).toEqual([
+                'Jugador 4', 'Jugador 2', 'Jugador 3', 'Jugador 10', 'Jugador 5', 'Jugador 6',
+            ]);
+            expect(view.getByRole('combobox', {name: 'Comportamiento del lugar 1'})).toHaveValue('Ofensivo');
+            expect(view.getByRole('combobox', {name: 'Comportamiento del lugar 4'})).toHaveValue('Equilibrado');
+        }
+
+        await chooseComboboxOption(starter, 'Jugador 4', 'Jugador 4');
+        expect(listPlayers).toHaveBeenCalledWith(expect.objectContaining({search: 'Jugador 4', page: 1, pageSize: 10}));
+        expectSwappedLineup(editor);
+
+        fireEvent.click(editor.getByRole('button', {name: 'Guardar equipo'}));
+        expect(await saveToast('Equipo guardado correctamente.')).toBeVisible();
+        expect(updateDefaultTeam).toHaveBeenCalledExactlyOnceWith({
+            formationId: original.formationId,
+            starters: [original.substitutes[0], ...original.starters.slice(1)],
+            substitutes: [original.starters[0], ...original.substitutes.slice(1)],
+        });
+
+        unmount();
+        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        const reopened = await teamEditor();
+        await reopened.findByLabelText('Formación');
+        expectSwappedLineup(reopened);
+    });
+
     it('conserva la selección si falla el guardado y muestra el error', async () => {
         updateDefaultTeam.mockRejectedValue(new Error('No se pudo guardar la formación.'));
         render(<MemoryRouter><MyClubPage/></MemoryRouter>);
@@ -262,7 +296,9 @@ describe('Configuración de formación del club', () => {
         expect(getPlayersByIds).toHaveBeenCalledWith([10, 2, 3, 4, 5, 6], expect.anything());
 
         fireEvent.change(formation, {target: {value: '2'}});
+        await chooseComboboxOption(starterBehaviour, 'Ofen', 'Ofensivo');
         await chooseComboboxOption(starter, 'Jugador 11', 'Jugador 11');
+        expect(starterBehaviour).toHaveValue('Equilibrado');
         await chooseComboboxOption(starterBehaviour, 'Ofen', 'Ofensivo');
         await chooseComboboxOption(substitute, 'Jugador 12', 'Jugador 12');
         await chooseComboboxOption(substituteBehaviour, 'Ofen', 'Ofensivo');

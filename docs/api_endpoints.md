@@ -76,7 +76,7 @@ curl -fsS http://localhost:8000/openapi.json | python3 docs/check_api_reference.
 | POST | `/friendly-matches/behaviour-test` | `201` | — | Crea un partido de prueba contra el bot. |
 | GET | `/matches/{match_id}` | `200` | — | Snapshot de un amistoso, partido de liga o prueba. |
 | POST | `/matches/{match_id}/live-requests` | `200` | `LiveRequestCreate` | En modo manual, encola un cambio con `playerId` y `behaviourId`. Devuelve `queued` y `requestId`. |
-| PUT | `/matches/{match_id}/planned-substitution` | `200` | `PlannedSubstitutionRequest` | En modo manual, planifica una sustitución con `outPlayerId`, `inPlayerId` y `commandId`. |
+| PUT | `/matches/{match_id}/planned-substitution` | `200` | `PlannedSubstitutionRequest` | En modo manual, planifica una sustitución con `outPlayerId`, `inPlayerId`, `commandId` y `pauseId`. |
 | POST | `/matches/{match_id}/substitutions` | `202` | `SubstitutionRequest` | En modo manual, solicita un cambio durante una pausa e incluye `pauseId`. |
 
 ## Modo de juego del club
@@ -84,6 +84,12 @@ curl -fsS http://localhost:8000/openapi.json | python3 docs/check_api_reference.
 Cada club conserva el modo con el que empezó el partido. El snapshot informa el modo de cada equipo en `state.teams[].dtActive`, incluso si el programa del DT falla. El error del programa se informa en `dtError`. Los cambios de configuración en `PATCH /clubs/me/dt` se aplican a futuros partidos.
 
 En un partido en curso, `POST /matches/{match_id}/dt` y su alias anterior devuelven `409 MATCH_DT_MODE_FIXED`. Los cambios de comportamiento y las sustituciones manuales devuelven `409 MATCH_DT_MANUAL_ACTION_FORBIDDEN` si el club de la sesión está en modo DT. El otro club usa su propio modo.
+
+## Pausa objetivo de una sustitución
+
+Durante el juego, el cliente envía en el `PUT` el `pauseId` que vio en `state.nextPause`. Si esa pausa dejó de ser elegible para planificar, la API devuelve `409 PAUSE_CLOSED`. Para un cambio inmediato, el `POST` usa el identificador de la pausa en curso.
+
+Al cancelar el partido, los planes pendientes pasan a `EXPIRED` en la misma transacción. Repetir el mismo `commandId` con los mismos jugadores y pausa devuelve el estado guardado. Reutilizar el identificador para otra pausa o jugadores devuelve `409 SUBSTITUTION_COMMAND_CONFLICT`.
 
 ## WebSocket de partidos
 

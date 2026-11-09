@@ -180,7 +180,7 @@ def test_running_mode_rejects_toggles_and_controls_manual_actions(dt_game, leagu
             }), 200)
             assert_manual_result(client.put(f"{path}/planned-substitution", json={
                 "outPlayerId": league_data.lineups[0][2], "inPlayerId": league_data.lineups[0][5],
-                "commandId": "planned-manual",
+                "commandId": "planned-manual", "pauseId": before["state"]["nextPause"]["pauseId"],
             }), 200)
             assert client.patch("/clubs/me/dt", json={"isActive": not active}).status_code == 200
 

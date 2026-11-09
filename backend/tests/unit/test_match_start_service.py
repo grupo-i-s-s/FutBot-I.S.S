@@ -83,6 +83,7 @@ def test_cancellation_publishes_new_sequence_without_mutating_previous_snapshot(
     assert start.snapshot == before
     assert start.row.snapshot is not start.snapshot
     service.read_snapshot.assert_called_once_with(db, 42, 1)
+    start.repo.expire_pending_substitutions.assert_called_once_with(db, 42)
     db.flush.assert_called_once()
     db.commit.assert_not_called()
     if reason in {"NO_OPPONENT", "INVALID_CLUBS", "CLUB_BUSY"}:

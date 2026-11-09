@@ -43,7 +43,7 @@ beforeEach(() => {
         if (url === '/api/behaviours') return reply({items: []});
         const manual = url === '/api/matches/42/substitutions';
         if (!manual) expect(url).toBe('/api/matches/42/planned-substitution');
-        return reply({pauseId: '42:1', ...JSON.parse(options.body), status: 'PENDING', sequence: ++responseSequence}, manual ? 202 : 200);
+        return reply({...JSON.parse(options.body), status: 'PENDING', sequence: ++responseSequence}, manual ? 202 : 200);
     });
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce('command-1').mockReturnValueOnce('command-2').mockReturnValue('command-3');
@@ -96,7 +96,9 @@ it('guarda una vez, espera la respuesta y muestra planificado sin alterar la can
     expect(options.method).toBe('PUT');
     expect(options.credentials).toBe('same-origin');
     expect(options.headers['X-FutBot-Request']).toBe('1');
-    expect(JSON.parse(options.body)).toEqual({outPlayerId: 1, inPlayerId: 4, commandId: 'command-1'});
+    expect(JSON.parse(options.body)).toEqual({
+        outPlayerId: 1, inPlayerId: 4, commandId: 'command-1', pauseId: '42:1',
+    });
     await act(async () => finish(reply({...pending(4, 'command-1'), sequence: 2})));
     expect(screen.getByText(/Cambio planificado: sale Titular A y entra Suplente A/)).toHaveTextContent('todavía no se realizó');
     expect(state.players).toEqual(before);
@@ -125,6 +127,42 @@ it('reutiliza commandId al reintentar después de un fallo de red', async () => 
     fireEvent.click(screen.getByRole('button', {name: 'Guardar cambio'}));
     await screen.findByText(/Cambio planificado:/);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(JSON.parse(fetchMock.mock.calls[1][1].body));
+});
+
+it('informa que venció la pausa elegida y espera una nueva confirmación para la siguiente', async () => {
+    fetchMock.mockResolvedValueOnce(reply({error: {
+        code: 'PAUSE_CLOSED', message: 'La pausa elegida ya no está disponible para planificar.',
+    }}, 409));
+    const view = render(panel());
+    choose();
+    fireEvent.click(screen.getByRole('button', {name: 'Guardar cambio'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('La pausa elegida ya no está disponible');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({pauseId: '42:1', commandId: 'command-1'});
+    expect(screen.queryByText(/Cambio planificado:/)).not.toBeInTheDocument();
+
+    state = {...state, nextPause: {pauseId: '42:2', number: 2}};
+    responseSequence = 3;
+    view.rerender(panel({sequence: 3}));
+    expect(screen.getByText('Próxima pausa: entretiempo.')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', {name: 'Guardar cambio'}));
+    await screen.findByText(/Se aplicará en entretiempo/);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({pauseId: '42:2', commandId: 'command-2'});
+});
+
+it.each([false, true])('un reintento vencido no vuelve a mostrar el cambio como pendiente; manual=%s', async manual => {
+    if (manual) pause();
+    fetchMock.mockRejectedValueOnce(new TypeError('network'));
+    fetchMock.mockResolvedValueOnce(reply({...pending(4, 'command-1'), status: 'EXPIRED', sequence: 2}, manual ? 202 : 200));
+    render(panel());
+    choose();
+    const label = manual ? 'Realizar cambio' : 'Guardar cambio';
+    fireEvent.click(screen.getByRole('button', {name: label}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar');
+    fireEvent.click(screen.getByRole('button', {name: label}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('El cambio quedó sin efecto.');
+    expect(screen.queryByText(/Cambio (planificado|pendiente):/)).not.toBeInTheDocument();
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(JSON.parse(fetchMock.mock.calls[0][1].body));
 });
 
 it.each(['quota', 'no-pause', 'disconnected'])('deshabilita el envío cuando corresponde: %s', reason => {

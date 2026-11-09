@@ -8,8 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from test_league_start import database, league_data
-from test_planned_substitution import running_match, body
-from app.models.matches_model import Matches
+from test_planned_substitution import api, body, plans, running_match
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
 from app.models.planned_substitution_model import PlannedSubstitution
 from app.repository import matches_repository
 from app.schemas.matches_schemas import PlannedSubstitutionRequest
@@ -56,14 +56,18 @@ def game(database, league_data, running_match, monkeypatch):
 def plan(database, data, match_id, club=0):
     with Session(database) as db:
         return plan_substitution(db, match_id, data.clubs[club],
-                                 PlannedSubstitutionRequest.model_validate(body(data, club=club)))
+                                 PlannedSubstitutionRequest.model_validate(body(data, match_id, club=club)))
+
+
+def advance_batches(match_id, batches):
+    stop = Mock(spec=Event)
+    stop.is_set.return_value = False
+    stop.wait.side_effect = [False] * batches + [True]
+    return execution.run_persisted_match(match_id, stop_event=stop)
 
 
 def run_until_pause(match_id):
-    stop = Mock(spec=Event)
-    stop.is_set.return_value = False
-    stop.wait.side_effect = [False, False, False, True]
-    return execution.run_persisted_match(match_id, stop_event=stop)
+    return advance_batches(match_id, 3)
 
 
 def test_applies_both_clubs_once_preserves_positions_and_recovers(database, league_data, game):
@@ -261,16 +265,107 @@ def test_stale_plan_expires_without_being_applied_at_next_pause(database, league
         assert Match.from_checkpoint(db.get(Matches, game).runtime_state).substitution_pauses == set()
 
 
+def test_delayed_put_cannot_move_a_plan_to_the_next_pause(api, database, league_data, game):
+    paused = run_until_pause(game)
+    assert paused["state"]["breakIndex"] == 1
+    playing = advance_batches(game, 1)
+    assert playing["state"]["phase"] == "PLAYING"
+    assert playing["state"]["nextPause"]["pauseId"] == f"{game}:2"
+
+    response = api.client.put(api.url, json=body(league_data, game))
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "PAUSE_CLOSED"
+    with Session(database) as db:
+        assert plans(db) == []
+        row = db.get(Matches, game)
+        assert row.sequence == playing["sequence"] and row.snapshot == playing
+
+    next_plan = body(league_data, game, pause=2)
+    response = api.client.put(api.url, json=next_plan)
+    assert response.status_code == 200, response.text
+    assert response.json()["pauseId"] == next_plan["pauseId"]
+    with Session(database) as db:
+        saved, = plans(db)
+        assert saved.pause_index == 2 and saved.status == "PENDING"
+
+
+def test_checkpoint_cancellation_closes_pending_plans_atomically_and_keeps_retries(
+    api, database, league_data, game, monkeypatch,
+):
+    replaced = body(league_data, game, "replaced")
+    applied = body(league_data, game, "applied")
+    for payload in (replaced, applied):
+        response = api.client.put(api.url, json=payload)
+        assert response.status_code == 200 and response.json()["status"] == "PENDING"
+    run_until_pause(game)
+    advance_batches(game, 1)
+
+    pending_local = {
+        **body(league_data, game, "pending-local", pause=2),
+        "outPlayerId": league_data.lineups[0][1], "inPlayerId": league_data.lineups[0][4],
+    }
+    pending_visitor = body(league_data, game, "pending-visitor", club=1, pause=2)
+    assert api.client.put(api.url, json=pending_local).status_code == 200
+    api.club[0] = league_data.clubs[1]
+    assert api.client.put(api.url, json=pending_visitor).status_code == 200
+
+    with Session(database) as db:
+        row = db.get(Matches, game)
+        row.runtime_state = {"version": 999}
+        sequence = row.sequence
+        db.commit()
+
+    original = {"replaced": "REPLACED", "applied": "APPLIED", "pending-local": "PENDING", "pending-visitor": "PENDING"}
+    cancelled = {**original, "pending-local": "EXPIRED", "pending-visitor": "EXPIRED"}
+
+    def plan_statuses(db):
+        return {plan.command_id: plan.status for plan in plans(db)}
+
+    def reject_commit(db):
+        assert db.get(Matches, game).status == "CANCELLED"
+        assert plan_statuses(db) == cancelled
+        raise RuntimeError("simulated cancellation commit failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Session, "commit", reject_commit)
+        with pytest.raises(RuntimeError, match="simulated cancellation commit failure"):
+            execution.run_persisted_match(game)
+    with Session(database) as db:
+        row = db.get(Matches, game)
+        assert row.status == "RUNNING" and row.sequence == sequence
+        assert plan_statuses(db) == original
+
+    snapshot = execution.run_persisted_match(game)
+    assert snapshot["state"]["status"] == "CANCELLED"
+    assert snapshot["state"]["cancellationReason"] == CHECKPOINT_UNRECOVERABLE
+    assert snapshot["sequence"] == sequence + 1
+    assert not any(lineup["pendingSubstitution"] for lineup in snapshot["state"].get("lineups", []))
+
+    api.club[0] = league_data.clubs[0]
+    for payload in (replaced, applied, pending_local):
+        replay = api.client.put(api.url, json=payload)
+        assert replay.status_code == 200, replay.text
+        assert replay.json() == {**payload, "status": cancelled[payload["commandId"]], "sequence": sequence + 1}
+    api.club[0] = league_data.clubs[1]
+    immediate_url = f"/matches/{game}/substitutions"
+    replay = api.client.post(immediate_url, json=pending_visitor)
+    assert replay.status_code == 202 and replay.json()["status"] == "EXPIRED"
+    fresh = {**pending_visitor, "commandId": "fresh"}
+    for response in (api.client.put(api.url, json=fresh), api.client.post(immediate_url, json=fresh)):
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "PAUSE_CLOSED"
+    with Session(database) as db:
+        assert plan_statuses(db) == cancelled
+        assert db.get(Matches, game).sequence == sequence + 1
+
+
 def test_three_pauses_allow_three_exchanges_without_duplicating_bodies(database, league_data, game):
     for index in range(3):
         if index:
-            stop = Mock(spec=Event)
-            stop.is_set.return_value = False
-            stop.wait.side_effect = [False, True]
-            assert execution.run_persisted_match(game, stop_event=stop)["state"]["phase"] == "PLAYING"
+            assert advance_batches(game, 1)["state"]["phase"] == "PLAYING"
         payload = PlannedSubstitutionRequest(
             outPlayerId=league_data.lineups[0][index], inPlayerId=league_data.lineups[0][index + 3],
-            commandId=f"pause-{index + 1}",
+            commandId=f"pause-{index + 1}", pauseId=f"{game}:{index + 1}",
         )
         with Session(database) as db:
             assert plan_substitution(db, game, league_data.clubs[0], payload)["pauseId"] == f"{game}:{index + 1}"

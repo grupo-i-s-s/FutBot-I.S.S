@@ -28,7 +28,7 @@ def open_pause(database, match_id, index=1, remaining=0.05):
 
 
 def payload(data, match_id, command="manual-1", club=0, pause=1):
-    return {**body(data, command, club), "pauseId": f"{match_id}:{pause}"}
+    return body(data, match_id, command, club, pause)
 
 
 def submit(database, data, match_id, **kwargs):
