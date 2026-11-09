@@ -1,40 +1,99 @@
-# title: FutBot API
-# version: 0.4.0
-# description: FutBot API 
+# API de FutBot
 
+FastAPI publica el contrato de la versión en ejecución en `/openapi.json` y la interfaz de consulta en `/docs`. El navegador agrega `/api` a las solicitudes HTTP y WebSocket. Vite retira ese prefijo al enviarlas al backend.
 
-| Método | Endpoint | Resumen / Descripción | Parámetros | Request Body (Campos y Reglas) | Códigos y Respuestas |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/auth/register` | Registrar usuario (Sin auth) | — | **JSON (Requerido):**<br>• `name` (str) req<br>• `username` (str) req<br>• `email` (email) req<br>• `password` (password) req | • `201`: Usuario registrado<br>• `400`: Datos inválidos o duplicados |
-| **POST** | `/auth/login` | Iniciar sesión (Sin auth) | — | **JSON (Requerido):**<br>• `email` (email) req<br>• `password` (password) req | • `200`: Sesión iniciada<br>• `401`: Credenciales inválidas |
-| **POST** | `/auth/change-password` | Cambiar contraseña | — | **JSON (Requerido):**<br>• `oldPassword` (password) req<br>• `newPassword` (password) req | • `200`: Contraseña actualizada<br>• `400`: Datos incompletos o contraseña inválida |
-| **GET** | `/club/me` | Obtener mi club | — | — | • `200`: Club |
-| **PATCH** | `/club/me` | Modificar mi club | — | **JSON (Requerido):**<br>• `name` (str)<br>• `avatar` (str)<br>• `friendlyAvailable` (bool) | • `200`: Club actualizado |
-| **GET** | `/clubs/{clubId}` | Consultar perfil de club rival | • `clubId` (path, int) req | — | • `200`: Información pública del rival, estadísticas y plantilla de jugadores<br>• `404`: Club rival no encontrado |
-| **GET** | `/players` | Listar jugadores | — | — | • `200`: Jugadores |
-| **POST** | `/players` | Crear jugador | — | **JSON (Requerido):**<br>*Regla: Cada PACSS va de 20 a 100 y la suma debe ser 300.*<br>• `name` (str) req<br>• `power` (int, 20-100) req<br>• `agility` (int, 20-100) req<br>• `control` (int, 20-100) req<br>• `speed` (int, 20-100) req<br>• `strength` (int, 20-100) req | • `201`: Jugador creado<br>• `400`: PACSS inválido o sumatoria distinta de 300 |
-| **DELETE** | `/players/{playerId}` | Eliminar jugador | • `playerId` (path, int) req | — | • `204`: Jugador eliminado<br>• `403`: El jugador no puede eliminarse (menos de 7 jugadores o partido/liga en curso) |
-| **GET** | `/behaviours` | Listar comportamientos | — | — | • `200`: Comportamientos |
-| **POST** | `/behaviours` | Crear comportamiento | — | **JSON (Requerido):**<br>• `name` (str) req<br>• `code` (str) req | • `201`: Comportamiento creado<br>• `403`: El club tiene un partido en curso |
-| **PATCH** | `/behaviours/{behaviourId}` | Editar comportamiento | • `behaviourId` (path, int) req | **JSON (Requerido):**<br>• `name` (str) req<br>• `code` (str) req | • `200`: Comportamiento actualizado<br>• `403`: No se puede editar ahora |
-| **DELETE** | `/behaviours/{behaviourId}` | Eliminar comportamiento | • `behaviourId` (path, int) req | — | • `204`: Comportamiento eliminado<br>• `403`: No se puede eliminar ahora |
-| **GET** | `/team/default` | Obtener equipo default | — | — | • `200`: Equipo default |
-| **PUT** | `/team/default` | Configurar equipo default | — | **JSON (Requerido):**<br>• `playerIds` (array[int], min: 6, max: 6, únicos) req<br>• `formation` (str) req | • `200`: Equipo actualizado<br>• `400`: El equipo debe tener 6 jugadores válidos |
-| **GET** | `/leagues` | Listar ligas disponibles | • `name` (query, str) | — | • `200`: Ligas |
-| **POST** | `/leagues` | Crear liga | — | **JSON (Requerido):**<br>• `name` (str) req<br>• `type` (enum: PUBLIC, PRIVATE) req<br>• `minTeams` (int, min: 3) req<br>• `maxTeams` (int, min: 3) req<br>• `startDateTime` (date-time) req<br>• `roundInterval` (enum: CONTINUOUS, DAILY, WEEKLY) req<br>• `accessCode` (str) | • `201`: Liga creada<br>• `400`: Configuración inválida |
-| **GET** | `/leagues/{leagueId}` | Obtener detalle de liga | • `leagueId` (path, int) req | — | • `200`: Liga, fixture y tabla de posiciones |
-| **POST** | `/leagues/{leagueId}/join` | Unirse a una liga<br>*(Usa y congela los 6 jugadores del equipo default)* | • `leagueId` (path, int) req | **JSON (Opcional):**<br>• `accessCode` (str) | • `201`: Club inscripto<br>• `409`: Liga llena, código inválido o club ya inscripto |
-| **POST** | `/leagues/{leagueId}/leave` | Abandonar liga | • `leagueId` (path, int) req | — | • `204`: Club removido<br>• `409`: La liga ya inició |
-| **POST** | `/leagues/{leagueId}/start` | Iniciar liga | • `leagueId` (path, int) req | — | • `200`: Liga iniciada y fixture generado<br>• `409`: No se puede iniciar la liga |
-| **POST** | `/leagues/{leagueId}/cancel` | Cancelar liga | • `leagueId` (path, int) req | — | • `204`: Liga cancelada<br>• `409`: No se puede cancelar la liga |
-| **GET** | `/matches/{matchId}` | Consultar partido<br>*(Devuelve estado actual si está en curso)* | • `matchId` (path, int) req | — | • `200`: Partido |
-| **PUT** | `/matches/{matchId}/lineup` | Configurar alineación | • `matchId` (path, int) req | **JSON (Requerido):**<br>• `starters` (array[int], len: 3) req<br>• `substitutes` (array[int], len: 3) req<br>• `formation` (str) req<br>• `behaviours` (map/dict[str, int]) req | • `200`: Alineación guardada<br>• `400`: Alineación inválida |
-| **POST** | `/matches/{matchId}/substitution` | Planificar o realizar cambio | • `matchId` (path, int) req | **JSON (Requerido):**<br>• `playerOutId` (int) req<br>• `playerInId` (int) req<br>• `mode` (enum: PLAN, APPLY) req | • `200`: Cambio aceptado<br>• `409`: Cambio no permitido |
-| **DELETE** | `/matches/{matchId}/substitution` | Anular cambio planificado | • `matchId` (path, int) req | — | • `204`: Cambio anulado |
-| **PATCH** | `/matches/{matchId}/players/{playerId}/behaviour` | Cambiar comportamiento de un jugador | • `matchId` (path, int) req<br>• `playerId` (path, int) req | **JSON (Requerido):**<br>• `behaviourId` (int) req | • `204`: Comportamiento cambiado |
-| **GET** | `/friendly-matches` | Listar amistosos disponibles | — | — | • `200`: Amistosos |
-| **POST** | `/friendly-matches` | Crear amistoso | — | **JSON (Requerido):**<br>• `startDateTime` (date-time) req | • `201`: Amistoso creado |
-| **POST** | `/friendly-matches/{matchId}/join` | Unirse a un amistoso | • `matchId` (path, int) req | — | • `200`: Club unido al partido<br>• `409`: Partido completo |
-| **GET** | `/leaderboard` | Consultar ranking global | — | — | • `200`: Ranking |
+Las rutas de la API usan recursos en inglés y segmentos en kebab-case, como `/clubs`, `/friendly-matches` y `/matches/{match_id}/live-requests`. Los identificadores de recurso van en el path. Las acciones que no son lecturas o reemplazos de un recurso, como `join` y `start`, usan `POST`. Los contratos nuevos usan camelCase en JSON. Los campos históricos que siguen vigentes se detallan en OpenAPI.
 
+Los endpoints privados requieren sesión por cookie `FutBotSession`. Salud, registro, verificación, reenvío, inicio y cierre de sesión se pueden llamar sin sesión previa. Las escrituras requieren un `Origin` permitido y el encabezado `X-FutBot-Request: 1`. Los errores de aplicación devuelven `error.code`, `error.message` y `error.fields`, con `error.diagnostics` cuando corresponde. La validación de la solicitud devuelve `400 VALIDATION_ERROR`. Algunas operaciones devuelven errores HTTP con `detail`.
 
+## Paginación
+
+Las colecciones paginadas reciben `page` desde 1 y `pageSize` de 1 a 100. Devuelven `items`, `page`, `pageSize`, `total`, `totalPages` y `hasNext`. Un resultado vacío tiene `totalPages: 1` y `hasNext: false`. Una página posterior a la última devuelve `items: []`.
+
+| Colección | Filtro | Paginación recomendada |
+| --- | --- | --- |
+| `/clubs` | `name` | `?page=1&pageSize=20` |
+| `/friendly-matches` | `creatorName` | `?page=1&pageSize=20` |
+| `/players` | `search` | `?page=1&pageSize=9` |
+| `/leagues` | `name` | `?page=1&pageSize=20` |
+
+En `/players` y `/leagues`, enviar `pageSize` selecciona el contrato paginado común. Por compatibilidad, `limit` mantiene el formato anterior con `limit` y `totalPages`. `/players` sin tamaño sigue usando el formato anterior. `/leagues` sin `page`, `pageSize` ni `limit` sigue devolviendo todos los resultados en `items`.
+
+## Operaciones HTTP
+
+El cuerpo indica el esquema JSON que se puede consultar en OpenAPI. La tabla enumera las respuestas de éxito. Para verificar la referencia con el backend local desde la raíz del repo, ejecutar:
+
+```sh
+curl -fsS http://localhost:8000/openapi.json | python3 docs/check_api_reference.py
+```
+
+| Método | Ruta | Éxito | Cuerpo | Operación |
+| --- | --- | --- | --- | --- |
+| GET | `/health` | `200` | — | Estado del proceso. |
+| GET | `/health/ready` | `200` | — | Disponibilidad de PostgreSQL y del esquema. |
+| POST | `/auth/register` | `202` | `RegisterRequest` | Inicia el registro y envía el código de verificación. |
+| POST | `/auth/verify-email` | `200` | `VerifyEmailRequest` | Confirma el correo y crea la cuenta. |
+| POST | `/auth/resend-verification` | `200` | `ResendVerificationRequest` | Reenvía el código de una verificación pendiente. |
+| POST | `/auth/login` | `200` | `LoginRequest` | Inicia sesión y establece la cookie. |
+| GET | `/auth/me` | `200` | — | Identidad de la sesión. |
+| POST | `/auth/logout` | `204` | — | Cierra la sesión. |
+| POST | `/auth/change-password` | `204` | `ChangePasswordRequest` | Cambia la contraseña y cierra la sesión. |
+| GET | `/clubs` | `200` | — | Lista otros clubes, con filtro por nombre. |
+| GET | `/clubs/{club_id}` | `200` | — | Perfil, jugadores, estadísticas y posición del club. |
+| GET | `/clubs/me` | `200` | — | Datos del club de la sesión. |
+| PATCH | `/clubs/me` | `200` | `ClubUpdate` | Actualiza nombre, avatar y disponibilidad para amistosos. |
+| GET | `/clubs/me/leagues` | `200` | — | Ligas en las que está inscripto el club. |
+| GET | `/clubs/me/default-team` | `200` | — | Alineación predeterminada. |
+| PUT | `/clubs/me/default-team` | `200` | `Lineup` | Reemplaza la formación, titulares, suplentes y sus comportamientos. |
+| PATCH | `/clubs/me/dt` | `200` | `DtUpdate` | Actualiza activación y comportamiento del DT para futuros partidos. |
+| GET | `/clubs/me/dt/behaviours` | `200` | — | Catálogo de comportamientos del DT. |
+| POST | `/clubs/me/dt/behaviours` | `201` | `DtBehaviourCreate` | Crea un comportamiento para el DT. |
+| GET | `/catalogs/formations` | `200` | — | Catálogo de formaciones. |
+| GET | `/players` | `200` | — | Lista y busca jugadores propios. |
+| GET | `/players/by-ids` | `200` | — | Lee jugadores propios por parámetros `ids` repetidos. |
+| POST | `/players` | `201` | `PlayerCreate` | Crea un jugador con sus atributos PACSS. |
+| PATCH | `/players/{player_id}/behaviour` | `200` | `PlayerBehaviourUpdate` | Asigna el comportamiento del jugador. |
+| GET | `/behaviours` | `200` | — | Catálogo de comportamientos de jugadores. |
+| GET | `/behaviours/{behaviour_id}` | `200` | — | Detalle de un comportamiento propio. |
+| POST | `/behaviours` | `201` | `BehaviourCreate` | Crea un comportamiento de jugador. |
+| DELETE | `/behaviours/{behaviour_id}` | `204` | — | Elimina un comportamiento que se puede retirar. |
+| POST | `/behaviours/validate` | `200` | `BehaviourValidateRequest` | Valida un programa de jugador o DT. |
+| GET | `/leagues` | `200` | — | Ligas disponibles, con filtro por nombre. |
+| POST | `/leagues/public` | `201` | `CreateLeagueRequest` | Crea una liga pública. |
+| POST | `/leagues/private` | `201` | `CreatePrivateLeagueRequest` | Crea una liga privada con contraseña. |
+| GET | `/leagues/{id}/lobby` | `200` | — | Datos de la sala de espera e inscripciones. |
+| POST | `/leagues/{id}/join` | `201` | `LeagueJoinRequest` | Inscribe al club con su alineación y el código si se requiere. |
+| POST | `/leagues/{id}/leave` | `200` | — | Retira al club o cancela la liga si sale su creador. |
+| POST | `/leagues/{id}/start` | `200` | — | Inicia la liga y genera sus rondas. |
+| GET | `/leagues/{id}/fixture` | `200` | — | Rondas, horarios, resultados y próximo partido. |
+| GET | `/leagues/{id}/ranking` | `200` | — | Tabla de posiciones de la liga. |
+| GET | `/leagues/{id}/lineup` | `200` | — | Alineación propia en la liga, versión y permiso de edición. |
+| PUT | `/leagues/{id}/lineup` | `200` | `LeagueLineupUpdate` | Guarda el plantel de liga con `expectedVersion`. |
+| GET | `/friendly-matches` | `200` | — | Amistosos disponibles por club creador. |
+| GET | `/friendly-matches/me` | `200` | — | Amistosos propios. |
+| POST | `/friendly-matches` | `201` | `CreateFriendlyMatchRequest` | Crea un amistoso con `startDateTime` en ISO 8601. |
+| POST | `/friendly-matches/{match_id}/join` | `200` | — | Une al club al amistoso indicado en el path. |
+| POST | `/friendly-matches/behaviour-test` | `201` | — | Crea un partido de prueba contra el bot. |
+| GET | `/matches/{match_id}` | `200` | — | Snapshot de un amistoso, partido de liga o prueba. |
+| POST | `/matches/{match_id}/live-requests` | `200` | `LiveRequestCreate` | Encola un cambio con `playerId` y `behaviourId`. Devuelve `queued` y `requestId`. |
+| POST | `/matches/{match_id}/dt` | `200` | `MatchDtUpdate` | Cambia `dtActive` para el partido. |
+| PUT | `/matches/{match_id}/planned-substitution` | `200` | `PlannedSubstitutionRequest` | Planifica una sustitución con `outPlayerId`, `inPlayerId` y `commandId`. |
+| POST | `/matches/{match_id}/substitutions` | `202` | `SubstitutionRequest` | Solicita un cambio durante una pausa e incluye `pauseId`. |
+
+## WebSocket de partidos
+
+`WS /matches/{match_id}/stream` transmite el mismo formato de snapshot que `GET /matches/{match_id}`. Ambos accesos requieren una sesión de un club participante. El stream valida el `Origin`, envía cambios de secuencia y vuelve a comprobar la sesión durante la conexión. El cliente puede pedir el snapshot por HTTP al conectar o reconectar. El estado del partido, el marcador y los cambios confirmados se obtienen del snapshot.
+
+## Compatibilidad durante la migración
+
+Las rutas anteriores de esta tabla siguen respondiendo directamente con su método, cuerpo, estado y formato anteriores. OpenAPI muestra las rutas canónicas.
+
+| Ruta anterior | Ruta canónica |
+| --- | --- |
+| `/club` y sus rutas hijas | `/clubs` y sus rutas hijas |
+| `/team/default` | `/clubs/me/default-team` |
+| `/dt` y `/dt/behaviours` | `/clubs/me/dt` y `/clubs/me/dt/behaviours` |
+| `POST /friendly-matches/join` con `idPartido` | `POST /friendly-matches/{match_id}/join` |
+| `GET /friendly-matches/{match_id}` con el resumen de marcador | `GET /matches/{match_id}` con el snapshot |
+| `POST /friendly-matches/{match_id}/dt` con `dt_active` | `POST /matches/{match_id}/dt` con `dtActive` |
+| `POST /matches/{match_id}/live_request` con `player_id` y `behaviour_id` | `POST /matches/{match_id}/live-requests` con `playerId` y `behaviourId` |
