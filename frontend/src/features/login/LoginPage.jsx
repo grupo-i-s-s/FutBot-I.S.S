@@ -64,6 +64,7 @@ export default function LoginPage() {
                     </button>
                     {error && <p role="alert">{error}</p>}
                     <Link to="/registro" className="Registro">Registrarme</Link>
+                    <Link to="/recuperar-contrasena" className="Registro">Olvidé mi contraseña</Link>
                 </form>
             </section>
 
