@@ -133,12 +133,11 @@ def test_lists_clubs_in_order_with_only_public_fields(client):
         "Club_A",
         "River Plate",
         "River Sur",
-        "Zulu",
     ]
 
     assert body["page"] == 1
     assert body["pageSize"] == 20
-    assert body["total"] == 7
+    assert body["total"] == 6
     assert body["hasNext"] is False
 
     for item in body["items"]:
@@ -175,8 +174,8 @@ def test_empty_filter_lists_all_clubs(client, search):
     response = client.get(URL, params={"name": search})
 
     assert response.status_code == 200, response.text
-    assert response.json()["total"] == 7
-    assert len(response.json()["items"]) == 7
+    assert response.json()["total"] == 6
+    assert len(response.json()["items"]) == 6
 
 
 def test_paginates_filtered_results_and_preserves_total(client):
@@ -277,8 +276,8 @@ def test_accepts_maximum_page_size(client):
     body = response.json()
 
     assert body["pageSize"] == 100
-    assert body["total"] == 7
-    assert len(body["items"]) == 7
+    assert body["total"] == 6
+    assert len(body["items"]) == 6
     assert body["hasNext"] is False
 
 

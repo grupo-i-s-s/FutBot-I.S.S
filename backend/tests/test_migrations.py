@@ -110,7 +110,7 @@ def test_history_without_any_application_tables_is_rebuilt(migration_database):
         repaired_history = history(connection)
         assert [row[0] for row in repaired_history] == [path.name for path in files]
         assert repaired_history != original_history
-        assert connection.execute("SELECT count(*) FROM users").fetchone()[0] == 0
+        assert connection.execute( "SELECT email FROM users ORDER BY email").fetchall() == [("oponente-prueba@local.invalid",)]
 
 
 def test_history_with_an_unrelated_table_is_not_automatically_reset(migration_database):
@@ -199,7 +199,7 @@ def test_pending_migrations_can_add_missing_columns_to_an_older_schema(migration
 
 @pytest.mark.parametrize("last_sql", [
     "BEGIN; SELECT * FROM missing_migration_test_table; COMMIT;",
-    "BEGIN; SELECT 1; COMMIT;",
+    "BEGIN; ALTER TABLE matches DROP COLUMN runtime_state; COMMIT;",
 ], ids=["sql_error", "incomplete_schema"])
 def test_failed_rebuild_rolls_back_ddl_and_preserves_original_history(
     migration_database, monkeypatch, tmp_path, last_sql,

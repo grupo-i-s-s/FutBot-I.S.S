@@ -52,8 +52,7 @@ def context():
         for club_id in (1, 2):
             db.add(User(id=club_id, email=f"club{club_id}@test.com", password_hash="unused"))
             db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}", avatar="shield"))
-            db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
-                            code=DEFAULT_CODES["Equilibrado"]))
+            db.add(Behavior( id=club_id, club_id=club_id, name="Equilibrado", description="test", code=DEFAULT_CODES["Equilibrado"], kind="PLAYER", version=1, validation_status="VALID"))
             for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f"Jugador {club_id}-{index}", power=60, agility=60,

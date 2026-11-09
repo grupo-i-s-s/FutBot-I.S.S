@@ -494,3 +494,180 @@ def test_assignment_and_deletion_are_serialized(
         assert player.behavior_id == (
             20 if first_operation == "assign" else 10
         )
+
+#Editar comportamiento 
+def edit_payload(**changes):
+    return {
+        "name": "Comportamiento editado",
+        "code": "def decide(observation):\n    return ir_a_pelota()",
+        "expectedVersion": 3,
+        **changes,
+    }
+
+
+def test_free_behaviour_can_be_edited(api):
+    client, db = api
+
+    response = client.put("/behaviours/20", json=edit_payload())
+
+    assert response.status_code == 200, response.text
+    assert response.json()["id"] == 20
+    assert response.json()["version"] == 4
+    assert response.json()["validationStatus"] == "VALID"
+
+    db.expire_all()
+    saved = db.get(Behavior, 20)
+    assert saved.name == edit_payload()["name"]
+    assert saved.code == edit_payload()["code"]
+    assert saved.is_deleted is False
+
+
+@pytest.mark.parametrize(
+    "context, reference",
+    [
+        ("player", "players.101"),
+        ("default", "defaultTeam"),
+        ("league", "leagues.7"),
+        ("match", "matches.42"),
+    ],
+)
+def test_used_behaviour_cannot_be_edited(api, context, reference):
+    client, db = api
+    selection = {"playerId": 101, "behaviourId": 20}
+
+    if context == "player":
+        db.get(Player, 101).behavior_id = 20
+    elif context == "default":
+        db.get(DefaultTeam, 1).line_up = {"starters": [selection]}
+    elif context == "league":
+        add_league(db, {"starters": [selection]})
+    else:
+        db.add(match_row())
+
+    db.commit()
+
+    response = client.put("/behaviours/20", json=edit_payload())
+
+    assert_conflict(response, reference)
+
+    db.expire_all()
+    saved = db.get(Behavior, 20)
+    assert saved.name == "Comportamiento 20"
+    assert saved.code == DEFAULT_CODES["Equilibrado"]
+    assert saved.version == 3
+
+
+@pytest.mark.parametrize("behaviour_id", [30, 999])
+def test_edit_rejects_foreign_or_missing_behaviour(api, behaviour_id):
+    client, _ = api
+
+    response = client.put(
+        f"/behaviours/{behaviour_id}",
+        json=edit_payload(),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "BEHAVIOUR_NOT_FOUND"
+
+
+def test_invalid_edit_preserves_behaviour(api):
+    client, db = api
+
+    response = client.put(
+        "/behaviours/20",
+        json=edit_payload(
+            code="def decide(observation):\n    return None",
+        ),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "BEHAVIOUR_INVALID"
+    assert response.json()["error"]["diagnostics"]
+
+    db.expire_all()
+    saved = db.get(Behavior, 20)
+    assert saved.name == "Comportamiento 20"
+    assert saved.code == DEFAULT_CODES["Equilibrado"]
+    assert saved.version == 3
+
+
+def test_stale_edit_does_not_overwrite_changes(api):
+    client, db = api
+
+    first = client.put("/behaviours/20", json=edit_payload())
+    assert first.status_code == 200
+
+    second = client.put(
+        "/behaviours/20",
+        json=edit_payload(name="Otra edición"),
+    )
+
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "VERSION_CONFLICT"
+
+    db.expire_all()
+    assert db.get(Behavior, 20).name == "Comportamiento editado"
+    assert db.get(Behavior, 20).version == 4
+
+
+def test_duplicate_name_edit_rolls_back(api):
+    client, db = api
+
+    response = client.put(
+        "/behaviours/20",
+        json=edit_payload(name="Comportamiento 10"),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "BEHAVIOUR_NAME_DUPLICATE"
+
+    db.expire_all()
+    assert db.get(Behavior, 20).name == "Comportamiento 20"
+    assert db.get(Behavior, 20).version == 3
+
+def test_assignment_before_edit_blocks_edit(
+    database,
+    monkeypatch,
+):
+    from app.schemas.behaviour_schemas import BehaviourUpdate
+
+    pids = Queue()
+
+    def edit_in_second_session():
+        with Session(database) as db:
+            db.execute(text("SET LOCAL lock_timeout = '10s'"))
+            db.get(Behavior, 20)
+            pids.put(db.scalar(text("SELECT pg_backend_pid()")))
+
+            try:
+                behaviour_service.update_behaviour(
+                    db,
+                    1,
+                    20,
+                    BehaviourUpdate(**edit_payload()),
+                )
+            except AppError as error:
+                return error.code
+
+            return "OK"
+
+    with Session(database, expire_on_commit=False) as first:
+        real_commit = first.commit
+        monkeypatch.setattr(first, "commit", lambda: None)
+
+        player_service.assign_behaviour(first, 1, 101, 20)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(edit_in_second_session)
+
+            try:
+                pid = pids.get(timeout=5)
+                wait_until_blocked(database, pid, future)
+            finally:
+                real_commit()
+
+            assert future.result(timeout=15) == "BEHAVIOUR_IN_USE"
+
+    with Session(database) as db:
+        assert db.get(Player, 101).behavior_id == 20
+        assert db.get(Behavior, 20).version == 3
