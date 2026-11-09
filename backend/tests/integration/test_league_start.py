@@ -259,6 +259,10 @@ def test_http_start_persists_seed_fixture_and_zero_standings(database, league_da
             assert lobby.status_code == 200, lobby.text
             assert {row["clubId"] for row in lobby.json()["standings"]} == set(data.clubs[:3])
             assert all(row["points"] == 0 for row in lobby.json()["standings"])
+            fixture = client.get(f"/leagues/{data.id}/fixture").json()
+            assert client.post(f"/leagues/{data.id}/leave").status_code == 409
+            db.rollback()
+            assert client.get(f"/leagues/{data.id}/fixture").json() == fixture
 
     with Session(database) as db:
         league = db.get(League, data.id)
@@ -461,12 +465,7 @@ def test_concurrent_operations_keep_participants_consistent(database, league_dat
                 elif action == "leave":
                     league_service.leave_league(db, data.id, data.clubs[2])
                 else:
-                    # Cancel aún no tiene endpoint; comprobar el mismo bloqueo compartido.
-                    league = league_repository.get_league_by_id(db, data.id)
-                    if league.status != "open":
-                        raise HTTPException(409, "La liga ya inició")
-                    league.status = "cancelled"
-                    db.commit()
+                    league_service.leave_league(db, data.id, data.clubs[0])
                 return 200
             except AppError as exc:
                 assert exc.code == "LEAGUE_CLOSED"
@@ -480,15 +479,23 @@ def test_concurrent_operations_keep_participants_consistent(database, league_dat
         first = executor.submit(run, "start")
         second = executor.submit(run, operation)
         results = [first.result(timeout=15), second.result(timeout=15)]
-    assert all(result in {200, 409} for result in results)
+    allowed_statuses = {200, 409, 404} if operation == "cancel" else {200, 409}
+    assert all(result in allowed_statuses for result in results)
     if operation == "start":
         assert results == [200, 200]
 
     with Session(database) as db:
         league = db.get(League, data.id)
-        club_ids = {row.club_id for row in league.registrations}
         standings = db.scalars(select(LeagueStanding)).all()
         matches = db.scalars(select(Matches)).all()
+        if league is None:
+            assert operation == "cancel"
+            assert results == [404, 200]
+            assert standings == matches == []
+            assert db.scalars(select(LeagueRegistration)).all() == []
+            assert db.scalars(select(LeagueRound)).all() == []
+            return
+        club_ids = {row.club_id for row in league.registrations}
         if league.status == "running":
             assert {row.club_id for row in standings} == club_ids
             assert len(matches) == len(club_ids) * (len(club_ids) - 1) // 2
