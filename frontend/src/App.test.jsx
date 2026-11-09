@@ -195,7 +195,7 @@ it('opens the global ranking from the authenticated home', async () => {
         }),
     });
 
-    fireEvent.click(await screen.findByRole('link', {name: 'Ver Ranking Global'}));
+    fireEvent.click(await screen.findByRole('link', {name: 'Ranking global'}));
 
     expect(await screen.findByRole('heading', {name: 'Ranking Global'})).toBeInTheDocument();
     const leader = (await screen.findByRole('rowheader', {name: /club líder/i})).closest('tr');
@@ -242,6 +242,24 @@ it('opens the available leagues route and filters through the authenticated API'
     expect(await screen.findByText('Liga integrada')).toBeInTheDocument();
 });
 
+it.each([
+    ['/crear-liga', 'Crear liga pública'],
+    ['/crear-liga-privada', 'Crear liga privada'],
+])('opens %s over the home page and returns home on close', async (path, title) => {
+    renderRoute(path, {
+        '/api/friendly-matches?creatorName=&page=1&pageSize=20': () => jsonResponse({items: [], total: 0, page: 1, pageSize: 20}),
+    });
+
+    const dialog = await screen.findByRole('dialog', {name: title});
+    expect(document.getElementById('home-title')).toHaveTextContent('Bienvenidos a');
+    expect(within(dialog).getByLabelText('Nombre de la liga')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Cerrar'}));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByTestId('current-path')).toHaveTextContent(/^\/inicio$/);
+    expect(screen.getByRole('heading', {name: /Bienvenidos a/})).toBeInTheDocument();
+});
+
 it('retains the private league creation route and its request contract', async () => {
     const fetchMock = renderRoute('/crear-liga-privada', {
         '/api/leagues/private': () => jsonResponse({leagueId: 42, message: 'Liga creada exitosamente.'}, 201),
@@ -256,8 +274,8 @@ it('retains the private league creation route and its request contract', async (
     for (const [label, value] of [
         ['Nombre de la liga', 'Liga privada integrada'],
         ['Contraseña', 'clave-de-liga'],
-        ['Confirmar Contraseña', 'clave-de-liga'],
-        ['Maximo de clubes', '8'],
+        ['Confirmar contraseña', 'clave-de-liga'],
+        ['Máximo de clubes', '8'],
         ['Fecha y hora de inicio', '2030-01-01T12:00'],
     ]) {
         fireEvent.change(screen.getByLabelText(label), {target: {value}});
@@ -391,7 +409,7 @@ it.each([false, true])('joins a league from the listing and opens its lobby (pri
     }
     fireEvent.click(screen.getByRole('button', {name: 'Confirmar inscripción'}));
     expect(await screen.findByText('Tu club está inscripto.')).toBeInTheDocument();
-    expect(screen.getByText('Mi club', {selector: '.player-name'})).toBeInTheDocument();
+    expect(within(screen.getByRole('tabpanel', {name: 'Lobby'})).getByRole('link', {name: 'Mi club'})).toBeInTheDocument();
     const [, options] = fetchMock.mock.calls.find(([url]) => url.endsWith('/join'));
     expect(JSON.parse(options.body)).toEqual({
         clubId: 8, lineUp, ...(isPrivate ? {accessCode: 'clave-de-liga'} : {}),
