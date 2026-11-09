@@ -15,6 +15,7 @@ class Setting:
     smtp_from: str
     smtp_starttls: bool
     smtp_timeout: int
+    password_reset_secret: str
 
 
 settings = Setting(cookie_name="FutBotSession",
@@ -30,7 +31,8 @@ settings = Setting(cookie_name="FutBotSession",
                    smtp_password=os.getenv("SMTP_PASSWORD", ""),
                    smtp_from=os.getenv("SMTP_FROM", ""),
                    smtp_starttls=os.getenv("SMTP_STARTTLS", "true").lower() == "true",
-                   smtp_timeout=int(os.getenv("SMTP_TIMEOUT", "10")),)
+                   smtp_timeout=int(os.getenv("SMTP_TIMEOUT", "10")),
+                   password_reset_secret=os.getenv("PASSWORD_RESET_SECRET", ""))
 
 if settings.session_hours <= 0:
     raise ValueError("AUTH_SESSION_HOURS debe ser positivo")
