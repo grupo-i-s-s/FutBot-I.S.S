@@ -49,7 +49,7 @@ export default function NavBar() {
                 {authenticated && <>
                     <div className="app-nav-club">
                         <ClubAvatar avatar={club.avatar} clubName={club.name} size="md" />
-                        <span>{club.name}</span>
+                        <span title={club.name}>{club.name}</span>
                     </div>
                     <ClubNavigation signOut={signOut} />
                 </>}

@@ -19,11 +19,17 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    flex: 1 1 0;
+    flex: 1 1 200px;
     min-width: 0;
     font-size: 20px;
     font-weight: 700;
-    overflow-wrap: anywhere;
+}
+
+.app-nav-club > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .app-nav-club > :first-child {
@@ -38,6 +44,7 @@
     align-items: center;
     gap: 6px;
     margin-inline-start: auto;
+    max-width: 100%;
 }
 
 .app-nav-action {
