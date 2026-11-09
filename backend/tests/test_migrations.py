@@ -12,7 +12,7 @@ from primitives.dt_behaviour import DEFAULT_DT_CODES
 APPLICATION_TABLES = {
     "users", "clubs", "auth_sessions", "pending_email_verifications", "behaviors",
     "players", "leagues", "league_registrations", "league_rounds", "league_standings",
-    "matches", "default_teams", "planned_substitutions", "dt", "dt_behaviours",
+    "matches", "default_teams", "planned_substitutions", "dt", "dt_behaviours", "Club_Stats",
 }
 
 
@@ -97,6 +97,35 @@ def test_rerun_preserves_existing_data_and_migration_timestamps(migration_databa
         assert connection.execute(
             "SELECT email, password_hash FROM users WHERE id = %s", (user_id,),
         ).fetchone() == ("migration-test@example.com", "synthetic-hash")
+
+
+def test_stats_backfill_adds_existing_clubs_and_preserves_recorded_points(migration_database):
+    files = [path for path in migrate.get_migration_files() if path.name < "017_club_stats_defaults.sql"]
+    with migration_database.connect() as connection:
+        for path in files:
+            connection.execute(path.read_text(encoding="utf-8"), prepare=False)
+        record_history(connection, files)
+        user_id = insert_user(connection)
+        club_id = connection.execute(
+            "INSERT INTO clubs (user_id, name, avatar) VALUES (%s, 'Club anterior', 'avatar-01.png') RETURNING id",
+            (user_id,),
+        ).fetchone()[0]
+        ranked_user = connection.execute("""
+            INSERT INTO users (email, password_hash)
+            VALUES ('club-rankeado@example.com', 'synthetic-hash') RETURNING id
+        """).fetchone()[0]
+        ranked_club = connection.execute(
+            "INSERT INTO clubs (user_id, name, avatar) VALUES (%s, 'Club con puntos', 'avatar-01.png') RETURNING id",
+            (ranked_user,),
+        ).fetchone()[0]
+        connection.execute('INSERT INTO "Club_Stats" (club_id, points) VALUES (%s, 3)', (ranked_club,))
+
+    migrate.main()
+
+    with migration_database.connect() as connection:
+        assert connection.execute('SELECT club_id, points FROM "Club_Stats" ORDER BY club_id').fetchall() == [
+            (club_id, 0), (ranked_club, 3),
+        ]
 
 
 def test_history_without_any_application_tables_is_rebuilt(migration_database):
