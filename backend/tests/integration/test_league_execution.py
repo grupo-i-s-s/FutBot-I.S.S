@@ -9,7 +9,7 @@ from threading import Barrier, Event
 from unittest.mock import Mock
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from test_league_start import database, league_data
@@ -21,7 +21,7 @@ from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
 from app.models.team_model import DefaultTeam
 from app.repository import dt_repository, league_repository, matches_repository
 from app.services import league_execution_service as execution
-from app.services import league_service, match_execution_service, match_scheduler_service
+from app.services import league_fixture_service, league_service, match_execution_service, match_scheduler_service
 from primitives.behaviours import DEFAULT_CODES
 from primitives.dt_behaviour import DEFAULT_DT_CODES
 from primitives.match_simulation import Match
@@ -83,6 +83,110 @@ def start(db, data, count=3):
     for match in league_repository.get_fixture_matches(db, data.id):
         match.duration_ms = 300
     db.commit()
+
+
+@contextmanager
+def capture_selects(database):
+    queries = []
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        sql = " ".join(statement.lower().split())
+        if sql.startswith("select "):
+            queries.append((sql, context.compiled_parameters[0]))
+
+    event.listen(database, "before_cursor_execute", capture)
+    try:
+        yield queries
+    finally:
+        event.remove(database, "before_cursor_execute", capture)
+
+
+def assert_no_match_json(queries):
+    assert queries
+    for sql, _ in queries:
+        assert all(f"matches.{field}" not in sql for field in ("snapshot", "runtime_state", "lineup_snapshot")), sql
+
+
+def test_polling_only_loads_the_current_round_without_match_json(database, running_league):
+    data, clock = running_league
+    with Session(database) as db:
+        start(db, data, 4)
+        rounds = league_repository.get_fixture_rounds(db, data.id)
+        first_round_id, next_round_id, later_round_id = [round_.id for round_ in rounds]
+
+    first_match_ids = match_scheduler_service._get_due_match_ids()
+    assert len(first_match_ids) == 2
+    with capture_selects(database) as closing_reads:
+        for match_id in first_match_ids:
+            assert match_execution_service.run_persisted_match(match_id)["state"]["status"] == "FINISHED"
+    assert_no_match_json([query for query in closing_reads if "from matches join league_rounds" in query[0]])
+
+    with Session(database) as db:
+        previous = db.get(Matches, first_match_ids[0])
+        assert previous.league_round_id == first_round_id
+        assert previous.snapshot and previous.runtime_state and previous.lineup_snapshot
+        expected_next_ids = db.scalars(select(Matches.match_id).where(
+            Matches.league_round_id == next_round_id,
+        ).order_by(Matches.match_id)).all()
+        assert len(expected_next_ids) == 2
+        assert db.scalar(select(Matches.match_id).where(
+            Matches.league_round_id == later_round_id,
+        ).limit(1)) is not None
+
+    def assert_round_poll(queries):
+        assert_no_match_json(queries)
+        assert all("league_registrations.line_up" not in sql for sql, _ in queries)
+        round_reads = [
+            parameters for sql, parameters in queries
+            if "from matches where matches.league_round_id =" in sql
+            and "matches.league_round_id = league_rounds.id" not in sql
+        ]
+        assert len(round_reads) == 1
+        assert next_round_id in round_reads[0].values()
+        assert all("from matches join league_rounds" not in sql for sql, _ in queries)
+
+    with capture_selects(database) as idle_poll:
+        assert match_scheduler_service._get_due_match_ids() == []
+    assert_round_poll(idle_poll)
+
+    clock[0] += timedelta(seconds=360)
+    with capture_selects(database) as starting_poll:
+        assert match_scheduler_service._get_due_match_ids() == expected_next_ids
+    assert_no_match_json(starting_poll)
+
+    with capture_selects(database) as recovery_poll:
+        assert match_scheduler_service._get_due_match_ids() == expected_next_ids
+    assert_round_poll(recovery_poll)
+
+    with capture_selects(database) as fixture_reads, Session(database) as db:
+        fixture = league_fixture_service.get_league_fixture(db, data.id, data.clubs[0])
+    assert_no_match_json(fixture_reads)
+    assert [round_["number"] for round_ in fixture["rounds"]] == [1, 2, 3]
+    assert [match["status"] for match in fixture["rounds"][0]["matches"]] == ["FINISHED"] * 2
+    assert [match["match_id"] for match in fixture["rounds"][1]["matches"]] == expected_next_ids
+
+
+@pytest.mark.parametrize("invalid_round", ["empty", "cancelled"])
+def test_scheduler_does_not_skip_an_invalid_first_round(database, running_league, invalid_round):
+    data, clock = running_league
+    with Session(database) as db:
+        start(db, data)
+        first, next_round, _ = league_repository.get_fixture_rounds(db, data.id)
+        match = db.scalar(select(Matches).where(Matches.league_round_id == first.id))
+        if invalid_round == "empty":
+            db.delete(match)
+        else:
+            match.status = "CANCELLED"
+            match.finished_at = clock[0]
+            match.cancellation_reason = "UNRELATED_CANCELLATION"
+        next_round.schedule_confirmed = True
+        next_round.scheduled_at = clock[0]
+        db.commit()
+
+        with pytest.raises(AppError) as error:
+            execution.prepare_league_round(db, data.id, clock[0])
+        assert error.value.code == "LEAGUE_FIXTURE_INVALID"
+        assert db.scalar(select(Matches.status).where(Matches.league_round_id == next_round.id)) == "SCHEDULED"
 
 
 @pytest.mark.parametrize("count", [3, 4])
@@ -244,7 +348,7 @@ def test_busy_club_delays_whole_round_without_cancelling_matches(database, runni
         assert execution.get_due_league_match_ids(db, clock[0]) == []
 
     with Session(database) as db:
-        matches = league_repository.get_fixture_matches(db, data.id)
+        matches = db.scalars(select(Matches).join(LeagueRound).where(LeagueRound.league_id == data.id)).all()
         assert all(match.status == "SCHEDULED" and match.snapshot is None for match in matches)
         busy = db.get(Matches, busy_id)
         busy.status, busy.cancellation_reason = "CANCELLED", "TEST_RELEASE"
@@ -318,7 +422,7 @@ def test_invalid_second_match_rolls_back_entire_round(database, running_league, 
         with pytest.raises(RuntimeError, match="Error simulado"):
             execution.prepare_league_round(db, data.id, clock[0])
     with Session(database) as db:
-        matches = league_repository.get_fixture_matches(db, data.id)
+        matches = db.scalars(select(Matches).join(LeagueRound).where(LeagueRound.league_id == data.id)).all()
         assert all(
             match.status == "SCHEDULED" and match.runtime_state is None and match.lineup_snapshot is None
             for match in matches
