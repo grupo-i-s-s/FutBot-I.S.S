@@ -193,6 +193,7 @@ def test_password_hash_protects_league_even_if_private_flag_is_missing(db, leagu
     leagues.repo.create_registration.assert_not_called()
 
 
+
 @pytest.mark.parametrize("case, status", [("missing", 404), ("creator_running", 409),
                                           ("creator_finished", 409), ("closed", 409),
                                           ("started", 409), ("not_member", 409)])
@@ -202,6 +203,7 @@ def test_leave_rejects_without_removing_registration(db, leagues, now, case, sta
     elif case in {"creator_running", "creator_finished"}:
         leagues.row.creator_club_id = 7
         leagues.row.status = case.removeprefix("creator_")
+    
     elif case == "closed":
         leagues.row.status = "running"
     elif case == "started":
@@ -214,10 +216,14 @@ def test_leave_rejects_without_removing_registration(db, leagues, now, case, sta
     db.commit.assert_not_called()
 
 
-def test_creator_can_delete_open_league(db, leagues):
+def test_creator_leaving_deletes_league_without_removing_only_their_registration(db, leagues):
     leagues.row.creator_club_id = 7
-    assert service.leave_league(db, 42, 7)["league_id"] == 42
+
+    result = service.leave_league(db, 42, 7)
+
+    assert result["league_id"] == 42
     leagues.repo.delete_league.assert_called_once_with(db, leagues.row)
+    leagues.repo.get_registration.assert_not_called()
     leagues.repo.delete_registration.assert_not_called()
     db.commit.assert_called_once()
 

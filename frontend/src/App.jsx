@@ -22,6 +22,7 @@ import NavBar from './features/nav-bar/navBar.jsx';
 import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
 import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
+import LeagueLineupPage from './features/league-lineup/LeagueLineupPage.jsx';
 
 export default function App() {
     const { pathname } = useLocation();
@@ -57,6 +58,7 @@ export default function App() {
                 <Route path="/clubes" element={<ClubsListPage />} />
                 <Route path="*" element={<NotFoundPage />} />
                 <Route path="/club/:clubId" element={<ClubProfilePage />} />
+                <Route path="/leagues/:id/lineup" element={<LeagueLineupPage/>}/>
             </Routes>
         </>
     );
