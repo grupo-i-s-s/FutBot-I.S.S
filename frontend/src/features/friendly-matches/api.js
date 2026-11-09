@@ -1,7 +1,8 @@
 import {request} from '@/api/http.js';
 
-export function listFriendlyMatches(signal) {
-    return request('/friendly-matches', {signal}).then(result => result.items);
+export function listFriendlyMatches({creatorName = '', page = 1, pageSize = 20} = {}, signal) {
+    const query = new URLSearchParams({creatorName, page: String(page), pageSize: String(pageSize)});
+    return request(`/friendly-matches?${query}`, {signal});
 }
 
 export function listMyFriendlyMatches(signal) {

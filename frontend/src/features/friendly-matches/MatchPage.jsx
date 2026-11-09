@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { useMatchConnection } from './hooks/useMatchConnection.js';
 import MatchCanvas from './components/MatchCanvas.jsx';
@@ -27,6 +27,7 @@ function resultText(state) {
 
 export default function MatchPage() {
     const { matchId } = useParams();
+    const location = useLocation();
     const { snapshot, connectionStatus, error, retry } = useMatchConnection(matchId);
     const [myClubId, setMyClubId] = useState(null);
     const [behaviours, setBehaviours] = useState([])
@@ -72,7 +73,7 @@ export default function MatchPage() {
                         <p className="match-eyebrow">{isBehaviourTest ? '' : 'AMISTOSO'}</p>
                         <h1>{isBehaviourTest ? 'Prueba de comportamientos' : 'El partido'}</h1>
                     </div>
-                    <Link to={isBehaviourTest ? '/behaviours' : '/partidos-disponibles'}>
+                    <Link to={isBehaviourTest ? '/behaviours' : location.state?.returnTo ?? '/partidos-disponibles'}>
                         {isBehaviourTest ? 'Volver a comportamientos' : 'Volver a amistosos'}
                     </Link>
                 </header>
