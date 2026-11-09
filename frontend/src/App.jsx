@@ -1,5 +1,6 @@
 import {Navigate, Outlet, Route, Routes, useLocation, useParams, useSearchParams} from 'react-router';
 import {Button} from '@/components/ui/button';
+import {Toaster} from '@/components/ui/sonner';
 import HomePage from './features/home-page/homePage.jsx';
 import LoginPage from './features/login/LoginPage.jsx';
 import RegisterPage from './features/register/RegisterPage.jsx';
@@ -124,6 +125,15 @@ export default function App() {
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
             </Routes>
+            <Toaster
+                position="bottom-right"
+                offset={16}
+                duration={5000}
+                visibleToasts={1}
+                closeButton
+                containerAriaLabel="Notificaciones"
+                toastOptions={{closeButtonAriaLabel: 'Cerrar notificación'}}
+            />
         </SessionProvider>
     );
 }

@@ -60,7 +60,7 @@ export default function MatchesPage() {
                         >
                             Mis amistosos
                         </Link>
-                        <Link to={routes.createMatch} className={buttonVariants({size: 'lg'})}>
+                        <Link to={routes.createMatch} state={{returnTo}} className={buttonVariants({size: 'lg'})}>
                             <Plus data-icon="inline-start" aria-hidden="true"/>
                             Crear amistoso
                         </Link>

@@ -1,7 +1,8 @@
-import {cleanup, fireEvent, render, screen} from '@testing-library/react';
+import {act, cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router';
+import {toast} from 'sonner';
 import {afterEach, expect, it, vi} from 'vitest';
-import CreateFriendlyMatch from './Create_friendly_match.jsx';
+import App from '../../App.jsx';
 import MatchPage from './MatchPage.jsx';
 import MatchesPage from './Matches.jsx';
 import {SessionProvider} from '../session/SessionProvider.jsx';
@@ -21,21 +22,85 @@ function jsonResponse(body, status = 200) {
     return {ok: status < 400, status, json: async () => body};
 }
 
+function renderCreateApp(createMatch, entry = '/crear-partido') {
+    vi.stubGlobal('fetch', async (url, options) => {
+        if (url === '/api/clubs/me') return jsonResponse({id: 1, name: 'Club local'});
+        if (url === '/api/behaviours') return jsonResponse({items: []});
+        if (url === '/api/friendly-matches' && options.method === 'POST') return createMatch(url, options);
+        if (url.startsWith('/api/friendly-matches?')) return jsonResponse({items: [], total: 0, page: 2, pageSize: 20});
+        if (url === '/api/matches/42') return new Promise(() => {});
+        throw new Error(`Unexpected request: ${url}`);
+    });
+    render(<MemoryRouter initialEntries={[entry]}><App/></MemoryRouter>);
+}
+
+function notifications() {
+    return within(screen.getByRole('region', {name: /^Notificaciones/}));
+}
+
 afterEach(() => {
     cleanup();
+    toast.dismiss();
     vi.unstubAllGlobals();
 });
 
 it('muestra la franja ocupada en hora local al crear un amistoso', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({error: leagueConflict}, 409)));
-    render(<MemoryRouter><CreateFriendlyMatch/></MemoryRouter>);
+    renderCreateApp(() => jsonResponse({error: leagueConflict}, 409));
 
-    const input = screen.getByLabelText('Horario para comenzar el partido');
+    const input = await screen.findByLabelText('Fecha y hora de inicio');
     fireEvent.change(input, {target: {value: '2040-06-12T20:00'}});
-    fireEvent.click(screen.getByRole('button', {name: 'Crear Partido'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Crear amistoso'}));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/franja ocupada es .*20:00.*20:06/);
     expect(input).toHaveValue('2040-06-12T20:00');
+    expect(await notifications().findByText('No se pudo crear el amistoso')).toBeVisible();
+    expect(notifications().getByText(/franja ocupada es .*20:00.*20:06/)).toBeVisible();
+});
+
+it('rechaza un horario pasado antes de enviar el formulario', async () => {
+    const createMatch = vi.fn();
+    renderCreateApp(createMatch);
+
+    const input = await screen.findByLabelText('Fecha y hora de inicio');
+    fireEvent.change(input, {target: {value: '2000-01-01T12:00'}});
+    fireEvent.submit(input.form);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/futura/);
+    expect(input).toHaveValue('2000-01-01T12:00');
+    expect(createMatch).not.toHaveBeenCalled();
+    expect(notifications().queryByText('No se pudo crear el amistoso')).not.toBeInTheDocument();
+});
+
+const availableMatches = '/partidos-disponibles?creatorName=River&page=2#amistosos';
+
+it.each([
+    {entry: availableMatches, destination: availableMatches},
+    {
+        entry: {pathname: '/crear-partido', state: {returnTo: '//example.org/partidos-disponibles'}},
+        destination: '/partidos-disponibles',
+    },
+])('crea un amistoso una sola vez y vuelve a $destination', async ({entry, destination}) => {
+    const pending = Promise.withResolvers();
+    const createMatch = vi.fn(() => pending.promise);
+    renderCreateApp(createMatch, entry);
+
+    if (entry === availableMatches) fireEvent.click(await screen.findByRole('link', {name: 'Crear amistoso'}));
+    expect(await screen.findByRole('link', {name: 'Volver a amistosos'})).toHaveAttribute('href', destination);
+    const input = screen.getByLabelText('Fecha y hora de inicio');
+    fireEvent.change(input, {target: {value: '2040-06-12T20:00'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Crear amistoso'}));
+    fireEvent.submit(input.form);
+
+    expect(createMatch).toHaveBeenCalledExactlyOnceWith('/api/friendly-matches', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({startDateTime: conflictStart}),
+    }));
+    expect(screen.getByRole('button', {name: /^Creando/})).toBeDisabled();
+
+    await act(async () => pending.resolve(jsonResponse({matchId: 42}, 201)));
+    expect(await screen.findByRole('heading', {name: 'El partido'})).toBeVisible();
+    expect(screen.getByRole('link', {name: 'Volver a amistosos'})).toHaveAttribute('href', destination);
+    expect(await notifications().findByText('Amistoso creado')).toBeVisible();
 });
 
 it.each([leagueConflict, {

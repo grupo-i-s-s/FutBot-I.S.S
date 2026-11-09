@@ -1,6 +1,7 @@
 import {act, cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {Link, MemoryRouter, Route, Routes, useLocation} from 'react-router';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {Toaster} from '@/components/ui/sonner';
 
 import MyClubPage from './MyClubPage';
 import {listMyFriendlyMatches} from '../friendly-matches/api.js';
@@ -47,8 +48,15 @@ async function teamEditor() {
 }
 
 async function saveToast(message) {
-    const notifications = screen.getByRole('region', {name: /^Notificaciones de Mi club/});
+    const notifications = screen.getByRole('region', {name: /^Notificaciones/});
     return within(notifications).findByText(message);
+}
+
+function renderWithToaster(ui) {
+    return render(<>
+        {ui}
+        <Toaster closeButton containerAriaLabel="Notificaciones" toastOptions={{closeButtonAriaLabel: 'Cerrar notificación'}} />
+    </>);
 }
 
 function searchCombobox(input, query) {
@@ -100,7 +108,7 @@ describe('Configuración de formación del club', () => {
     afterEach(cleanup);
 
     it('guarda primero la formación y luego un comportamiento en Mi equipo y recupera ambos al volver', async () => {
-        const {unmount} = render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        const {unmount} = renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const editor = await teamEditor();
         const select = await editor.findByLabelText('Formación');
         expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
@@ -152,7 +160,7 @@ describe('Configuración de formación del club', () => {
         expect(updateMyClub).not.toHaveBeenCalled();
 
         unmount();
-        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const reopened = await teamEditor();
         expect(await reopened.findByLabelText('Formación')).toHaveValue('2');
         expect(screen.queryByText('Equipo guardado correctamente.')).not.toBeInTheDocument();
@@ -169,7 +177,7 @@ describe('Configuración de formación del club', () => {
             status: 'SCHEDULED',
             isCreator: false,
         }]);
-        render(
+        renderWithToaster(
             <MemoryRouter initialEntries={['/mi-club']}>
                 <Routes>
                     <Route path="/mi-club" element={<MyClubPage />} />
@@ -200,7 +208,7 @@ describe('Configuración de formación del club', () => {
     it('intercambia un titular y un suplente con sus comportamientos y guarda los seis lugares en orden', async () => {
         const original = persisted.lineUp;
         original.substitutes[0].behaviourId = 11;
-        const {unmount} = render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        const {unmount} = renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const editor = await teamEditor();
         const starter = await editor.findByRole('combobox', {name: 'Jugador del lugar 1'});
 
@@ -225,7 +233,7 @@ describe('Configuración de formación del club', () => {
         });
 
         unmount();
-        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const reopened = await teamEditor();
         await reopened.findByLabelText('Formación');
         expectSwappedLineup(reopened);
@@ -233,7 +241,7 @@ describe('Configuración de formación del club', () => {
 
     it('conserva la selección si falla el guardado y muestra el error', async () => {
         updateDefaultTeam.mockRejectedValue(new Error('No se pudo guardar la formación.'));
-        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const editor = await teamEditor();
         const select = await editor.findByLabelText('Formación');
         fireEvent.change(select, {target: {value: '3'}});
@@ -249,7 +257,7 @@ describe('Configuración de formación del club', () => {
     it('bloquea el guardado duplicado y muestra el toast si el guardado termina en otra pestaña', async () => {
         const save = Promise.withResolvers();
         updateDefaultTeam.mockReturnValueOnce(save.promise);
-        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const editor = await teamEditor();
         const select = await editor.findByLabelText('Formación');
         const form = editor.getByRole('form', {name: 'Equipo para próximos partidos'});
@@ -278,7 +286,7 @@ describe('Configuración de formación del club', () => {
         const profile = {name, avatar: 'avatar-02.png', friendlyAvailable: false};
         const message = 'Los cambios del club se guardaron correctamente.';
         updateMyClub.mockResolvedValue({...club, ...profile});
-        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const editor = await teamEditor();
         const formation = await editor.findByLabelText('Formación');
         fireEvent.change(formation, {target: {value: '3'}});
@@ -307,7 +315,7 @@ describe('Configuración de formación del club', () => {
         const updatedDt = {isActive: true, activeBehaviourId: 42};
         listDtBehaviours.mockResolvedValue({items: [{id: 42, name: 'Cuidar el resultado'}]});
         updateDtSettings.mockResolvedValue(updatedDt);
-        render(<MemoryRouter initialEntries={[entry]}><MyClubPage/></MemoryRouter>);
+        renderWithToaster(<MemoryRouter initialEntries={[entry]}><MyClubPage/></MemoryRouter>);
 
         const editor = within(await screen.findByRole('tabpanel', {name: 'DT'}));
         expect(await saveToast(notice)).toBeVisible();
@@ -329,7 +337,7 @@ describe('Configuración de formación del club', () => {
         listMyLeagues.mockResolvedValueOnce({items: [
             {id: 42, name: 'Liga del club', type: 'PUBLIC', teams: 3, maxTeams: 8, status: 'open'},
         ]});
-        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const editor = await teamEditor();
         const formation = await editor.findByLabelText('Formación');
         const original = structuredClone(persisted.lineUp);
@@ -401,7 +409,7 @@ describe('Configuración de formación del club', () => {
     });
 
     it('reintenta solamente la página del plantel que falló y mantiene el borrador disponible', async () => {
-        render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        renderWithToaster(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const editor = await teamEditor();
         const formation = await editor.findByLabelText('Formación');
         fireEvent.change(formation, {target: {value: '3'}});
