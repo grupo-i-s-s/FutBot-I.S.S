@@ -1,5 +1,7 @@
 import { Link, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { getMyClub, listBehaviours } from '../my-club/api.js';
 import { useMatchConnection } from './hooks/useMatchConnection.js';
 import MatchCanvas from './components/MatchCanvas.jsx';
 import MatchScoreboard from './components/MatchScoreboard.jsx';
@@ -10,8 +12,6 @@ import MatchBreakNotice, {
 } from './components/MatchBreakNotice.jsx';
 import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx';
 import PlannedSubstitutionPanel from './components/PlannedSubstitutionPanel.jsx';
-import { useState, useEffect } from 'react'
-import { request } from '@/api/http.js';
 import { activateMatchDt } from './matchApi.js';
 
 
@@ -27,42 +27,81 @@ function resultText(state) {
     return `Ganó ${local.score > visitor.score ? local.name : visitor.name}.`;
 }
 
+function MatchDtControl({ matchId, team, running, connected }) {
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const active = team.dtActive === true;
+    const configured = team.dtConfigured ?? active;
+    const status = team.dtError ? 'DT con error' : active ? 'DT activo' : 'DT inactivo';
+
+    async function toggle() {
+        if (!running || !connected || !configured || saving) return;
+        setSaving(true);
+        setError('');
+        try {
+            await activateMatchDt(matchId, !active);
+        } catch (cause) {
+            setError(cause.message || 'No se pudo cambiar el estado del DT.');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    if (!configured && !team.dtError) return null;
+
+    return (
+        <div className="text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+                <span className={active && !team.dtError ? 'font-semibold text-emerald-800' : 'text-muted-foreground'}>
+                    {status}
+                </span>
+                {running && configured && (
+                    <Button type="button" variant="outline" size="sm" disabled={!connected || saving} onClick={toggle}>
+                        {saving ? 'Guardando…' : active ? 'Desactivar DT' : 'Activar DT'}
+                    </Button>
+                )}
+            </div>
+            {team.dtError && <p className="match-error">{team.dtError}</p>}
+            {error && <p className="match-error" role="alert">{error}</p>}
+        </div>
+    );
+}
+
 export default function MatchPage() {
     const { matchId } = useParams();
     const { snapshot, connectionStatus, error, retry } = useMatchConnection(matchId);
     const [myClubId, setMyClubId] = useState(null);
-    const [behaviours, setBehaviours] = useState([])
-    const [isDtActive, setIsDtActive] = useState(false)
+    const [behaviours, setBehaviours] = useState([]);
+    const [controlsError, setControlsError] = useState('');
 
     useEffect(() => {
-        async function fetchMyClub() {
-            const club = await request('/club/me');
-            const player_behaviours = await request('/behaviours')
-            console.log("Datps que devuelve", club);
-            setMyClubId(club.id);
-            setBehaviours(player_behaviours.items);
-        }
-        fetchMyClub();
-    }, []);
+        const controller = new AbortController();
+        const options = { signal: controller.signal };
 
-    const handleToggleDt = async () => {
-    try {
-        const newActiveState = !isDtActive;
-        await activateMatchDt(matchId, newActiveState); 
-        setIsDtActive(newActiveState);
-    } catch (error) {
-        console.error("No se pudo cambiar el estado del DT", error);
-    }
-};
+        async function loadControls() {
+            const [club, catalog] = await Promise.allSettled([
+                getMyClub(options),
+                listBehaviours(options),
+            ]);
+            if (controller.signal.aborted) return;
+            if (club.status === 'fulfilled') setMyClubId(club.value.id);
+            if (catalog.status === 'fulfilled') setBehaviours(catalog.value.items);
+            if (club.status === 'rejected' || catalog.status === 'rejected') {
+                setControlsError('No se pudieron cargar todos los controles de tu equipo.');
+            }
+        }
+
+        loadControls();
+        return () => controller.abort();
+    }, []);
 
     const state = snapshot?.state;
     const terminal = ['FINISHED', 'CANCELLED'].includes(state?.status);
     const connected = connectionStatus === 'connected';
     const paused = isPaused(state);
+    const running = state?.status === 'RUNNING';
 
-    const live = connected
-        && state?.status === 'RUNNING'
-        && !paused;
+    const live = connected && running && !paused;
 
     const label = terminal
         ? (state.status === 'FINISHED' ? 'Finalizado' : 'Cancelado')
@@ -104,6 +143,7 @@ export default function MatchPage() {
                                 abierta.</p>}
                         {terminal && <p className="match-result">{resultText(state)}</p>}
                         <MatchCanvas snapshot={snapshot} live={live} />
+                        {controlsError && <p className="match-error" role="alert">{controlsError}</p>}
                         <PlannedSubstitutionPanel key={matchId} matchId={matchId} state={state}
                                                   sequence={snapshot.sequence} clubId={myClubId} connected={connected}/>
                         {state.players.length > 0 && (
@@ -111,33 +151,26 @@ export default function MatchPage() {
                                 {state.teams.map((team) => {
                                     const teamPlayers = state.players.filter((player) => player.teamId === team.id);
 
-                                    const isMyTeam = myClubId ? team.id == myClubId : false;
+                                    const isMyTeam = team.id === myClubId;
                                     return (
                                         <div key={team.id}>
-                                            <div className="flex items-center justify-between mb-2">
+                                            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                                                 <h2>
                                                     <span style={{ backgroundColor: team.color }} />
-                                                    {team.name} {isMyTeam}
+                                                    {team.name}
                                                 </h2>
                                                 {isMyTeam && (
-                                                        <button
-                                                            onClick={handleToggleDt}
-                                                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
-                                                                isDtActive 
-                                                                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                                                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                                            }`}
-                                                        >
-                                                            {isDtActive ? 'DT Activo ' : 'Activar DT'}
-                                                        </button>
-                                                    )}
+                                                    <MatchDtControl key={matchId} matchId={matchId} team={team}
+                                                                    running={running} connected={connected} />
+                                                )}
                                             </div>
                                             <LiveChangeBehaviour
-                                                match_id={matchId}
+                                                key={matchId}
+                                                matchId={matchId}
                                                 players={teamPlayers}
                                                 behaviours={behaviours}
                                                 isMyTeam={isMyTeam}
-                                                isDtActive = {isDtActive}
+                                                canEdit={running && connected}
                                             />
                                         </div>
                                     );

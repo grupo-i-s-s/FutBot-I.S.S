@@ -90,7 +90,9 @@ export default function PlannedSubstitutionPanel({matchId, state, sequence, club
             {waiting && <p role="status">Cambio pendiente: esperando la confirmación del motor.</p>}
             {lastEvent && (
                 <p role="status">{lastEvent.type === 'SUBSTITUTION_APPLIED'
-                    ? `Cambio aplicado: salió ${name(lastEvent.outPlayerId)} y entró ${name(lastEvent.inPlayerId)}.`
+                    ? lastEvent.source === 'DT'
+                        ? `El DT hizo un cambio. Salió ${name(lastEvent.outPlayerId)} y entró ${name(lastEvent.inPlayerId)}.`
+                        : `Cambio aplicado: salió ${name(lastEvent.outPlayerId)} y entró ${name(lastEvent.inPlayerId)}.`
                     : 'El motor rechazó el cambio; no se aplicó.'}</p>
             )}
             {state.status === 'RUNNING' && (

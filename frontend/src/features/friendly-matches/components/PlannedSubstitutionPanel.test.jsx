@@ -176,6 +176,14 @@ it('retira la acción cuando un cambio planificado o del DT consume la cuota', (
     expect(fetchMock).not.toHaveBeenCalled();
 });
 
+it('atribuye al DT una sustitución confirmada por el motor', () => {
+    pause();
+    applyChange();
+    state.events[0].source = 'DT';
+    render(panel());
+    expect(screen.getByText('El DT hizo un cambio. Salió Titular A y entró Suplente A.')).toBeInTheDocument();
+});
+
 it.each(['disconnected', 'missing-pause', 'no-substitutes'])('impide enviar cambios durante la pausa si falta: %s', reason => {
     pause();
     if (reason === 'missing-pause') state.breakIndex = null;
@@ -323,4 +331,34 @@ it.each([false, true])('integra el panel y sólo cambia la cancha al recibir el 
     view.rerender(page());
     expect(screen.getByTestId('cancha')).toHaveTextContent('4,2,3,7,8,9');
     expect(screen.getByText(/Cambio aplicado:/)).toBeInTheDocument();
+});
+
+it('muestra el estado del DT desde el snapshot y espera la confirmación del motor al desactivarlo', async () => {
+    const fetchDefault = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation(async (url, options) => {
+        if (url === '/api/friendly-matches/42/dt') {
+            expect(options.method).toBe('POST');
+            expect(JSON.parse(options.body)).toEqual({dt_active: false});
+            return reply({dt_active: false});
+        }
+        return fetchDefault(url, options);
+    });
+    state.teams[0].dtActive = true;
+    state.teams[0].dtConfigured = true;
+    useMatchConnection.mockReturnValue({snapshot: {sequence: 1, state}, connectionStatus: 'connected', error: '', retry: vi.fn()});
+    const page = () => <MemoryRouter initialEntries={['/matches/42']}>
+        <Routes><Route path="/matches/:matchId" element={<MatchPage/>}/></Routes>
+    </MemoryRouter>;
+    const view = render(page());
+    fireEvent.click(await screen.findByRole('button', {name: 'Desactivar DT'}));
+    await waitFor(() => expect(screen.getByRole('button', {name: 'Desactivar DT'})).toBeEnabled());
+    expect(fetchMock).toHaveBeenCalledWith('/api/friendly-matches/42/dt', expect.anything());
+    expect(screen.getByText('DT activo')).toBeInTheDocument();
+    expect(screen.getByLabelText('Titular que sale')).toBeEnabled();
+
+    state.teams[0].dtActive = false;
+    useMatchConnection.mockReturnValue({snapshot: {sequence: 2, state}, connectionStatus: 'connected', error: '', retry: vi.fn()});
+    view.rerender(page());
+    expect(screen.getByRole('button', {name: 'Activar DT'})).toBeEnabled();
+    expect(screen.getByText('DT inactivo')).toBeInTheDocument();
 });

@@ -13,7 +13,6 @@ function loadTeam(response) {
 
     return {
         formation: String(lineUp.formationId),
-        dtBehaviourId: lineUp.dtBehaviourId ? String(lineUp.dtBehaviourId): '',
         slots: [...lineUp.starters, ...lineUp.substitutes].map(
             (slot) => ({
                 playerId: String(slot.playerId),
@@ -225,7 +224,6 @@ export default function TeamSettings({
         try {
             const response = await updateDefaultTeam({
                 formationId: Number(team.formation),
-                dtBehaviourId: team.dtBehaviourId ? Number(team.dtBehaviourId): null,
                 starters: selections.slice(0, 3),
                 substitutes: selections.slice(3, 6),
             });
@@ -462,34 +460,6 @@ export default function TeamSettings({
                     )}
                 </form>
             </CardContent>
-            <div className="space-y-1 mt-4">
-                        <label htmlFor="team-dt" className="text-sm font-medium">
-                            Director Técnico (Táctica Global)
-                        </label>
-                        <select
-                            id="team-dt"
-                            disabled={disabled || isSaving}
-                            className={SELECT_CLASSES}
-                            value={team.dtBehaviourId || ''}
-                            onChange={(event) => {
-                                clearFeedback();
-                                setTeam((current) => ({
-                                    ...current,
-                                    dtBehaviourId: event.target.value,
-                                }));
-                            }}
-                        >
-                            <option value="">Sin DT (Control 100% manual)</option>
-                            {behaviours.map((behaviour) => (
-                                <option key={behaviour.id} value={behaviour.id}>
-                                    {behaviour.name} {behaviour.isDefault ? '(Predeterminado)' : ''}
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-sm text-muted-foreground">
-                            Al activar el DT en el partido, tomará el control usando este comportamiento.
-                        </p>
-                    </div>
         </Card>
     );
 }
