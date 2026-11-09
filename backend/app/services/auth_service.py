@@ -2,6 +2,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+import logging
+from math import ceil
+from secrets import compare_digest
+
+from app.repository import password_reset_repository
+from app.schemas.auth_schemas import ( PasswordResetRequest, PasswordResetConfirmRequest)
+from app.security import password_reset_digest
 
 from app.config import settings
 from app.errors import AppError
@@ -25,14 +32,7 @@ from app.schemas.auth_schemas import (
     ResendVerificationRequest
 )
 from app.schemas.team_schemas import Lineup
-from app.security import (
-    DUMMY_PASSWORD_HASH,
-    hash_password,
-    hash_session_token,
-    new_session_token,
-    verify_password,
-    new_email_verification_code
-)
+from app.security import ( DUMMY_PASSWORD_HASH, hash_password, hash_session_token, new_session_token, verify_password, new_email_verification_code)
 from app.services import email_service
 from app.schemas.avatar_schemas import DEFAULT_AVATAR
 
@@ -434,6 +434,177 @@ def resend_verification(db: Session, data: ResendVerificationRequest) -> dict[st
         db.commit()
 
         return {"message": "Si existe una verificación pendiente, se envió un nuevo código."}
+
+    except Exception:
+        db.rollback()
+        raise
+
+PASSWORD_RESET_MESSAGE = {
+    "message": "Si la cuenta existe, recibirás un código para recuperar la contraseña."
+}
+
+
+def password_reset_invalid() -> AppError:
+    return AppError(
+        "PASSWORD_RESET_INVALID",
+        "El código no es válido o venció.",
+    )
+
+
+def check_password_reset_limit(
+    requests: list,
+    email: str,
+    ip_hash: str,
+    now: datetime,
+) -> None:
+    retry_after = 0
+    groups = (
+        [item.requested_at for item in requests if item.email == email],
+        [item.requested_at for item in requests if item.ip_hash == ip_hash],
+    )
+
+    for times in groups:
+        if times:
+            retry_after = max(
+                retry_after,
+                60 - (now - times[-1]).total_seconds(),
+            )
+
+        if len(times) >= 5:
+            retry_after = max(
+                retry_after,
+                3600 - (now - times[-5]).total_seconds(),
+            )
+
+    if retry_after > 0:
+        raise AppError(
+            "PASSWORD_RESET_RATE_LIMIT",
+            "Esperá antes de solicitar otro código.",
+            {"retryAfter": str(ceil(retry_after))},
+        )
+
+def request_password_reset(
+    db: Session,
+    data: PasswordResetRequest,
+    client_ip: str,
+) -> dict[str, str]:
+    email = str(data.email)
+    ip_hash = password_reset_digest("PASSWORD_RESET_IP", client_ip)
+
+    try:
+        password_reset_repository.lock_key(db, "email", email)
+        password_reset_repository.lock_key(db, "ip", ip_hash)
+
+        now = utc_now()
+        recent = password_reset_repository.get_recent( db, email, ip_hash, now - timedelta(hours=1) )
+        check_password_reset_limit(recent, email, ip_hash, now)
+
+        pending_account = pending_email_verification_repository.get_by_email(db, email, lock=True)
+        user = user_repository.get_by_email(db, email)
+        has_pending_account = ( pending_account is not None and pending_account.expires_at > now)
+        code_hash = None
+
+        if user is not None or has_pending_account:
+            previous = password_reset_repository.get_active(db, email)
+
+            while True:
+                code = new_email_verification_code()
+                digest = password_reset_digest(
+                    "PASSWORD_RESET",
+                    f"{email}\0{code}",
+                )
+                if previous is None or not compare_digest(
+                    digest,
+                    previous.code_hash,
+                ):
+                    break
+
+            try:
+                email_service.send_password_reset_code(email, code)
+            except AppError as exc:
+                if exc.code not in {
+                    "EMAIL_DELIVERY_FAILED",
+                    "EMAIL_NOT_CONFIGURED",
+                }:
+                    raise
+
+                logging.getLogger(__name__).warning(
+                    "Falló un envío de recuperación (%s).",
+                    exc.code,
+                )
+            else:
+                password_reset_repository.invalidate_for_email(db, email)
+                code_hash = digest
+
+        password_reset_repository.create(
+            db,
+            email=email,
+            ip_hash=ip_hash,
+            requested_at=now,
+            expires_at=now + timedelta(minutes=10),
+            code_hash=code_hash,
+        )
+
+        db.commit()
+        return dict(PASSWORD_RESET_MESSAGE)
+
+    except Exception:
+        db.rollback()
+        raise
+
+def confirm_password_reset( db: Session, data: PasswordResetConfirmRequest) -> None:
+    email = str(data.email)
+    digest = password_reset_digest(
+        "PASSWORD_RESET",
+        f"{email}\0{data.code}",
+    )
+
+    try:
+        password_reset_repository.lock_key(db, "email", email)
+        pending_account = pending_email_verification_repository.get_by_email(
+            db, email, lock=True,
+        )
+        user = user_repository.get_by_email(db, email, lock=True)
+        pending = password_reset_repository.get_active(db, email)
+        now = utc_now()
+
+        has_pending_account = (
+            pending_account is not None
+            and pending_account.expires_at > now
+        )
+
+        if (
+            (user is None and not has_pending_account)
+            or pending is None
+            or pending.expires_at <= now
+            or pending.attempts >= 5
+        ):
+            raise password_reset_invalid()
+
+        if not compare_digest(digest, pending.code_hash):
+            pending.attempts += 1
+
+            if pending.attempts >= 5:
+                pending.code_hash = None
+
+            db.commit()
+            raise password_reset_invalid()
+
+        if verify_password(data.new_password, user.password_hash):
+            raise AppError(
+                "PASSWORD_INVALID",
+                "La nueva contraseña debe ser diferente.",
+                {"newPassword": "Elegí una contraseña diferente."},
+            )
+
+        user_repository.set_password(
+            user,
+            hash_password(data.new_password),
+        )
+        session_repository.delete_for_user(db, user.id)
+        password_reset_repository.invalidate_for_email(db, email)
+
+        db.commit()
 
     except Exception:
         db.rollback()
