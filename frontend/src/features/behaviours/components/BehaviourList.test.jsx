@@ -143,6 +143,45 @@ describe('BehaviourList Component', () => {
             expect(screen.getByText(/no hay comportamientos disponibles/i)).toBeInTheDocument();
         });
     });
+
+    it('consulta el uso al editar y permite continuar si termina el partido', async () => {
+        const behaviour = {id: 7, name: 'Ataque propio', kind: 'PLAYER', version: 1, code: 'return'};
+        fetchBehaviours.mockResolvedValueOnce([behaviour]);
+        getBehaviour.mockResolvedValueOnce(behaviour);
+        getBehaviourUsage
+            .mockResolvedValueOnce({inUse: true, references: {'matches.42': 'Partido activo #42'}})
+            .mockResolvedValueOnce({inUse: false, references: {}});
+        const router = createMemoryRouter([{path: '*', element: <BehaviourList/>}]);
+        render(<RouterProvider router={router}/>);
+
+        const edit = await screen.findByRole('button', {name: 'Editar Ataque propio'});
+        expect(getBehaviourUsage).not.toHaveBeenCalled();
+        fireEvent.click(edit);
+
+        expect(await screen.findByText('Partido activo #42')).toBeInTheDocument();
+        expect(screen.getByRole('button', {name: 'Guardar cambios'})).toBeDisabled();
+        fireEvent.click(screen.getByRole('button', {name: 'Comprobar nuevamente'}));
+
+        await waitFor(() => expect(screen.getByRole('button', {name: 'Guardar cambios'})).toBeEnabled());
+        expect(screen.queryByText('Partido activo #42')).not.toBeInTheDocument();
+        expect(getBehaviourUsage.mock.calls.map(([id]) => id)).toEqual([7, 7]);
+    });
+
+    it('explica por qué un comportamiento base del DT está protegido', async () => {
+        const behaviour = {id: 1, name: 'Ofensivo', kind: 'PLAYER', version: 1, code: 'return'};
+        fetchBehaviours.mockResolvedValueOnce([behaviour]);
+        getBehaviour.mockResolvedValueOnce(behaviour);
+        getBehaviourUsage.mockResolvedValueOnce({
+            inUse: true, references: {dtPreset: 'Comportamiento predeterminado del DT'},
+        });
+        const router = createMemoryRouter([{path: '*', element: <BehaviourList/>}]);
+        render(<RouterProvider router={router}/>);
+
+        fireEvent.click(await screen.findByRole('button', {name: 'Editar Ofensivo'}));
+        expect(await screen.findByText('Este comportamiento base del DT está protegido.')).toBeInTheDocument();
+        expect(screen.getByRole('button', {name: 'Guardar cambios'})).toBeDisabled();
+    });
+
     it('cancelar no envía DELETE y conserva el comportamiento', async () => {
     const {dialog, heading} = await openDeletion();
 

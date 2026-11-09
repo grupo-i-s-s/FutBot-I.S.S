@@ -27,10 +27,9 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
     const loadController = useRef(null);
 
     const [usage, setUsage] = useState(null);
-    const [usageError, setUsageError] = useState(null);
-    const [attempt, setAttempt] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [checkingUsage, setCheckingUsage] = useState(false);
     const [saving, setSaving] = useState(false);
     const [document, setDocument] = useState(null);
     const [draft, setDraft] = useState({name: '', code: ''});
@@ -38,46 +37,18 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
     const [latest, setLatest] = useState(null);
 
     const isInUse = usage?.inUse === true;
-    const checkingUsage = usage === null && !usageError;
+    const isDtPreset = Boolean(usage?.references?.dtPreset);
     const dirty = Boolean(document && (
         draft.name !== document.name ||
         draft.code !== document.code
     ));
 
     useEffect(() => {
-        const controller = new AbortController();
-
-        async function loadUsage() {
-            setUsage(null);
-            setUsageError(null);
-
-            try {
-                const data = await getBehaviourUsage(behaviour.id, {
-                    signal: controller.signal,
-                });
-
-                if (!controller.signal.aborted) setUsage(data);
-            } catch (requestError) {
-                if (!controller.signal.aborted) {
-                    setUsageError(requestError);
-                }
-            }
-        }
-
-        loadUsage();
-        return () => controller.abort();
-    }, [behaviour.id, behaviour.version, attempt]);
-
-    useEffect(() => {
         return () => loadController.current?.abort();
     }, []);
 
     async function openEditor() {
-        if (usageError) {
-            setAttempt((value) => value + 1);
-            return;
-        }
-        if (checkingUsage || isInUse || pending.current) return;
+        if (pending.current) return;
 
         loadController.current?.abort();
         const controller = new AbortController();
@@ -85,6 +56,8 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
 
         setIsOpen(true);
         setLoading(true);
+        setCheckingUsage(false);
+        setUsage(null);
         setDocument(null);
         setError(null);
         setLatest(null);
@@ -127,7 +100,7 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
     async function save(event) {
         event.preventDefault();
 
-        if (pending.current || !document || isInUse) return;
+        if (pending.current || checkingUsage || !document || isInUse) return;
 
         if (!draft.name.trim() || !draft.code.trim()) {
             setError(new Error('Completá el nombre y el código.'));
@@ -186,28 +159,26 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
     }
 
     async function checkUsageAgain() {
+        if (checkingUsage || pending.current) return;
+        loadController.current?.abort();
+        const controller = new AbortController();
+        loadController.current = controller;
+        setCheckingUsage(true);
+
         try {
-            const data = await getBehaviourUsage(behaviour.id);
-            setUsage(data);
-            setError(null);
+            const data = await getBehaviourUsage(behaviour.id, {signal: controller.signal});
+            if (!controller.signal.aborted) {
+                setUsage(data);
+                setError(null);
+            }
         } catch (requestError) {
-            setError(requestError);
+            if (!controller.signal.aborted) setError(requestError);
+        } finally {
+            if (!controller.signal.aborted) setCheckingUsage(false);
         }
     }
 
-    const referenceDescriptions = Object.values(
-        usage?.references ?? {}
-    );
-
-    const title = isInUse
-        ? `No se puede editar ${behaviour.name}: está en uso. ${
-            referenceDescriptions.join('. ')
-        }`
-        : usageError
-            ? 'No se pudo comprobar el uso. Reintentar.'
-            : checkingUsage
-                ? `Comprobando si se puede editar ${behaviour.name}`
-                : `Editar ${behaviour.name}`;
+    const title = `Editar ${behaviour.name}`;
 
     return (
         <Dialog
@@ -219,36 +190,25 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
         >
             {isOpen && <UnsavedChangesGuard dirty={dirty}/>}
 
-            <span title={title}>
-                <DialogTrigger
-                    render={
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={checkingUsage || isInUse}
-                            aria-label={title}
-                            className="size-10 rounded-xl text-blue-700 hover:bg-blue-50 disabled:text-gray-400"
-                        />
-                    }
-                >
-                    {checkingUsage ? (
-                        <LoaderCircle
-                            className="size-4 animate-spin"
-                            aria-hidden="true"
-                        />
-                    ) : isInUse ? (
-                        <PencilOff className="size-4" aria-hidden="true"/>
-                    ) : (
-                        <Pencil className="size-4" aria-hidden="true"/>
-                    )}
-                </DialogTrigger>
-            </span>
+            <DialogTrigger
+                render={
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={title}
+                        title={title}
+                        className="size-10 rounded-xl text-blue-700 hover:bg-blue-50"
+                    />
+                }
+            >
+                <Pencil className="size-4" aria-hidden="true"/>
+            </DialogTrigger>
 
             <DialogContent
                 showCloseButton={false}
                 className="max-h-[90dvh] overflow-y-auto sm:max-w-5xl"
-                aria-busy={loading || saving}
+                aria-busy={loading || checkingUsage || saving}
             >
                 <DialogHeader>
                     <DialogTitle>Editar comportamiento</DialogTitle>
@@ -304,10 +264,14 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
                     <div className="space-y-2 rounded-lg border bg-amber-50 p-3">
                         <p className="flex items-center gap-2 font-semibold">
                             <PencilOff className="size-4" aria-hidden="true"/>
-                            Este comportamiento está en uso.
+                            {isDtPreset
+                                ? 'Este comportamiento base del DT está protegido.'
+                                : 'Este comportamiento está en uso.'}
                         </p>
 
-                        <p>Reemplazalo en sus asignaciones antes de editarlo:</p>
+                        <p>{isDtPreset
+                            ? 'Creá un comportamiento personalizado para guardar tus cambios.'
+                            : 'Reemplazalo en sus asignaciones antes de editarlo:'}</p>
 
                         <ul className="list-disc pl-5">
                             {Object.entries(usage.references ?? {}).map(
@@ -317,13 +281,14 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
                             )}
                         </ul>
 
-                        <Button
+                        {!isDtPreset && <Button
                             type="button"
                             variant="outline"
                             onClick={checkUsageAgain}
+                            disabled={checkingUsage}
                         >
-                            Comprobar nuevamente
-                        </Button>
+                            {checkingUsage ? 'Comprobando…' : 'Comprobar nuevamente'}
+                        </Button>}
                     </div>
                 )}
 
@@ -402,7 +367,7 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
                         <Button
                             type="submit"
                             form={formId}
-                            disabled={loading || saving || isInUse}
+                            disabled={loading || checkingUsage || saving || isInUse}
                         >
                             {saving && (
                                 <LoaderCircle
