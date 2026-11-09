@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from '@/components/ui/card';
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from '@/components/ui/combobox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { swapAssignedPlayer } from '@/lib/lineup';
 import TeamPlayerCombobox from './TeamPlayerCombobox';
 
 
@@ -141,17 +142,17 @@ export default function TeamSettings({clubId, behaviours, onSaveSuccess}) {
     function selectPlayer(slotIndex, player) {
         setError('');
 
-        setTeam((current) => ({
-            ...current,
-            slots: current.slots.map((slot, index) =>
-                index === slotIndex
-                    ? {
-                        playerId: String(player.id),
-                        behaviourId: String(player.behaviorId ?? ''),
-                    }
-                    : slot
-            ),
-        }));
+        const playerId = String(player.id);
+        setTeam((current) => {
+            if (current.slots[slotIndex].playerId === playerId) return current;
+
+            const swapped = swapAssignedPlayer(current.slots, slotIndex, playerId);
+            if (swapped) return {...current, slots: swapped};
+
+            const slots = [...current.slots];
+            slots[slotIndex] = {playerId, behaviourId: String(player.behaviorId ?? '')};
+            return {...current, slots};
+        });
 
         setSelectedPlayers((current) => [
             ...current.filter((item) => item.id !== player.id),
@@ -237,7 +238,8 @@ export default function TeamSettings({clubId, behaviours, onSaveSuccess}) {
                 </CardTitle>
                 <CardDescription>
                     Elegí la formación, los 3 titulares y los 3 suplentes
-                    para tus próximos partidos.
+                    para tus próximos partidos. Si elegís un jugador que ya ocupa otro lugar,
+                    ambos intercambian sus puestos y conservan sus comportamientos.
                 </CardDescription>
             </CardHeader>
 
@@ -317,7 +319,6 @@ export default function TeamSettings({clubId, behaviours, onSaveSuccess}) {
                                                 <TeamPlayerCombobox
                                                     id={`${inputPrefix}-player-${index}`}
                                                     player={selectedPlayers.find(player => String(player.id) === slot.playerId) ?? null}
-                                                    excludedPlayerIds={team.slots.filter((_, slotIndex) => slotIndex !== index).map(other => other.playerId)}
                                                     disabled={isSaving}
                                                     onSelect={(player) => selectPlayer(index, player)}
                                                 />

@@ -1,3 +1,6 @@
+import {swapAssignedPlayer} from '@/lib/lineup';
+
+
 export function toDraft(lineUp) {
     const selections = lineUp
         ? [...lineUp.starters, ...lineUp.substitutes]
@@ -51,40 +54,24 @@ export function validateDraft(draft, catalogs) {
 
 
 export function changeSlot(draft, index, field, value, catalogs) {
-    const slots = draft.slots.map((slot) => ({...slot}));
+    let selection;
 
     if (field === 'playerId') {
-        if (slots[index].playerId === value) return draft;
+        if (draft.slots[index].playerId === value) return draft;
 
-        const otherIndex = value
-            ? slots.findIndex((slot, position) =>
-                position !== index && slot.playerId === value,
-            )
-            : -1;
+        const swapped = swapAssignedPlayer(draft.slots, index, value);
+        if (swapped) return {...draft, slots: swapped};
 
-        if (otherIndex !== -1) {
-            [slots[index], slots[otherIndex]] = [
-                slots[otherIndex],
-                slots[index],
-            ];
-        } else {
-            const player = catalogs.players.find(
-                (item) => String(item.id) === value,
-            );
-            const behaviourId = String(player?.behaviorId ?? '');
-            const available = catalogs.behaviours.some(
-                (item) => String(item.id) === behaviourId,
-            );
-
-            slots[index] = {
-                playerId: value,
-                behaviourId: available ? behaviourId : '',
-            };
-        }
+        const player = catalogs.players.find((item) => String(item.id) === value);
+        const behaviourId = String(player?.behaviorId ?? '');
+        const available = catalogs.behaviours.some((item) => String(item.id) === behaviourId);
+        selection = {playerId: value, behaviourId: available ? behaviourId : ''};
     } else {
-        slots[index] = {...slots[index], [field]: value};
+        selection = {...draft.slots[index], [field]: value};
     }
 
+    const slots = [...draft.slots];
+    slots[index] = selection;
     return {...draft, slots};
 }
 

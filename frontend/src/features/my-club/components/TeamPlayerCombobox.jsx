@@ -12,15 +12,12 @@ import {listPlayers} from '../api';
 const playerLabel = (player) => player.name;
 const samePlayer = (item, value) => item.id === value.id;
 
-export default function TeamPlayerCombobox({id, player, excludedPlayerIds, disabled, onSelect}) {
+export default function TeamPlayerCombobox({id, player, disabled, onSelect}) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState(null);
     const [result, setResult] = useState(null);
     const search = query?.trim() ?? '';
     const currentResult = result?.search === search ? result : null;
-    const options = (currentResult?.items ?? []).filter(
-        (item) => !excludedPlayerIds.includes(String(item.id)),
-    );
 
     useEffect(() => {
         if (!open || disabled) return;
@@ -58,7 +55,7 @@ export default function TeamPlayerCombobox({id, player, excludedPlayerIds, disab
             onOpenChange={handleOpenChange}
             value={player}
             inputValue={query ?? player?.name ?? ''}
-            items={options}
+            items={currentResult?.items ?? []}
             filter={null}
             itemToStringLabel={playerLabel}
             isItemEqualToValue={samePlayer}
@@ -70,7 +67,7 @@ export default function TeamPlayerCombobox({id, player, excludedPlayerIds, disab
                 }
             }}
             onValueChange={(item, details) => {
-                if (!item || excludedPlayerIds.includes(String(item.id))) {
+                if (!item) {
                     details.cancel();
                     return;
                 }
