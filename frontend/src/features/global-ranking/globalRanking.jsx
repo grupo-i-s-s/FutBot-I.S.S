@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getGlobalRanking } from './api.js';
-import './LeagueRanking.css';
+import '../lobby-league/LeagueRanking.css';
 
 export default function GlobalRanking() {
     const [rankData, setRankData] = useState([]);
