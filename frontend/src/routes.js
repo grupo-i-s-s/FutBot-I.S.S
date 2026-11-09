@@ -5,6 +5,7 @@ export const routes = {
     signIn: '/iniciar-sesion',
     register: '/registro',
     verifyEmail: '/verificar-email',
+    passwordReset: '/recuperar-contrasena',
     home: '/inicio',
     myClub: '/mi-club',
     clubs: '/clubes',

@@ -13,6 +13,7 @@ APPLICATION_TABLES = {
     "users", "clubs", "auth_sessions", "pending_email_verifications", "behaviors",
     "players", "leagues", "league_registrations", "league_rounds", "league_standings",
     "matches", "default_teams", "planned_substitutions", "dt", "dt_behaviours", "Club_Stats",
+    "password_reset_requests",
 }
 
 

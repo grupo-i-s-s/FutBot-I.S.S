@@ -69,3 +69,14 @@ class PendingEmailVerification(Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     resend_window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     resend_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+class PasswordResetRequest(Base):
+    __tablename__ = "password_reset_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
+    ip_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    code_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -8,7 +8,9 @@ from app.schemas.auth_schemas import (
     RegisterRequest,
     UserResponse,
     VerifyEmailRequest,
-    ResendVerificationRequest
+    ResendVerificationRequest,
+    PasswordResetRequest,
+    PasswordResetConfirmRequest
 )
 from app.services import auth_service
 
@@ -85,3 +87,17 @@ def verify_email(data: VerifyEmailRequest, db: Database):
 @auth_router.post("/resend-verification")
 def resend_verification(data: ResendVerificationRequest, db: Database):
     return auth_service.resend_verification(db, data)
+
+@auth_router.post("/password-reset/request", status_code=202)
+def request_password_reset( data: PasswordResetRequest, request: Request, db: Database):
+    client_ip = request.client.host if request.client else "unknown"
+    return auth_service.request_password_reset(db, data, client_ip)
+
+
+@auth_router.post("/password-reset/confirm", status_code=204)
+def confirm_password_reset( data: PasswordResetConfirmRequest, db: Database):
+    auth_service.confirm_password_reset(db, data)
+
+    response = Response(status_code=204)
+    clear_session_cookie(response)
+    return response

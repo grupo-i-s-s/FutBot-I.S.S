@@ -74,6 +74,7 @@ export default function LoginPage() {
                     </button>
                     {error && <p role="alert">{error}</p>}
                     <Link to={routes.register} className="Registro">Registrarme</Link>
+                    <Link to={routes.passwordReset} className="Registro">Olvidé mi contraseña</Link>
                 </form>
             </section>
 

@@ -23,6 +23,7 @@ import NavBar from './features/nav-bar/navBar.jsx';
 import {SessionProvider, useSession} from './features/session/SessionProvider.jsx';
 import GlobalRanking from './features/global-ranking/globalRanking.jsx';
 import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
+import PasswordResetPage from './features/password-reset/PasswordResetPage.jsx';
 import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
 import LeagueLineupPage from './features/league-lineup/LeagueLineupPage.jsx';
@@ -92,6 +93,7 @@ export default function App() {
                 <Route path={routes.signIn} element={<SignIn/>} />
                 <Route path={routes.register} element={<RegisterPage />} />
                 <Route path={routes.verifyEmail} element={<VerifyEmailPage />} />
+                <Route path={routes.passwordReset} element={<PasswordResetPage />} />
                 <Route path="/login" element={<LegacyRedirect to={routes.signIn}/>} />
                 <Route element={<RequireSession/>}>
                     <Route path={routes.home} element={<HomePage />} />
