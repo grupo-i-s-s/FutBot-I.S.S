@@ -6,12 +6,16 @@ import {routes} from '@/routes.js';
 
 export default function VerifyEmailPage() {
     const location = useLocation();
-    const [email, setEmail] = useState(location.state?.email ?? '');
+    const email = location.state?.email ?? '';
     const [code, setCode] = useState('');
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [verified, setVerified] = useState(false);
+    const [editingRegistration, setEditingRegistration] = useState(location.state?.editRegistration === true);
+    const [clubName, setClubName] = useState('');
+    const [password, setPassword] = useState('');
+    const [passwordConfirmation, setPasswordConfirmation] = useState('');
 
     async function handleVerify(event) {
         event.preventDefault();
@@ -20,12 +24,23 @@ export default function VerifyEmailPage() {
         setLoading(true);
 
         try {
-            await verifyEmail(email, code);
+            let registration;
+            if (editingRegistration && (clubName.trim() || password || passwordConfirmation)) {
+                registration = {
+                    clubName: clubName.trim() || undefined,
+                    password: password || undefined,
+                    passwordConfirmation: passwordConfirmation || undefined,
+                };
+            }
+            await verifyEmail(email, code, registration);
             setVerified(true);
             setMessage('¡Correo verificado! Ya podés iniciar sesión.');
         } catch (err) {
             const fieldErrors = Object.values(err.fields ?? {}).join(' ');
             setError(fieldErrors || err.message || 'No se pudo verificar el correo.');
+            if (err.code === 'ACCOUNT_DUPLICATE' && err.fields?.clubName) {
+                setEditingRegistration(true);
+            }
         } finally {
             setLoading(false);
         }
@@ -71,12 +86,52 @@ export default function VerifyEmailPage() {
                                     maxLength={6}
                                     value={code}
                                     placeholder="Ingrese el código"
+                                    aria-label="Código de verificación"
                                     onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
                                     required
                                 />
                             </div>
+                            {editingRegistration && (
+                                <fieldset className="verification-corrections" disabled={loading}>
+                                    <legend>Cambiar datos del registro</legend>
+                                    <p>Completá solo los datos que quieras cambiar y usá el código que recibiste.</p>
+                                    <div className="formulary-box">
+                                        <label htmlFor="corrected-club-name">Nuevo nombre del club</label>
+                                        <input
+                                            id="corrected-club-name"
+                                            maxLength={50}
+                                            value={clubName}
+                                            onChange={(event) => setClubName(event.target.value)}
+                                        />
+                                    </div>
+                                    <div className="formulary-box">
+                                        <label htmlFor="corrected-password">Nueva contraseña</label>
+                                        <input
+                                            id="corrected-password"
+                                            type="password"
+                                            autoComplete="new-password"
+                                            minLength={8}
+                                            maxLength={128}
+                                            value={password}
+                                            onChange={(event) => setPassword(event.target.value)}
+                                        />
+                                    </div>
+                                    <div className="formulary-box">
+                                        <label htmlFor="corrected-password-confirmation">Confirmar nueva contraseña</label>
+                                        <input
+                                            id="corrected-password-confirmation"
+                                            type="password"
+                                            autoComplete="new-password"
+                                            minLength={8}
+                                            maxLength={128}
+                                            value={passwordConfirmation}
+                                            onChange={(event) => setPasswordConfirmation(event.target.value)}
+                                        />
+                                    </div>
+                                </fieldset>
+                            )}
                             <div className="formulary-buttons">
-                                <button className="register-button" type="submit" disabled={loading}>
+                                <button className="register-button" type="submit" disabled={loading || !email}>
                                     {loading ? 'Verificando…' : 'Verificar correo'}
                                 </button>
 
@@ -94,7 +149,17 @@ export default function VerifyEmailPage() {
                             {error && <p role="alert">{error}</p>}
                             {message && <p role="status">{message}</p>}
                             <p className="verify-email-card__register">
-                                <Link to="/registro">Volver al registro</Link>
+                                {email && (
+                                    <button
+                                        type="button"
+                                        className="verification-corrections-toggle"
+                                        disabled={loading}
+                                        onClick={() => setEditingRegistration(!editingRegistration)}
+                                    >
+                                        {editingRegistration ? 'Usar los datos anteriores' : 'Cambiar datos del registro'}
+                                    </button>
+                                )}
+                                <Link to={routes.register} state={{email}}>Volver al registro</Link>
                             </p>
                         </form>
                     )}

@@ -144,6 +144,8 @@
 }
 
 .verify-email-card__register {
+    display: grid;
+    gap: 8px;
     margin: 16px 0 0;
     text-align: center;
     font-size: 0.9rem;
@@ -151,4 +153,20 @@
 
 .verify-email-card__register a {
     color: #164b35;
+}
+
+.verification-corrections {
+    margin-top: 18px;
+    padding: 12px;
+    border: 1px solid #d5e1d5;
+    border-radius: 8px;
+}
+
+.verification-corrections legend {
+    font-weight: 600;
+}
+
+.verification-corrections-toggle {
+    color: #164b35;
+    text-decoration: underline;
 }
