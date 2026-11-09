@@ -16,6 +16,7 @@ Las colecciones paginadas reciben `page` desde 1 y `pageSize` de 1 a 100. El des
 | `/friendly-matches` | `creatorName` | `?page=1&pageSize=20` |
 | `/players` | `search` | `?page=1&pageSize=9` |
 | `/leagues` | `name` | `?page=1&pageSize=20` |
+| `/ranking-global` | — | `?page=1&pageSize=20` |
 
 En `/players` y `/leagues`, enviar `pageSize` selecciona el contrato paginado común. Por compatibilidad, `limit` acepta de 1 a 100 y mantiene el formato anterior con `limit` y `totalPages`. `/players` sin tamaño sigue usando el formato anterior. `/leagues` sin `page`, `pageSize` ni `limit` sigue devolviendo todos los resultados en `items`.
 
@@ -32,7 +33,7 @@ curl -fsS http://localhost:8000/openapi.json | python3 docs/check_api_reference.
 | GET | `/health` | `200` | — | Estado del proceso. |
 | GET | `/health/ready` | `200` | — | Disponibilidad de PostgreSQL y del esquema. |
 | POST | `/auth/register` | `202` | `RegisterRequest` | Inicia el registro y envía el código de verificación. |
-| POST | `/auth/verify-email` | `200` | `VerifyEmailRequest` | Confirma el correo y crea la cuenta. |
+| POST | `/auth/verify-email` | `200` | `VerifyEmailRequest` | Confirma el correo y crea la cuenta. Con el código válido, `registration` puede corregir `clubName`, `password` y su `passwordConfirmation` antes de crearla. |
 | POST | `/auth/resend-verification` | `200` | `ResendVerificationRequest` | Reenvía el código de una verificación pendiente. |
 | POST | `/auth/login` | `200` | `LoginRequest` | Inicia sesión y establece la cookie. |
 | GET | `/auth/me` | `200` | — | Identidad de la sesión. |
@@ -69,7 +70,7 @@ curl -fsS http://localhost:8000/openapi.json | python3 docs/check_api_reference.
 | POST | `/leagues/{id}/start` | `200` | — | Inicia la liga y genera sus rondas. |
 | GET | `/leagues/{id}/fixture` | `200` | — | Rondas, horarios, resultados y próximo partido. |
 | GET | `/leagues/{id}/ranking` | `200` | — | Tabla de posiciones de la liga. |
-| GET | `/ranking-global` | `200` | — | Ranking global de clubes. |
+| GET | `/ranking-global` | `200` | — | Ranking autenticado de clubes, ordenado por partidos finalizados de ligas públicas. Cada fila incluye `position`, `goalsFor` y `goalsAgainst`. |
 | GET | `/leagues/{id}/lineup` | `200` | — | Alineación propia en la liga, versión y permiso de edición. |
 | PUT | `/leagues/{id}/lineup` | `200` | `LeagueLineupUpdate` | Guarda el plantel de liga con `expectedVersion`. |
 | GET | `/friendly-matches` | `200` | — | Amistosos disponibles por club creador. |
