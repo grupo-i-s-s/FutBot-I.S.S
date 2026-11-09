@@ -170,7 +170,6 @@ export default function MyClubPage() {
 
                 <ClubSettingsDialog
                     club={club}
-                    behaviours={behaviours}
                     isOpen={isSettingsOpen}
                     onOpenChange={(open) => {
                         if (isSaving) return;
@@ -178,7 +177,6 @@ export default function MyClubPage() {
                         setIsSettingsOpen(open);
                     }}
                     onSave={handleSettingsSave}
-                    onTeamSaved={showSaveToast}
                     isSaving={isSaving}
                     saveError={saveError}
                 />

@@ -72,9 +72,7 @@ function TeamBehaviourCombobox({id, behaviour, behaviours, disabled, onSelect}) 
     );
 }
 
-export default function TeamSettings({
-    clubId, behaviours, disabled = false, onSavingChange, onSaveSuccess,
-}) {
+export default function TeamSettings({clubId, behaviours, onSaveSuccess}) {
     const inputPrefix = useId();
     const [error, setError] = useState('');
     const [team, setTeam] = useState(null);
@@ -163,7 +161,7 @@ export default function TeamSettings({
 
     async function handleSubmit(event) {
         event.preventDefault();
-        if (disabled || isSaving || !team) return;
+        if (isSaving || !team) return;
         setError('');
 
         const playerIds = team.slots.map((slot) => slot.playerId);
@@ -200,7 +198,6 @@ export default function TeamSettings({
         }));
 
         setIsSaving(true);
-        onSavingChange?.(true);
 
         try {
             const response = await updateDefaultTeam({
@@ -218,7 +215,6 @@ export default function TeamSettings({
             );
         } finally {
             setIsSaving(false);
-            onSavingChange?.(false);
         }
     }
 
@@ -277,7 +273,7 @@ export default function TeamSettings({
 
                         <select
                             id={`${inputPrefix}-formation`}
-                            disabled={disabled || isSaving}
+                            disabled={isSaving}
                             className={SELECT_CLASSES}
                             value={team.formation}
                             onChange={(event) => {
@@ -304,7 +300,7 @@ export default function TeamSettings({
                                     {slots.slice(firstSlot, firstSlot + 3).map(({slot, index}) => (
                                         <fieldset
                                             key={index}
-                                            disabled={disabled || isSaving}
+                                            disabled={isSaving}
                                             className="min-w-0 space-y-2 rounded-md border p-2"
                                         >
                                             <legend className="px-1 text-sm font-semibold">
@@ -322,7 +318,7 @@ export default function TeamSettings({
                                                     id={`${inputPrefix}-player-${index}`}
                                                     player={selectedPlayers.find(player => String(player.id) === slot.playerId) ?? null}
                                                     excludedPlayerIds={team.slots.filter((_, slotIndex) => slotIndex !== index).map(other => other.playerId)}
-                                                    disabled={disabled || isSaving}
+                                                    disabled={isSaving}
                                                     onSelect={(player) => selectPlayer(index, player)}
                                                 />
                                             </div>
@@ -336,7 +332,7 @@ export default function TeamSettings({
                                                     id={`${inputPrefix}-behaviour-${index}`}
                                                     behaviour={behaviours.find(item => String(item.id) === slot.behaviourId) ?? null}
                                                     behaviours={behaviours}
-                                                    disabled={disabled || isSaving}
+                                                    disabled={isSaving}
                                                     onSelect={(behaviour) => changeBehaviour(index, behaviour)}
                                                 />
                                             </div>
