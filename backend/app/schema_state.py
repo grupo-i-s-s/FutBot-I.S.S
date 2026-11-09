@@ -4,13 +4,14 @@ from app.models.league_model import League, LeagueRegistration, LeagueRound, Lea
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
+from app.models.stats_model import Stats
 
 
 REQUIRED_COLUMNS = {
     model.__tablename__: frozenset(column.name for column in model.__table__.columns)
     for model in (
         User, Club, AuthSession, Behavior, Player, League, LeagueRegistration,
-        LeagueRound, LeagueStanding, DefaultTeam, Matches,
+        LeagueRound, LeagueStanding, DefaultTeam, Matches,Stats,
     )
 }
 
