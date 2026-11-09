@@ -14,8 +14,11 @@ export default function PlannedSubstitutionPanel({matchId, state, sequence, club
     const inFlight = useRef(false);
     const controller = useRef(null);
     const paused = isPaused(state);
-    const pauseId = paused && [1, 2, 3].includes(state.breakIndex) ? `${matchId}:${state.breakIndex}` : null;
-    const context = `${paused ? 'manual' : 'planned'}:${paused ? pauseId : state.nextPause?.pauseId}`;
+    const next = state.nextPause;
+    const pauseId = paused
+        ? ([1, 2, 3].includes(state.breakIndex) ? `${matchId}:${state.breakIndex}` : null)
+        : next?.pauseId;
+    const context = `${state.status}:${paused ? 'manual' : 'planned'}:${pauseId}`;
     const currentContext = useRef(context);
     currentContext.current = context;
     useEffect(() => {
@@ -49,11 +52,10 @@ export default function PlannedSubstitutionPanel({matchId, state, sequence, club
         ) : null;
     }
 
-    const next = state.nextPause;
     const pending = !receipt?.manual && receipt?.sequence > sequence
-        ? (receipt.status === 'PENDING' && receipt.pauseId === next?.pauseId ? receipt : null)
+        ? (receipt.status === 'PENDING' && receipt.pauseId === pauseId ? receipt : null)
         : team.pendingSubstitution;
-    const accepted = paused && receipt?.manual && receipt.pauseId === pauseId;
+    const accepted = paused && receipt?.manual && receipt.pauseId === pauseId && receipt.status === 'PENDING';
     const resolved = accepted && (team.remainingSubstitutions === 0
         || (lastEvent?.eventId !== receipt.previousEventId && lastEvent?.pauseId === pauseId && lastEvent.outPlayerId === receipt.outPlayerId
             && lastEvent.inPlayerId === receipt.inPlayerId));
@@ -63,7 +65,7 @@ export default function PlannedSubstitutionPanel({matchId, state, sequence, club
     const selectedIn = team.substitutes.some(p => String(p.playerId) === inId) ? inId
         : String(pending?.inPlayerId ?? '');
     const canPlan = connected && state.status === 'RUNNING' && !paused
-        && next && team.remainingSubstitutions > 0 && team.substitutes.length > 0;
+        && pauseId && team.remainingSubstitutions > 0 && team.substitutes.length > 0;
     const canChange = connected && paused && pauseId && team.remainingSubstitutions > 0
         && team.substitutes.length > 0 && !waiting;
 
@@ -82,9 +84,12 @@ export default function PlannedSubstitutionPanel({matchId, state, sequence, club
             const result = await (paused ? requestSubstitution : planSubstitution)(matchId, {
                 outPlayerId: Number(selectedOut), inPlayerId: Number(selectedIn),
                 commandId: attempt.current.commandId,
-                ...(paused ? {pauseId} : {}),
+                pauseId,
             }, controller.current.signal);
-            if (currentContext.current === context) setReceipt({...result, manual: paused, previousEventId: lastEvent?.eventId});
+            if (currentContext.current === context) {
+                setReceipt({...result, manual: paused, previousEventId: lastEvent?.eventId});
+                if (result.status === 'EXPIRED') setError('La pausa ya no está disponible. El cambio quedó sin efecto.');
+            }
         } catch (cause) {
             if (currentContext.current === context && cause.name !== 'AbortError') setError(cause.message);
         } finally {

@@ -15,6 +15,7 @@ class PlannedSubstitutionRequest(InputSchema):
     out_player_id: StrictInt = Field(alias="outPlayerId", gt=0)
     in_player_id: StrictInt = Field(alias="inPlayerId", gt=0)
     command_id: str = Field(alias="commandId", min_length=1, pattern=r"\S")
+    pause_id: str = Field(alias="pauseId", min_length=1, pattern=r"\S")
 
     @model_validator(mode="after")
     def validate_different_players(self) -> "PlannedSubstitutionRequest":
@@ -24,7 +25,7 @@ class PlannedSubstitutionRequest(InputSchema):
 
 
 class SubstitutionRequest(PlannedSubstitutionRequest):
-    pause_id: str = Field(alias="pauseId", min_length=1, pattern=r"\S")
+    pass
 
 
 class CreateFriendlyMatchRequest(InputSchema):
