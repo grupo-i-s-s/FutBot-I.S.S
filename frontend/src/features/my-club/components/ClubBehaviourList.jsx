@@ -5,7 +5,6 @@ import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Empty, EmptyDescription, EmptyHeader, EmptyTitle} from '@/components/ui/empty';
-import {Item, ItemActions, ItemContent, ItemDescription, ItemFooter, ItemTitle} from '@/components/ui/item';
 import {routePath, routes} from '@/routes.js';
 import {createBehaviourTestMatch} from '../../behaviours/api.js';
 import BehaviourDetailDialog from '../../behaviours/components/BehaviourDetailDialog.jsx';
@@ -84,21 +83,23 @@ export default function ClubBehaviourList({behaviours, onCreated, onUpdated, onD
                 ) : (
                     <ul className="grid gap-3 sm:grid-cols-2">
                         {behaviours.map((behaviour) => (
-                            <Item key={behaviour.id} render={<li/>} variant="outline">
-                                <ItemContent className="min-w-0">
-                                    <ItemTitle className="max-w-full wrap-anywhere">{behaviour.name}</ItemTitle>
-                                    <ItemDescription className="wrap-anywhere">
+                            <li key={behaviour.id} className="min-w-0">
+                                <fieldset className="h-full min-w-0 space-y-4 rounded-xl border bg-card p-5 shadow-xs">
+                                    <legend className="max-w-full rounded-md border bg-secondary px-3 py-1 text-sm font-semibold text-primary wrap-anywhere">
+                                        {behaviour.name}
+                                    </legend>
+                                    <p className="text-sm text-muted-foreground wrap-anywhere">
                                         {behaviour.description || 'Sin descripción.'}
-                                    </ItemDescription>
-                                </ItemContent>
-                                <ItemFooter>
-                                    <BehaviourDetailDialog behaviour={behaviour}/>
-                                    <ItemActions className="gap-1">
-                                        <BehaviourEdit behaviour={behaviour} onUpdated={handleUpdated}/>
-                                        <DeleteBehaviourButton behaviour={behaviour} onDeleted={handleDeleted}/>
-                                    </ItemActions>
-                                </ItemFooter>
-                            </Item>
+                                    </p>
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <BehaviourDetailDialog behaviour={behaviour}/>
+                                        <div className="flex items-center gap-1">
+                                            <BehaviourEdit behaviour={behaviour} onUpdated={handleUpdated}/>
+                                            <DeleteBehaviourButton behaviour={behaviour} onDeleted={handleDeleted}/>
+                                        </div>
+                                    </div>
+                                </fieldset>
+                            </li>
                         ))}
                     </ul>
                 )}
