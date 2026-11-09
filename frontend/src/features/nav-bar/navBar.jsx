@@ -14,8 +14,7 @@ function ClubNavigation({signOut}) {
         setSigningOut(true);
         setError('');
         try {
-            await signOut();
-            navigate(routes.root, {replace: true});
+            if (await signOut()) navigate(routes.root, {replace: true});
         } catch (requestError) {
             setError(requestError.message || 'No se pudo cerrar la sesión.');
         } finally {

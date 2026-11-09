@@ -4,6 +4,7 @@ import {getMyClub} from '../my-club/api.js';
 import {subscribeToClubUpdates} from '../my-club/clubEvents.js';
 
 const SessionContext = createContext(null);
+export const DISCARD_MESSAGE = 'Tenés cambios sin guardar. ¿Querés descartarlos?';
 
 export function useSession() {
     return useContext(SessionContext);
@@ -12,6 +13,13 @@ export function useSession() {
 export function SessionProvider({children}) {
     const [session, setSession] = useState({status: 'checking'});
     const pendingCheck = useRef(null);
+    const dirtyDrafts = useRef(new Set());
+
+    const registerUnsavedChanges = useCallback((allowNavigation) => {
+        const drafts = dirtyDrafts.current;
+        drafts.add(allowNavigation);
+        return () => drafts.delete(allowNavigation);
+    }, []);
 
     const clearSession = useCallback(() => {
         advanceSessionRevision();
@@ -37,8 +45,12 @@ export function SessionProvider({children}) {
     }, []);
 
     async function signOut() {
+        if (dirtyDrafts.current.size > 0 && !window.confirm(DISCARD_MESSAGE)) return false;
+
         await request('/auth/logout', {method: 'POST'});
+        for (const allowNavigation of dirtyDrafts.current) allowNavigation();
         clearSession();
+        return true;
     }
 
     useEffect(() => {
@@ -58,7 +70,7 @@ export function SessionProvider({children}) {
     }, [clearSession, refreshSession]);
 
     return (
-        <SessionContext.Provider value={{...session, refreshSession, clearSession, signOut}}>
+        <SessionContext.Provider value={{...session, refreshSession, clearSession, signOut, registerUnsavedChanges}}>
             {children}
         </SessionContext.Provider>
     );
