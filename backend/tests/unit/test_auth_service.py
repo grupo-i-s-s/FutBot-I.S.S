@@ -67,9 +67,7 @@ def test_registration_creates_pending_request_and_sends_code(db, auth, registrat
     db.commit.assert_called_once()
 
 
-def test_registration_rejects_existing_account_without_sending_email(
-    db, auth, registration
-):
+def test_registration_rejects_existing_account_without_sending_email(db, auth, registration):
     auth.users.get_by_email.return_value = SimpleNamespace(id=2)
 
     with pytest.raises(AppError) as error:
@@ -79,6 +77,42 @@ def test_registration_rejects_existing_account_without_sending_email(
     auth.pending.create.assert_not_called()
     auth.email.send_verification_code.assert_not_called()
     db.rollback.assert_called_once()
+
+def test_registration_rejects_existing_pending_verification(db, auth, registration, now):
+    auth.pending.get_by_email.return_value = SimpleNamespace(expires_at=now + timedelta(minutes=5),)
+
+    with pytest.raises(AppError) as error:
+        service.register(db, registration)
+
+    assert error.value.code == "EMAIL_VERIFICATION_PENDING"
+    auth.pending.create.assert_not_called()
+    auth.pending.delete_by_email.assert_not_called()
+    auth.email.send_verification_code.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
+def test_registration_replaces_expired_pending_verification(db, auth, registration, now):
+    auth.pending.get_by_email.return_value = SimpleNamespace(
+        expires_at=now - timedelta(seconds=1),
+    )
+
+    service.register(db, registration)
+
+    auth.pending.delete_by_email.assert_called_once_with(
+        db, "user@example.com"
+    )
+    auth.pending.create.assert_called_once()
+    values = auth.pending.create.call_args.kwargs
+    assert values["email"] == "user@example.com"
+    assert values["created_at"] == now
+    assert values["expires_at"] == now + timedelta(minutes=10)
+    assert values["last_sent_at"] == now
+    assert values["resend_window_started_at"] == now
+
+    auth.hash_password.assert_any_call("004281")
+    auth.email.send_verification_code.assert_called_once_with("user@example.com", "004281")
+    auth.users.create_user.assert_not_called()
+    db.commit.assert_called_once()
 
 def test_verify_email_creates_account_and_deletes_pending_request(db, auth, registration, now):
     pending = SimpleNamespace(
