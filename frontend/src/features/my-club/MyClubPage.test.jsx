@@ -96,7 +96,7 @@ describe('Configuración de formación del club', () => {
         const editor = await teamEditor();
         const select = await editor.findByLabelText('Formación');
         expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
-            'Mi equipo', 'DT', 'Jugadores', 'Comportamientos', 'Ligas inscriptas',
+            'Mi equipo', 'Jugadores', 'Comportamientos', 'DT', 'Ligas inscriptas',
         ]);
         expect(screen.getByRole('tab', {name: 'Mi equipo', selected: true})).toBeInTheDocument();
         expect(editor.queryByRole('form', {name: 'Configuración del DT'})).not.toBeInTheDocument();

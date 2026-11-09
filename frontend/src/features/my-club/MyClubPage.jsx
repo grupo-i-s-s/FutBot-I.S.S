@@ -23,9 +23,9 @@ const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-6xl space-y-6 py-8 sm:
 const SAVE_TOAST_ID = 'my-club-save';
 const CLUB_TABS = [
     {value: 'team', label: 'Mi equipo', icon: Shirt},
-    {value: 'dt', label: 'DT', icon: ClipboardList},
     {value: 'players', label: 'Jugadores', icon: Users},
     {value: 'behaviours', label: 'Comportamientos', icon: Brain},
+    {value: 'dt', label: 'DT', icon: ClipboardList},
     {value: 'leagues', label: 'Ligas inscriptas', icon: Trophy},
 ];
 
@@ -142,10 +142,6 @@ export default function MyClubPage() {
                         />
                     </TabsContent>
 
-                    <TabsContent value="dt" keepMounted>
-                        <DtSettings key={`dt-${club.id}`} dt={club.dt} onSaveSuccess={showSaveToast} />
-                    </TabsContent>
-
                     <TabsContent value="players">
                         <PlayerList
                             players={players}
@@ -161,6 +157,10 @@ export default function MyClubPage() {
 
                     <TabsContent value="behaviours">
                         <ClubBehaviourList behaviours={behaviours} />
+                    </TabsContent>
+
+                    <TabsContent value="dt" keepMounted>
+                        <DtSettings key={`dt-${club.id}`} dt={club.dt} onSaveSuccess={showSaveToast} />
                     </TabsContent>
 
                     <TabsContent value="leagues">
