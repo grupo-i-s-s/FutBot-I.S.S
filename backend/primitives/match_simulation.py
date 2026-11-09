@@ -1,6 +1,6 @@
 import logging
 import pymunk
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from math import isfinite
 import random
 
@@ -25,6 +25,7 @@ from primitives.behaviour_api.validation import (
     normalize_action,
     validate_static,
 )
+from primitives.dt_behaviour import DtObservation, resolve_dt_behaviour, dt_decide
 
 width = 100.0
 height = 60.0
@@ -101,6 +102,10 @@ class Team:
     avatar: str | None = None
     substitutes: tuple[PlayerProfile, ...] = ()
 
+    dt_active: bool = False
+    dt_code: str | None = None
+    dt_default_behaviours: dict[BehaviourMode, tuple[int, int]] = field(default_factory=dict)
+
     def __post_init__(self):
         positions = self.formation_positions
 
@@ -124,6 +129,20 @@ class Team:
             )
 
         object.__setattr__(self, "formation_positions", positions)
+
+        if type(self.dt_active) is not bool or (self.dt_code is not None and type(self.dt_code) is not str):
+            raise ValueError("Configuración de DT inválida.")
+        if not isinstance(self.dt_default_behaviours, dict):
+            raise ValueError("Catálogo de comportamientos del DT inválido.")
+
+        defaults = {
+            BehaviourMode(mode): tuple(program)
+            for mode, program in self.dt_default_behaviours.items()
+        }
+        if any(len(program) != 2 or any(type(value) is not int or value <= 0 for value in program)
+               for program in defaults.values()):
+            raise ValueError("Identificador o versión de comportamiento del DT inválidos.")
+        object.__setattr__(self, "dt_default_behaviours", defaults)
 
 
 class Match:
@@ -202,6 +221,9 @@ class Match:
 
         self._behaviour_runtime: BehaviourRuntime | None = None
         self.behaviour_errors: dict[int, dict] = {}
+        self._dt_runtime: BehaviourRuntime | None = None
+        self.dt_errors: dict[int, str] = {}
+        self._dt_pauses: dict[int, int] = {}
 
         self._breaks = MatchBreaks(
             hydration_ms=hydration_break_ms,
@@ -254,7 +276,7 @@ class Match:
         for player_id in (out_player_id, in_player_id):
             self.next_kick_at.pop(player_id, None)
             self.behaviour_errors.pop(player_id, None)
-        self.close_runtime()
+        self._close_player_runtime()
         self.substitution_pauses.add(key)
 
     def team_side(self, club_id: int) -> str:
@@ -326,7 +348,9 @@ class Match:
                 "teams": [
                     {"id": team.club_id, "name": team.name, "avatar": team.avatar,
                      "side": self.team_side(team.club_id),
-                     "score": self.scorer[score_key], "color": color}
+                     "score": self.scorer[score_key], "color": color,
+                     "dtActive": team.dt_active, "dtConfigured": bool(team.dt_code),
+                     "dtError": self.dt_errors.get(team.club_id)}
                     for team, score_key, color in (
                         (self.local_team, "LOCAL", "#2563eb"),
                         (self.visitor_team, "VISITANTE", "#dc2626"),
@@ -356,6 +380,8 @@ class Match:
             "breaks": self._breaks.checkpoint(),
             "substitution_pauses": [list(key) for key in sorted(self.substitution_pauses)],
             "substitution_events": [dict(event) for event in self.substitution_events],
+            "dt_pauses": {str(club_id): pause for club_id, pause in self._dt_pauses.items()},
+            "dt_errors": {str(club_id): error for club_id, error in self.dt_errors.items()},
             "sides_swapped": self.sides_swapped,
             "kickoff_club_id": self.kickoff_club_id,
             "next_kick_at": {
@@ -404,6 +430,9 @@ class Match:
                     PlayerProfile(**{**player, "behaviour_mode": BehaviourMode(player["behaviour_mode"])})
                     for player in team.get("substitutes", [])
                 ),
+                dt_active=team.get("dt_active", False),
+                dt_code=team.get("dt_code"),
+                dt_default_behaviours=team.get("dt_default_behaviours", {}),
             )
 
         match = cls(
@@ -485,9 +514,9 @@ class Match:
 
         match.behaviour_errors = restored_errors
 
+        valid_clubs = {match.local_team.club_id, match.visitor_team.club_id}
         if version >= 6:
             pauses = data["substitution_pauses"]
-            valid_clubs = {match.local_team.club_id, match.visitor_team.club_id}
             if any(len(key) != 2 or key[0] not in valid_clubs or key[1] not in (1, 2, 3) for key in pauses):
                 raise ValueError("Cuota de sustituciones inválida.")
             match.substitution_pauses = {tuple(key) for key in pauses}
@@ -495,6 +524,19 @@ class Match:
             if not isinstance(events, list) or any(not isinstance(e, dict) or not e.get("eventId") for e in events):
                 raise ValueError("Eventos de sustitución inválidos.")
             match.substitution_events = [dict(event) for event in events]
+
+        dt_pauses = data.get("dt_pauses", {})
+        dt_errors = data.get("dt_errors", {})
+        if not isinstance(dt_pauses, dict) or not isinstance(dt_errors, dict):
+            raise ValueError("Estado del DT inválido.")
+        match._dt_pauses = {int(club_id): pause for club_id, pause in dt_pauses.items()}
+        match.dt_errors = {int(club_id): error for club_id, error in dt_errors.items()}
+        if (
+            (match._dt_pauses.keys() | match.dt_errors.keys()) - valid_clubs
+            or any(type(pause) is not int or not 1 <= pause <= match.pause_index for pause in match._dt_pauses.values())
+            or any(type(error) is not str for error in match.dt_errors.values())
+        ):
+            raise ValueError("Estado del DT inválido.")
 
         if version < 4 and custom_ids:
             raise ValueError(
@@ -615,6 +657,110 @@ class Match:
             player.velocity = (0, 0)
             logger.exception("Falló el comportamiento del jugador %s", profile.id)
             return None
+        
+    def set_dt_active(self, club_id: int, active: bool) -> None:
+        if club_id == self.local_team.club_id:
+            team_attr = "local_team"
+        elif club_id == self.visitor_team.club_id:
+            team_attr = "visitor_team"
+        else:
+            raise ValueError("El club no participa del partido.")
+
+        team = getattr(self, team_attr)
+        if team.dt_active == active:
+            return
+        if active and not team.dt_code:
+            raise ValueError("El DT no tiene un comportamiento asignado.")
+
+        setattr(self, team_attr, replace(team, dt_active=active))
+        self.dt_errors.pop(club_id, None)
+
+    def run_dt_pause(self) -> bool:
+        if not self.paused:
+            return False
+
+        evaluated = False
+        for team in (self.local_team, self.visitor_team):
+            if (team.dt_active and team.dt_code and team.club_id not in self.dt_errors
+                    and self._dt_pauses.get(team.club_id) != self.pause_index):
+                self._dt_pauses[team.club_id] = self.pause_index
+                self.run_dt(team)
+                evaluated = True
+        return evaluated
+
+    def run_dt(self, team: Team) -> None:
+        if not team.dt_active or not team.dt_code or team.club_id in self.dt_errors:
+            return
+
+        local = team.club_id == self.local_team.club_id
+        obs = DtObservation(
+            time_played=int(self.time),
+            my_goals=self.scorer["LOCAL" if local else "VISITANTE"],
+            rival_goals=self.scorer["VISITANTE" if local else "LOCAL"],
+            players_id=[player.id for player in team.players],
+            substitutes_id=[player.id for player in team.substitutes],
+            can_substitute=self.paused and bool(team.substitutes)
+            and (team.club_id, self.pause_index) not in self.substitution_pauses,
+            pause_index=self.pause_index if self.paused else None,
+        )
+
+        try:
+            mode = resolve_dt_behaviour(team.dt_code, "DT")
+        except ValueError:
+            try:
+                if self._dt_runtime is None:
+                    self._dt_runtime = BehaviourRuntime()
+                key = self._dt_runtime.load(team.dt_code, kind="DT")
+                action = self._dt_runtime.dt_decide(key, obs)
+            except BehaviourRuntimeError as error:
+                self.dt_errors[team.club_id] = str(error)[:256]
+                if isinstance(error, BehaviourWorkerDead):
+                    self._close_dt_runtime()
+                logger.warning("Comportamiento de DT deshabilitado: club=%s error=%s", team.club_id, error.code)
+                return
+        else:
+            action = dt_decide(mode, obs)
+
+        players = {player.id: player for player in team.players}
+        for change in action.tactical_changes:
+            target = players.get(change["player_id"])
+            mode = BehaviourMode(change["mode"])
+            default = team.dt_default_behaviours.get(mode)
+            if target is None or target.behaviour_code is not None or default is None:
+                continue
+
+            behaviour_id, version = default
+            if (target.behaviour_id, target.behaviour_version, target.behaviour_mode) != (behaviour_id, version, mode):
+                self.change_behaviour(
+                    target.id,
+                    club_id=team.club_id,
+                    behaviour_id=behaviour_id,
+                    behaviour_mode=mode,
+                    behaviour_code=None,
+                    behaviour_version=version,
+                    behaviour_api_version=API_VERSION,
+                )
+
+        if not obs.can_substitute or not action.substitutions:
+            return
+
+        change = action.substitutions[0]
+        out_player_id = change["outgoing_player_id"]
+        in_player_id = change["incoming_player_id"]
+        try:
+            self.substitute(team.club_id, out_player_id, in_player_id)
+        except ValueError as error:
+            logger.warning("Sustitución del DT rechazada: club=%s error=%s", team.club_id, error)
+            return
+        self.substitution_events.append({
+            "eventId": f"dt-substitution:{self.match_id}:{self.pause_index}:{team.club_id}",
+            "type": "SUBSTITUTION_APPLIED",
+            "source": "DT",
+            "clubId": team.club_id,
+            "pauseId": f"{self.match_id}:{self.pause_index}",
+            "outPlayerId": out_player_id,
+            "inPlayerId": in_player_id,
+        })
 
     def change_behaviour(
             self,
@@ -678,6 +824,10 @@ class Match:
 
         duration = self.duration_ms / 1000
         dt = min(dt, duration - self.time)
+
+        if self.time == 0 or int(self.time + dt) > int(self.time):
+            self.run_dt(self.local_team)
+            self.run_dt(self.visitor_team)
 
         snapshot = snapshot_from_match(
             self,
@@ -807,9 +957,18 @@ class Match:
         self._breaks.advance(self, dt)
 
     def close_runtime(self) -> None:
+        self._close_player_runtime()
+        self._close_dt_runtime()
+
+    def _close_player_runtime(self) -> None:
         runtime = self._behaviour_runtime
         self._behaviour_runtime = None
+        if runtime is not None:
+            runtime.close()
 
+    def _close_dt_runtime(self) -> None:
+        runtime = self._dt_runtime
+        self._dt_runtime = None
         if runtime is not None:
             runtime.close()
 
@@ -836,7 +995,7 @@ class Match:
             self.player_bodies[profile.id].velocity = (0, 0)
 
             if isinstance(error, BehaviourWorkerDead):
-                self.close_runtime()
+                self._close_player_runtime()
 
             logger.warning(
                 "Comportamiento deshabilitado: jugador=%s error=%s",

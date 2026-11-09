@@ -11,12 +11,13 @@ from app.services import auth_service as service
 @pytest.fixture
 def auth(monkeypatch, now):
     mocks = SimpleNamespace(
-        users=Mock(), sessions=Mock(), behaviours=Mock(), players=Mock(), teams=Mock(),
+        users=Mock(), sessions=Mock(), behaviours=Mock(), players=Mock(), teams=Mock(), dt=Mock(),
         hash_password=Mock(return_value="encoded-password"),
         verify=Mock(return_value=True), hash_token=Mock(return_value="hashed-token"), pending=Mock(), email=Mock())
     for name, value in {
         "user_repository": mocks.users, "session_repository": mocks.sessions,
         "behaviour_repository": mocks.behaviours, "player_repository": mocks.players,
+        "dt_repository": mocks.dt,
         "team_repository": mocks.teams, "hash_password": mocks.hash_password,
         "verify_password": mocks.verify, "hash_session_token": mocks.hash_token,
         "new_session_token": Mock(return_value="t" * 43), "utc_now": Mock(return_value=now),
@@ -37,6 +38,7 @@ def registration(auth):
     auth.users.get_by_email.return_value = None
     auth.users.create_user.return_value = SimpleNamespace(id=1, email="user@example.com")
     auth.users.create_club.return_value = SimpleNamespace(id=7)
+    auth.dt.create_default_dt_behaviours.return_value = [SimpleNamespace(id=9)]
     auth.behaviours.create_default_behaviours.return_value = [SimpleNamespace(id=i) for i in (10, 11, 12)]
     auth.players.create_default_players.return_value = [
         SimpleNamespace(id=i + 1, behavior_id=10 + i // 2) for i in range(6)
@@ -64,6 +66,7 @@ def test_registration_creates_pending_request_and_sends_code(db, auth, registrat
         "user@example.com", "004281"
     )
     auth.users.create_user.assert_not_called()
+    auth.dt.create_dt.assert_not_called()
     db.commit.assert_called_once()
 
 
@@ -135,6 +138,8 @@ def test_verify_email_creates_account_and_deletes_pending_request(db, auth, regi
         email="user@example.com",
         password_hash="stored-password-hash",
     )
+    auth.dt.create_default_dt_behaviours.assert_called_once_with(db, 1)
+    auth.dt.create_dt.assert_called_once_with(db, 7, 9)
     auth.pending.delete_by_email.assert_called_once_with(db, "user@example.com")
     db.commit.assert_called_once()
 
