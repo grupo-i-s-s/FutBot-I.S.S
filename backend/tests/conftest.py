@@ -1,10 +1,14 @@
+import os
 from datetime import timezone
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, URL
 
 from app.models.matches_model import Matches
 
+TEST_DATABASE_URL = ("postgresql+psycopg://futbot_test:futbot_test@test-db:5432/futbot_test")
+os.environ["TEST_DATABASE_URL"] = TEST_DATABASE_URL
+os.environ["LEAGUE_TEST_DATABASE_URL"] = TEST_DATABASE_URL
 
 @pytest.fixture(autouse=True)
 def isolated_league_access_attempts(monkeypatch):
