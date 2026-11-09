@@ -16,14 +16,18 @@ from app.database import Base, get_db
 from app.dependencies import require_browser_write
 from app.errors import AppError
 from app.main import app_error_handler, validation_error_handler
-from app.models.auth_model import AuthSession, Club, User
+from app.models.auth_model import AuthSession, Club, PendingEmailVerification, User
 from app.models.behaviour_model import Behavior
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
+from app.services import auth_service
+from datetime import timezone
 
 
 @pytest.fixture
-def context():
+def context(monkeypatch):
+    verification_codes = {}
+    monkeypatch.setattr(auth_service.email_service,"send_verification_code",lambda email, code: verification_codes.__setitem__(email, code),)
     engine = create_engine(
         "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False},
     )
@@ -31,9 +35,23 @@ def context():
     @event.listens_for(engine, "connect")
     def enable_foreign_keys(connection, record):
         connection.execute("PRAGMA foreign_keys=ON")
+    def restore_pending_timezone(pending, _context):
+        for field in (
+            "created_at",
+            "expires_at",
+            "last_sent_at",
+            "resend_window_started_at",
+        ):
+            value = getattr(pending, field)
+            if value.tzinfo is None:
+                setattr(pending, field, value.replace(tzinfo=timezone.utc))
 
+    event.listen(PendingEmailVerification, "load", restore_pending_timezone)
     Base.metadata.create_all(engine, tables=[
-        model.__table__ for model in (User, Club, AuthSession, Behavior, Player, DefaultTeam)
+        model.__table__ for model in (
+            User, Club, AuthSession, PendingEmailVerification,
+            Behavior, Player, DefaultTeam,
+        )
     ])
     # Se ejercitan los routers reales sin iniciar el scheduler ni consultar PostgreSQL.
     application = FastAPI(dependencies=[Depends(require_browser_write)])
@@ -53,8 +71,9 @@ def context():
                 "Origin": next(iter(settings.allowed_origins)),
                 "X-FutBot-Request": "1",
             })
-            yield SimpleNamespace(engine=engine, client=client)
+            yield SimpleNamespace(engine=engine,client=client,verification_codes=verification_codes,)
     finally:
+        event.remove(PendingEmailVerification, "load", restore_pending_timezone)
         engine.dispose()
 
 
@@ -67,11 +86,18 @@ def registration(label="owner"):
     }
 
 
-def register_and_login(client, label="owner"):
+def register_and_login(client, verification_codes, label="owner"):
     payload = registration(label)
     response = client.post("/auth/register", json=payload)
-    assert response.status_code == 201, response.text
+    assert response.status_code == 202, response.text
+
+    response = client.post("/auth/verify-email", json={
+        "email": payload["email"],
+        "code": verification_codes[payload["email"]],
+    })
+    assert response.status_code == 200, response.text
     club_id = response.json()["clubId"]
+
     response = client.post("/auth/login", json={
         "email": payload["email"], "password": payload["password"],
     })
@@ -84,7 +110,7 @@ def update_payload(avatar):
 
 
 def test_registration_persists_default_avatar_without_client_selection(context):
-    club_id = register_and_login(context.client)
+    club_id = register_and_login(context.client, context.verification_codes)
 
     # Una sesión nueva verifica lo persistido, no el estado de la petición de registro.
     with Session(context.engine) as db:
@@ -107,7 +133,7 @@ def test_registration_rejects_supplied_avatar_without_creating_account(context, 
 
 
 def test_all_catalog_avatars_can_be_saved_and_read_back(context):
-    club_id = register_and_login(context.client)
+    club_id = register_and_login(context.client, context.verification_codes)
 
     for number in range(1, 21):
         filename = f"avatar-{number:02d}.png"
@@ -134,7 +160,7 @@ def test_all_catalog_avatars_can_be_saved_and_read_back(context):
     None,
 ])
 def test_invalid_avatar_does_not_replace_saved_avatar(context, avatar):
-    club_id = register_and_login(context.client)
+    club_id = register_and_login(context.client, context.verification_codes)
     response = context.client.patch("/club/me", json=update_payload("avatar-15.png"))
     assert response.status_code == 200, response.text
 
@@ -148,8 +174,8 @@ def test_invalid_avatar_does_not_replace_saved_avatar(context, avatar):
 
 
 def test_changing_avatar_only_updates_authenticated_club(context):
-    first_id = register_and_login(context.client, "first")
-    second_id = register_and_login(context.client, "second")
+    first_id = register_and_login(context.client, context.verification_codes, "first")
+    second_id = register_and_login(context.client, context.verification_codes, "second")
 
     response = context.client.patch("/club/me", json={
         **update_payload("avatar-20.png"), "name": "Avatar second",
