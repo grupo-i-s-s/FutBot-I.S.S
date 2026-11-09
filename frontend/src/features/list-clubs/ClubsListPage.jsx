@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {Link} from 'react-router';
 import ClubAvatar from '../my-club/components/ClubAvatar';
 import {getClubs} from './api';
@@ -20,8 +20,16 @@ export default function ClubsListPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    const debounceRef = useRef(null);
+    const requestRef = useRef(null);
+
+    useEffect(() => {
+        return () => clearTimeout(debounceRef.current);
+    }, []);
+
     useEffect(() => {
         const controller = new AbortController();
+        requestRef.current = controller;
 
         async function loadClubs() {
             setIsLoading(true);
@@ -52,10 +60,31 @@ export default function ClubsListPage() {
         return () => controller.abort();
     }, [search]);
 
-    function updateSearch(nextSearch) {
+    function startLoading() {
+        requestRef.current?.abort();
         setIsLoading(true);
         setError(null);
-        setSearch(nextSearch);
+    }
+
+    function updateSearch(nextSearch) {
+        clearTimeout(debounceRef.current);
+        startLoading();
+        setSearch({...nextSearch});
+    }
+
+    function handleNameChange(event) {
+        const nextName = event.target.value;
+
+        setName(nextName);
+        clearTimeout(debounceRef.current);
+        startLoading();
+
+        debounceRef.current = setTimeout(() => {
+            updateSearch({
+                name: nextName.trim(),
+                page: 1,
+            });
+        }, 300);
     }
 
     function handleSubmit(event) {
@@ -64,7 +93,7 @@ export default function ClubsListPage() {
     }
 
     function handleRetry() {
-        updateSearch({...search});
+        updateSearch(search);
     }
 
     function handlePageChange(page) {
@@ -91,7 +120,7 @@ export default function ClubsListPage() {
                             type="search"
                             placeholder="Nombre del club"
                             value={name}
-                            onChange={(event) => setName(event.target.value)}
+                            onChange={handleNameChange}
                         />
                     </div>
 
