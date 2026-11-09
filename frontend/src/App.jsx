@@ -53,6 +53,7 @@ export default function App() {
                 <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
                 <Route path="/behaviours" element={<BehaviourList />} />
                 <Route path="/crear-comportamiento" element={<CreateBehaviourPage />} />
+                <Route path="/crear-comportamiento-dt" element={<CreateBehaviourPage key="dt" kind="DT" />} />
                 <Route path="/verificar-email" element={<VerifyEmailPage />} />
                 <Route path="/clubes" element={<ClubsListPage />} />
                 <Route path="*" element={<NotFoundPage />} />

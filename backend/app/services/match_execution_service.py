@@ -4,7 +4,8 @@ from threading import Event
 from time import monotonic, sleep
 
 from app.errors import AppError
-from app.repository import matches_repository
+from app.repository import behaviour_repository, matches_repository
+from app.services.match_builder_service import default_behaviours_for_dt
 from app.services.match_start_service import prepare_match_start
 from app.services.league_fixture_service import update_fixture_schedule
 from app.services.substitution_execution_service import apply_planned_substitutions
@@ -63,7 +64,13 @@ def _execute(
                 )
 
             try:
-                simulation = Match.from_checkpoint(row.runtime_state)
+                state = row.runtime_state.copy()
+                for key in ("local_team", "visitor_team"):
+                    team = state.get(key, {})
+                    if team.get("dt_code") and "dt_default_behaviours" not in team:
+                        behaviours = behaviour_repository.get_all_behaviours(db, team["club_id"])
+                        state[key] = {**team, "dt_default_behaviours": default_behaviours_for_dt(behaviours)}
+                simulation = Match.from_checkpoint(state)
 
             except (ValueError, TypeError, KeyError) as error:
                 raise AppError(
@@ -108,11 +115,16 @@ def _execute(
 
             snapshot = _persist(db, row, simulation)
 
+        def apply_pause_changes():
+            planned = apply_planned_substitutions(db, match_id, simulation)
+            automatic = simulation.run_dt_pause()
+            return planned or automatic
+
         def on_pause():
             current = matches_repository.get_by_id_for_update(db, match_id)
             if current is None or current.status != "RUNNING":
                 return False
-            return apply_planned_substitutions(db, match_id, simulation)
+            return apply_pause_changes()
 
         simulation.on_pause = on_pause
         if simulation.pause_index:
@@ -145,8 +157,12 @@ def _execute(
                 db.rollback()
                 clear_requests(match_id)
                 return snapshot
+            for key in ("local_team", "visitor_team"):
+                team = (row.runtime_state or {}).get(key, {})
+                if "dt_active" in team:
+                    simulation.set_dt_active(team["club_id"], team["dt_active"])
             if simulation.paused:
-                apply_planned_substitutions(db, match_id, simulation)
+                apply_pause_changes()
 
             batch = pending_requests(match_id)
 

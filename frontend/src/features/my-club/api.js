@@ -23,6 +23,14 @@ export function listBehaviours(options) {
     return request('/behaviours', options);
 }
 
+export function listDtBehaviours(options) {
+    return request('/dt/behaviours', options);
+}
+
+export function updateDtSettings(body) {
+    return request('/dt', { method: 'PATCH', body });
+}
+
 export function assignPlayerBehaviour(playerId, behaviourId) {
     return request(`/players/${playerId}/behaviour`, {
         method: 'PATCH',
