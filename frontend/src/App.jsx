@@ -11,6 +11,7 @@ import CreatePlayerPage from './features/create-players/CreatePlayersPage.jsx';
 import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx';
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx';
 import { LeagueLobby } from './features/lobby-league/CreateLeagueLobby.jsx';
+import CancelledLeague from './features/lobby-league/CancelledLeague.jsx';
 import ChangePasswordPage from './features/change-password/ChangePasswordPage.jsx';
 import InscripcionLigaPage from './features/inscripcion-liga/InscripcionLigaPage.jsx';
 import BehaviourDetailPage from './features/behaviours/BehaviourDetailPage.jsx';
@@ -42,6 +43,7 @@ export default function App() {
                 <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
                 <Route path="/behaviours/:behaviourId" element={<BehaviourDetailPage />} />
                 <Route path="/ligas-disponibles" element={<LeagueListPage />} />
+                <Route path="/liga-cancelada" element={<CancelledLeague />} />
                 <Route path="/inscripcion-liga" element={<InscripcionLigaPage />} />
                 <Route path="/leagues/:id/join" element={<InscripcionLigaPage />} />
                 <Route path="/crear-liga" element={<CrearLiga />} />
