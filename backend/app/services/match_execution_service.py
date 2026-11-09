@@ -7,6 +7,7 @@ from app.errors import AppError
 from app.repository import matches_repository
 from app.services.match_start_service import prepare_match_start
 from app.services.league_fixture_service import update_fixture_schedule
+from app.services.stats_service import process_match_for_global_ranking
 from primitives.match_simulation import Match
 from app.services.match_request_handler import live_request
 import logging
@@ -25,8 +26,11 @@ def _persist(db: Session, row, simulation: Match) -> dict:
     now = datetime.now(timezone.utc)
     snapshot = simulation.snapshot(row.sequence + 1, now.isoformat())
     matches_repository.save_progress(db, row, simulation, snapshot, now)
-    if simulation.finished and row.league_round_id is not None:
-        update_fixture_schedule(db, row.league_round_id)
+    if simulation.finished:
+            process_match_for_global_ranking(db, row)
+            
+            if row.league_round_id is not None:
+                update_fixture_schedule(db, row.league_round_id)
     db.commit()
     return snapshot
 
