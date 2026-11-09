@@ -91,7 +91,7 @@ describe('Configuración de formación del club', () => {
 
     afterEach(cleanup);
 
-    it('selecciona y guarda desde Mi equipo y recupera lo guardado al volver a entrar', async () => {
+    it('guarda primero la formación y luego un comportamiento en Mi equipo y recupera ambos al volver', async () => {
         const {unmount} = render(<MemoryRouter><MyClubPage/></MemoryRouter>);
         const editor = await teamEditor();
         const select = await editor.findByLabelText('Formación');
@@ -128,7 +128,19 @@ describe('Configuración de formación del club', () => {
         fireEvent.change(select, {target: {value: '2'}});
         fireEvent.click(editor.getByRole('button', {name: 'Guardar equipo'}));
         expect(await saveToast('Equipo guardado correctamente.')).toBeVisible();
-        expect(updateDefaultTeam).toHaveBeenCalledWith({...original, formationId: 2});
+        const savedFormation = {...original, formationId: 2};
+        expect(updateDefaultTeam).toHaveBeenNthCalledWith(1, savedFormation);
+
+        fireEvent.click(screen.getByRole('button', {name: 'Cerrar notificación'}));
+        await waitFor(() => expect(screen.queryByText('Equipo guardado correctamente.')).not.toBeInTheDocument());
+        await chooseComboboxOption(behaviour, 'Ofen', 'Ofensivo');
+        fireEvent.click(editor.getByRole('button', {name: 'Guardar equipo'}));
+        expect(await saveToast('Equipo guardado correctamente.')).toBeVisible();
+        expect(updateDefaultTeam).toHaveBeenNthCalledWith(2, {
+            ...savedFormation,
+            starters: [{...original.starters[0], behaviourId: 11}, ...original.starters.slice(1)],
+        });
+        expect(updateDefaultTeam).toHaveBeenCalledTimes(2);
         expect(updateMyClub).not.toHaveBeenCalled();
 
         unmount();
@@ -137,7 +149,7 @@ describe('Configuración de formación del club', () => {
         expect(await reopened.findByLabelText('Formación')).toHaveValue('2');
         expect(screen.queryByText('Equipo guardado correctamente.')).not.toBeInTheDocument();
         expect(reopened.getByRole('combobox', {name: 'Jugador del lugar 1'})).toHaveValue('Jugador 10');
-        expect(reopened.getByRole('combobox', {name: 'Comportamiento del lugar 1'})).toHaveValue('Equilibrado');
+        expect(reopened.getByRole('combobox', {name: 'Comportamiento del lugar 1'})).toHaveValue('Ofensivo');
     });
 
     it('conserva la selección si falla el guardado y muestra el error', async () => {
@@ -155,41 +167,59 @@ describe('Configuración de formación del club', () => {
         expect(editor.getByRole('button', {name: 'Guardar equipo'})).toBeEnabled();
     });
 
-    it('espera el guardado antes de permitir cerrar o guardar los datos del club', async () => {
-        let finishSave;
-        updateDefaultTeam.mockImplementation(() => new Promise((resolve) => {finishSave = resolve;}));
+    it('bloquea el guardado duplicado y muestra el toast si el guardado termina en otra pestaña', async () => {
+        const save = Promise.withResolvers();
+        updateDefaultTeam.mockReturnValueOnce(save.promise);
         render(<MemoryRouter><MyClubPage/></MemoryRouter>);
-        const dialog = await openSettings();
-        const select = await dialog.findByLabelText('Formación');
-        fireEvent.click(dialog.getByRole('button', {name: 'Guardar equipo'}));
+        const editor = await teamEditor();
+        const select = await editor.findByLabelText('Formación');
+        const form = editor.getByRole('form', {name: 'Equipo para próximos partidos'});
+        fireEvent.change(select, {target: {value: '2'}});
+        fireEvent.click(editor.getByRole('button', {name: 'Guardar equipo'}));
 
         expect(select).toBeDisabled();
-        expect(dialog.getByRole('button', {name: 'Cancelar'})).toBeDisabled();
-        expect(dialog.getByRole('button', {name: 'Guardando…'})).toBeDisabled();
-        expect(dialog.queryByRole('button', {name: 'Close'})).not.toBeInTheDocument();
-        fireEvent.keyDown(screen.getByRole('dialog'), {key: 'Escape'});
-        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(editor.getByRole('button', {name: /^Guardando/})).toBeDisabled();
+        fireEvent.submit(form);
+        expect(updateDefaultTeam).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(screen.getByRole('tab', {name: 'Jugadores'}));
+        await screen.findByRole('tabpanel', {name: 'Jugadores'});
+        expect(select).not.toBeVisible();
         expect(screen.queryByText('Equipo guardado correctamente.')).not.toBeInTheDocument();
 
-        await act(async () => finishSave(structuredClone(persisted)));
+        await act(async () => save.resolve({clubId: 7, lineUp: {...persisted.lineUp, formationId: 2}}));
         expect(await saveToast('Equipo guardado correctamente.')).toBeVisible();
-        expect(dialog.getByRole('button', {name: 'Cancelar'})).toBeEnabled();
+        fireEvent.click(screen.getByRole('tab', {name: 'Mi equipo'}));
+        expect((await teamEditor()).getByLabelText('Formación')).toHaveValue('2');
+        expect(editor.getByRole('button', {name: 'Guardar equipo'})).toBeEnabled();
     });
 
-    it('confirma el guardado de los datos del club con un toast que se puede cerrar', async () => {
+    it('edita solo el perfil desde Configurar club y conserva el borrador de Mi equipo', async () => {
         const name = 'Club actualizado';
+        const profile = {name, avatar: 'avatar-02.png', friendlyAvailable: false};
         const message = 'Los cambios del club se guardaron correctamente.';
-        updateMyClub.mockResolvedValue({...club, name});
+        updateMyClub.mockResolvedValue({...club, ...profile});
         render(<MemoryRouter><MyClubPage/></MemoryRouter>);
+        const editor = await teamEditor();
+        const formation = await editor.findByLabelText('Formación');
+        fireEvent.change(formation, {target: {value: '3'}});
+
         const dialog = await openSettings();
+        expect(dialog.queryByLabelText('Formación')).not.toBeInTheDocument();
+        expect(dialog.queryByRole('button', {name: 'Guardar equipo'})).not.toBeInTheDocument();
         fireEvent.change(dialog.getByRole('textbox', {name: 'Nombre del club'}), {target: {value: name}});
+        fireEvent.click(dialog.getByRole('button', {name: 'Escudo 02'}));
+        fireEvent.click(dialog.getByRole('switch', {name: 'Disponible para amistosos'}));
         fireEvent.click(dialog.getByRole('button', {name: 'Guardar cambios'}));
 
-        expect(updateMyClub).toHaveBeenCalledWith(expect.objectContaining({name}));
+        expect(updateMyClub).toHaveBeenCalledExactlyOnceWith(profile);
         expect(await screen.findByRole('heading', {name})).toBeVisible();
         expect(await saveToast(message)).toBeVisible();
         fireEvent.click(await screen.findByRole('button', {name: 'Cerrar notificación'}));
         await waitFor(() => expect(screen.queryByText(message)).not.toBeInTheDocument());
+        expect((await teamEditor()).getByLabelText('Formación')).toHaveValue('3');
+        expect(getDefaultTeam).toHaveBeenCalledTimes(1);
+        expect(updateDefaultTeam).not.toHaveBeenCalled();
     });
 
     it('confirma la creación y el guardado del DT con toasts de Mi club', async () => {
