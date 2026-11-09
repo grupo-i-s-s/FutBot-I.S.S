@@ -54,9 +54,7 @@ export default function VerifyEmailPage() {
                     {verified ? (
                         <>
                             <p role="status">{message}</p>
-                            <Link to="/login" className="verify-email-card__login">
-                                Ir a iniciar sesión <span aria-hidden="true">→</span>
-                            </Link>
+                            <Link to="/login" className="verify-email-card__login">Ir a iniciar sesión</Link>
                         </>
                     ) : (
                         <form onSubmit={handleVerify}>
