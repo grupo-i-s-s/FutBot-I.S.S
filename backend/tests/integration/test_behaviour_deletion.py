@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateSchema, DropSchema
 
@@ -20,7 +20,7 @@ from app.errors import AppError
 from app.main import app
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
-from app.models.league_model import League, LeagueRegistration
+from app.models.league_model import League, LeagueRegistration, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
@@ -154,22 +154,24 @@ def api(database):
             app.dependency_overrides.clear()
 
 
-def add_league(db, lineup, club_id=1):
+def add_league(db, lineup, club_id=1, *, league_id=7, status="open"):
     db.add(League(
-        id=7,
-        name="Liga de prueba",
+        id=league_id,
+        name=f"Liga de prueba {league_id}",
         min_teams=3,
         max_teams=8,
         start_datetime=datetime.now(timezone.utc) + timedelta(days=1),
         round_interval="DAILY",
-        status="open",
+        status=status,
     ))
     db.flush()
-    db.add(LeagueRegistration(
-        league_id=7,
+    registration = LeagueRegistration(
+        league_id=league_id,
         club_id=club_id,
         line_up=lineup,
-    ))
+    )
+    db.add(registration)
+    return registration
 
 
 def match_row(status="RUNNING", reference_club=1):
@@ -311,6 +313,76 @@ def test_legacy_league_lineup_keeps_indirect_reference(api):
     db.commit()
 
     assert_conflict(client.delete("/behaviours/20"), "leagues.7")
+
+
+@pytest.mark.parametrize("status", ["finished", "cancelled", "canceled"])
+def test_historical_league_allows_deletion_without_changing_its_history(api, status):
+    client, db = api
+    lineup = deepcopy(db.get(DefaultTeam, 1).line_up)
+    lineup["starters"][0]["behaviourId"] = 20
+    registration = add_league(db, lineup, status=status)
+    registration.lineup_version = 4
+    db.add(LeagueRegistration(league_id=7, club_id=2, line_up=[]))
+    league_round = LeagueRound(
+        league_id=7, number=1, scheduled_at=datetime.now(timezone.utc), schedule_confirmed=True,
+    )
+    db.add(league_round)
+    db.flush()
+    registration_id = registration.id
+
+    match = match_row("FINISHED")
+    match.league_round_id = league_round.id
+    match.lineup_snapshot = {"leagueId": 7, "teams": {"1": {"lineUp": lineup, "lineupVersion": 4}}}
+    db.add(match)
+    db.commit()
+
+    def public_history():
+        fixture = client.get("/leagues/7/fixture")
+        ranking = client.get("/leagues/7/ranking")
+        saved_lineup = client.get("/leagues/7/lineup")
+        assert fixture.status_code == ranking.status_code == saved_lineup.status_code == 200
+        return fixture.json(), ranking.json(), saved_lineup.json()
+
+    match_query = select(Matches.__table__).where(Matches.match_id == 42)
+    saved_match = db.execute(match_query).mappings().one()
+    history = public_history()
+    fixture, ranking, saved_lineup = history
+    published_match, = fixture["rounds"][0]["matches"]
+    assert (published_match["status"], published_match["localScore"], published_match["visitorScore"]) == (
+        "FINISHED", 2, 1,
+    )
+    assert [(club["id"], club["puntos"]) for club in ranking] == [(1, 3), (2, 0)]
+    assert saved_lineup["editable"] is False and saved_lineup["lineUp"] == lineup
+
+    response = client.delete("/behaviours/20")
+    assert response.status_code == 204, response.text
+    assert client.get("/behaviours/20").status_code == 404
+
+    db.expire_all()
+    assert db.get(Behavior, 20).is_deleted is True
+    assert db.get(League, 7).status == status
+    registration = db.get(LeagueRegistration, registration_id)
+    assert registration.line_up == lineup and registration.lineup_version == 4
+    assert db.execute(match_query).mappings().one() == saved_match
+    assert public_history() == history
+
+
+@pytest.mark.parametrize("active_status", ["open", "running"])
+def test_active_references_still_block_when_a_finished_league_uses_the_same_behaviour(api, active_status):
+    client, db = api
+    lineup = {"starters": [{"playerId": 101, "behaviourId": 20}]}
+    add_league(db, lineup, status="finished")
+    add_league(db, lineup, league_id=8, status=active_status)
+    db.get(Player, 101).behavior_id = 20
+    db.get(DefaultTeam, 1).line_up = lineup
+    db.commit()
+
+    response = client.delete("/behaviours/20")
+    assert_conflict(response, "leagues.8")
+    assert set(response.json()["error"]["fields"]) == {"defaultTeam", "players.101", "leagues.8"}
+
+    db.expire_all()
+    assert db.get(Behavior, 20).is_deleted is False
 
 
 def test_explicit_lineup_override_does_not_use_old_assignment(api):
