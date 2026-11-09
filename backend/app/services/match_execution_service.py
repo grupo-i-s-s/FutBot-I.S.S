@@ -143,6 +143,8 @@ def _execute(
 
             snapshot = _persist(db, row, simulation)
 
+        dt_clubs = {team.club_id for team in (simulation.local_team, simulation.visitor_team) if team.dt_active}
+
         def apply_pause_changes():
             planned = apply_planned_substitutions(db, match_id, simulation)
             automatic = simulation.run_dt_pause()
@@ -155,7 +157,8 @@ def _execute(
             return apply_pause_changes()
 
         simulation.on_pause = on_pause
-        if simulation.pause_index:
+        # Al reanudar, descartar órdenes de clubes con DT aunque falte para la pausa.
+        if simulation.pause_index or dt_clubs:
             if on_pause():
                 snapshot = _persist(db, row, simulation)
             else:
@@ -185,10 +188,6 @@ def _execute(
                 db.rollback()
                 clear_requests(match_id)
                 return snapshot
-            for key in ("local_team", "visitor_team"):
-                team = (row.runtime_state or {}).get(key, {})
-                if "dt_active" in team:
-                    simulation.set_dt_active(team["club_id"], team["dt_active"])
             if simulation.paused:
                 apply_pause_changes()
 
@@ -199,6 +198,8 @@ def _execute(
                     continue
 
                 try:
+                    if request["club_id"] in dt_clubs:
+                        continue
                     simulation.change_behaviour(
                         request["player_id"],
                         club_id=request["club_id"],

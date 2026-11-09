@@ -70,6 +70,4 @@ def update_match_dt(
     club: CurrentClub,
     dt_active: Annotated[StrictBool, Body(embed=True)],
 ):
-    return matches_service.set_match_dt(
-        db=db, match_id=match_id, club_id=club.id, dt_active=dt_active
-    )
+    matches_service.reject_match_dt_change(db, match_id, club.id)

@@ -684,23 +684,6 @@ class Match:
             logger.exception("Falló el comportamiento del jugador %s", profile.id)
             return None
 
-    def set_dt_active(self, club_id: int, active: bool) -> None:
-        if club_id == self.local_team.club_id:
-            team_attr = "local_team"
-        elif club_id == self.visitor_team.club_id:
-            team_attr = "visitor_team"
-        else:
-            raise ValueError("El club no participa del partido.")
-
-        team = getattr(self, team_attr)
-        if team.dt_active == active:
-            return
-        if active and not team.dt_code:
-            raise ValueError("El DT no tiene un comportamiento asignado.")
-
-        setattr(self, team_attr, replace(team, dt_active=active))
-        self.dt_errors.pop(club_id, None)
-
     def run_dt_pause(self) -> bool:
         if not self.paused:
             return False

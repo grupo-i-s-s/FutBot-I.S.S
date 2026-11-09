@@ -7,13 +7,13 @@ from app.config import settings
 from app.database import SessionLocal
 from app.dependencies import CurrentClub, Database
 from app.errors import AppError
+from app.schemas.error_schemas import ApiErrorResponse
 from app.services import match_stream_services, behaviour_service, matches_service
 from app.services.match_snapshot_service import read_snapshot
 from app.schemas.matches_schemas import (
     LiveRequests,
     LiveRequestCreate,
     LiveRequestResponse,
-    MatchDtResponse,
     MatchDtUpdate,
 )
 from app.repository import matches_repository
@@ -95,9 +95,11 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
             await incoming
 
 
-@match_stream_router.post("/{match_id}/dt", response_model=MatchDtResponse)
+@match_stream_router.post(
+    "/{match_id}/dt", deprecated=True, status_code=409, response_model=ApiErrorResponse,
+)
 def update_match_dt(match_id: int, data: MatchDtUpdate, db: Database, club: CurrentClub):
-    return matches_service.set_match_dt(db=db, match_id=match_id, club_id=club.id, dt_active=data.dt_active)
+    matches_service.reject_match_dt_change(db, match_id, club.id)
 
 
 @match_stream_router.post("/{match_id}/live-requests", response_model=LiveRequestResponse)
@@ -147,6 +149,7 @@ def update_behaviour(
         ),
         None,
     )
+    matches_service.require_manual_match_control(own_team)
 
     if own_team is None or not any(
         player["id"] == data.player_id

@@ -80,8 +80,3 @@ class LiveRequestResponse(BaseModel):
 
 class MatchDtUpdate(InputSchema):
     dt_active: StrictBool = Field(alias="dtActive")
-
-
-class MatchDtResponse(BaseModel):
-    message: str
-    dt_active: bool = Field(serialization_alias="dtActive")

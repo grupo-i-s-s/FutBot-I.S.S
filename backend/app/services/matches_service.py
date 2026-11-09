@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+from typing import NoReturn
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,8 @@ from app.services.match_builder_service import build_match
 from app.services.match_schedule_service import LEAGUE_SCHEDULE_CONFLICT, find_league_schedule_conflict
 from app.services.match_start_service import cancel_match
 from primitives.match_simulation import DEFAULT_DURATION_MS
+
+MATCH_DT_MANUAL_ACTION_FORBIDDEN = "MATCH_DT_MANUAL_ACTION_FORBIDDEN"
 
 def _require_available_clubs(
         db: Session, club_ids: tuple[int, ...], current_club_id: int
@@ -195,42 +198,25 @@ def create_behaviour_test_match(db: Session, club_id: int) -> dict:
         "match_id": match.match_id,
     }
 
-def set_match_dt(db: Session, match_id: int, club_id: int, dt_active: bool) -> dict:
-    try:
-        match = matches_repository.get_by_id_for_update(db, match_id)
-        if match is None:
-            raise AppError("MATCH_NOT_FOUND", "El partido no existe.")
-        if club_id not in (match.creator_id, match.visitor_id):
-            raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
+def reject_match_dt_change(db: Session, match_id: int, club_id: int) -> NoReturn:
+    match = matches_repository.get_by_id(db, match_id)
+    if match is None:
+        raise AppError("MATCH_NOT_FOUND", "El partido no existe.")
+    if club_id not in (match.creator_id, match.visitor_id):
+        raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
 
-        team_key = "local_team" if club_id == match.creator_id else "visitor_team"
-        team = (match.runtime_state or {}).get(team_key)
-        if match.status != "RUNNING" or not team:
-            raise AppError("MATCH_STATE_INVALID", "El partido no admite cambios de DT.")
-        if dt_active and not team.get("dt_code"):
-            raise AppError("DT_BEHAVIOUR_REQUIRED", "El club debe asignar un comportamiento antes del partido.")
+    team_key = "local_team" if club_id == match.creator_id else "visitor_team"
+    if match.status != "RUNNING" or not (match.runtime_state or {}).get(team_key):
+        raise AppError("MATCH_STATE_INVALID", "El partido no admite cambios de DT.")
+    raise AppError(
+        "MATCH_DT_MODE_FIXED",
+        "El modo de control se fija al iniciar el partido. Configurá el DT desde Mi club para futuros partidos.",
+    )
 
-        if dt_active != team.get("dt_active", False):
-            match.runtime_state = {**match.runtime_state, team_key: {**team, "dt_active": dt_active}}
-            if match.snapshot:
-                state = match.snapshot["state"]
-                match.sequence += 1
-                match.snapshot = {
-                    **match.snapshot,
-                    "sequence": match.sequence,
-                    "sentAt": datetime.now(timezone.utc).isoformat(),
-                    "state": {
-                        **state,
-                        "teams": [
-                            {**entry, "dtActive": dt_active, "dtConfigured": bool(team.get("dt_code"))}
-                            if entry["id"] == club_id else entry
-                            for entry in state["teams"]
-                        ],
-                    },
-                }
 
-        db.commit()
-        return {"message": "Estado del DT actualizado con éxito", "dt_active": dt_active}
-    except Exception:
-        db.rollback()
-        raise
+def require_manual_match_control(team: dict | None) -> None:
+    if team and team.get("dt_active") is True:
+        raise AppError(
+            MATCH_DT_MANUAL_ACTION_FORBIDDEN,
+            "El DT dirige a tu equipo en este partido. Las órdenes manuales están deshabilitadas.",
+        )

@@ -8,6 +8,7 @@ from app.errors import AppError
 from app.models.planned_substitution_model import PlannedSubstitution
 from app.repository import matches_repository
 from app.schemas.matches_schemas import PlannedSubstitutionRequest, SubstitutionRequest
+from app.services.matches_service import require_manual_match_control
 from primitives.match_breaks import MatchBreaks
 
 
@@ -27,11 +28,14 @@ def with_pending_substitutions(db: Session, match_id: int, snapshot: dict) -> di
     result = deepcopy(snapshot)
     state = result["state"]
     target = state.get("nextPause")
+    dt_clubs = {team["id"] for team in state.get("teams", []) if team.get("dtActive") is True}
     pending = db.scalars(select(PlannedSubstitution).where(
         PlannedSubstitution.match_id == match_id, PlannedSubstitution.status == "PENDING",
     )).all()
-    by_club = {plan.club_id: _result(plan) for plan in pending
-               if target and f"{match_id}:{plan.pause_index}" == target["pauseId"]}
+    by_club = {
+        plan.club_id: _result(plan) for plan in pending
+        if plan.club_id not in dt_clubs and target and f"{match_id}:{plan.pause_index}" == target["pauseId"]
+    }
     for lineup in state["lineups"]:
         lineup["pendingSubstitution"] = by_club.get(lineup["clubId"]) if state["status"] == "RUNNING" else None
     return result
@@ -55,6 +59,11 @@ def _save_substitution(db: Session, match_id: int, club_id: int, data: PlannedSu
         if club_id not in (match.creator_id, match.visitor_id):
             raise AppError("MATCH_FORBIDDEN", "Tu club no participa del partido.")
 
+        state = match.runtime_state
+        team = (state or {}).get("local_team" if club_id == match.creator_id else "visitor_team", {})
+        if match.status == "RUNNING":
+            require_manual_match_control(team)
+
         plans = select(PlannedSubstitution).where(
             PlannedSubstitution.match_id == match_id, PlannedSubstitution.club_id == club_id,
         )
@@ -67,7 +76,6 @@ def _save_substitution(db: Session, match_id: int, club_id: int, data: PlannedSu
             db.commit()
             return result
 
-        state = match.runtime_state
         if match.status != "RUNNING" or not state:
             if pause_id is not None:
                 raise AppError("PAUSE_CLOSED", "La pausa ya no está abierta.")
@@ -90,7 +98,6 @@ def _save_substitution(db: Session, match_id: int, club_id: int, data: PlannedSu
                 raise AppError("NO_UPCOMING_PAUSE", "Ya no quedan pausas para programar un cambio.")
 
         # El plantel capturado del partido es independiente del equipo default actual.
-        team = state.get("local_team" if club_id == match.creator_id else "visitor_team", {})
         if team.get("club_id") != club_id or "substitutes" not in team:
             raise AppError("MATCH_STATE_INVALID", "El partido no conserva su banco de suplentes.")
         starters = {p["id"] for p in team.get("players", [])}
