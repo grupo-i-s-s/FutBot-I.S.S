@@ -9,6 +9,7 @@ from app.controller.match_stream_controller import match_stream_router
 from app.controller.matches_controller import matches_router
 from app.controller.player_controller import player_router
 from app.controller.team_controller import team_router, catalogs_router
+from app.controller.dt_controller import dt_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -21,3 +22,4 @@ api_router.include_router(match_stream_router)
 api_router.include_router(club_router)
 api_router.include_router(team_router)
 api_router.include_router(catalogs_router)
+api_router.include_router(dt_router)

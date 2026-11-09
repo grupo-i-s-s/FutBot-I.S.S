@@ -563,18 +563,9 @@ class Match:
                 if self._behaviour_runtime is None:
                     self._behaviour_runtime = BehaviourRuntime()
                     key = self._behaviour_runtime.dt_decide(key, obs)
-            except BehaviourRuntimeError as error:
-                logger.warning(f"Error en el dt del club")
-                if isinstance(error, BehaviourWorkerDead):
-                    self.close_runtime()
-
-                    update_team = replace(team, dt_active = False)
-
-                    if is_local:
-                        self.local_team = update_team
-                    else:
-                        self.visitor_team = update_team
-                    return
+            except ValueError as exc:
+                logger.warning("El dt no es default")
+                return
 
         for cambio in cambios:
             try:

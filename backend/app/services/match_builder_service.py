@@ -110,8 +110,14 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
         )
 
     dt = dt_repository.get_dt_by_club_id(db, club_id)
-    is_dt_active = dt.is_active if dt else False
-        
+    is_dt_active =  False
+    dt_code = None
+
+    if dt:
+        is_dt_active = dt.is_active
+        if dt.behaviour_id and dt.behaviour:
+            dt_code = dt.behaviour.code
+
     return Team(
         club_id=club_id,
         name=name,
@@ -119,6 +125,7 @@ def _build_team(db: Session, club_id: int, name: str, avatar: str, league_teams=
         formation_id=lineup.formation_id,
         avatar=avatar,
         dt_active = is_dt_active,
+        dt_code = dt_code
     )
 
 

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.errors import AppError
 from app.models.matches_model import Matches
@@ -169,3 +170,21 @@ def create_behaviour_test_match(db: Session, club_id: int) -> dict:
         "message": "Partido de prueba creado.",
         "match_id": match.match_id,
     }
+
+def set_match_dt(db: Session, match_id: int, club_id: int, dt_active: bool) -> dict:
+    match = matches_repository.get_by_id_for_update(db, match_id)
+    if match is None:
+        raise AppError("MATCH_NOT_FOUND", "El partido no existe.")
+    
+    if club_id not in (match.creator_id, match.visitor_id):
+        raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
+    
+    if match.runtime_state:
+        is_local = (club_id == match.creator_id)
+        team_key = "local_team" if is_local else "visitor_team"
+        if team_key in match.runtime_state:
+            match.runtime_state[team_key]["dt_active"] = dt_active
+            flag_modified(match, "runtime_state")
+
+    db.commit()
+    return {"message": "Estado del DT actualizado con éxito", "dt_active": dt_active}

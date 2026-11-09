@@ -33,7 +33,7 @@ export function changeBehaviour(matchId, playerId, behaviourId) {
 
 export function activateMatchDt(matchId, active) {
     const id = validateMatchId(matchId);
-    return request(`/matches/${id}/dt`, {
+    return request(`/friendly-matches/${id}/dt`, {
         method: 'POST',
         body: { dt_active: active }
     });

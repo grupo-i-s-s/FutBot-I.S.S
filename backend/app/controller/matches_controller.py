@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Body
 
 from app.dependencies import CurrentClub, Database
 from app.schemas.matches_schemas import (
@@ -46,3 +46,15 @@ def get_match_state(match_id: int, db: Database, club: CurrentClub):
 @matches_router.post( "/behaviour-test",status_code=status.HTTP_201_CREATED,response_model=CreateFriendlyMatchResponse)
 def create_behaviour_test_match(db: Database, club: CurrentClub):
     return matches_service.create_behaviour_test_match(db, club.id)
+
+
+@matches_router.post("/{match_id}/dt")
+def update_match_dt(
+    match_id: int,
+    dt_active: bool = Body(..., embed=True),
+    db: Database = None,  
+    club: CurrentClub = None,
+):
+    return matches_service.set_match_dt(
+        db=db, match_id=match_id, club_id=club.id, dt_active=dt_active
+    )

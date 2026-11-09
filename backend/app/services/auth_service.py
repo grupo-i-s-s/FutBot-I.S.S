@@ -12,6 +12,7 @@ from app.repository import (
     behaviour_repository,
     player_repository,
     team_repository,
+    dt_repository,
 )
 from app.schemas.auth_schemas import (
     ChangePasswordRequest,
@@ -87,6 +88,10 @@ def register(db: Session, data: RegisterRequest) -> UserResponse:
             name=data.club_name,
             avatar=DEFAULT_AVATAR,
         )
+
+        dt_behaviours = dt_repository.create_default_dt_behaviours(db, user.id)
+        default_dt_behaviour_id = dt_behaviours[0].id if dt_behaviours else None
+        dt_repository.create_dt(db, club.id, default_dt_behaviour_id)
 
         behaviours = behaviour_repository.create_default_behaviours(db, club.id)
 

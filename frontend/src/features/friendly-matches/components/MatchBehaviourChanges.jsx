@@ -2,7 +2,7 @@ import {useState} from 'react';
 import { changeBehaviour } from '../matchApi';
 import '../MatchPage.css'
 
-export default function LiveChangeBehaviour({ match_id, players, behaviours, isMyTeam }) {
+export default function LiveChangeBehaviour({ match_id, players, behaviours, isMyTeam, isDtActive }) {
     const [change, setChange] = useState({});
     const [persistedBehaviour, setPersistedBehaviour] = useState({});
 
@@ -42,7 +42,7 @@ export default function LiveChangeBehaviour({ match_id, players, behaviours, isM
                                             <select
                                                 className="w-full text-sm p-1 border rounded"
                                                 value={persistedBehaviour[player.id] || player.behaviourId}
-                                                disabled={change[player.id]}
+                                                disabled={change[player.id] || isDtActive}
                                                 onChange={(e) => changeBehaviourHandler(player.id, e.target.value)}
                                             >
                                                 <option value="" disabled>Cambiar táctica...</option>

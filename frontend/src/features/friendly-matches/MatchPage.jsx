@@ -11,6 +11,8 @@ import MatchBreakNotice, {
 import LiveChangeBehaviour from './components/MatchBehaviourChanges.jsx';
 import { useState, useEffect } from 'react'
 import { request } from '@/api/http.js';
+import { activateMatchDt } from './matchApi.js';
+
 
 const connectionLabels = {
     loading: 'Cargando partido...', connecting: 'Conectando...', reconnecting: 'Reconectando...',
@@ -29,6 +31,7 @@ export default function MatchPage() {
     const { snapshot, connectionStatus, error, retry } = useMatchConnection(matchId);
     const [myClubId, setMyClubId] = useState(null);
     const [behaviours, setBehaviours] = useState([])
+    const [isDtActive, setIsDtActive] = useState(false)
 
     useEffect(() => {
         async function fetchMyClub() {
@@ -40,6 +43,16 @@ export default function MatchPage() {
         }
         fetchMyClub();
     }, []);
+
+    const handleToggleDt = async () => {
+    try {
+        const newActiveState = !isDtActive;
+        await activateMatchDt(matchId, newActiveState); 
+        setIsDtActive(newActiveState);
+    } catch (error) {
+        console.error("No se pudo cambiar el estado del DT", error);
+    }
+};
 
     const state = snapshot?.state;
     const terminal = ['FINISHED', 'CANCELLED'].includes(state?.status);
@@ -98,15 +111,30 @@ export default function MatchPage() {
                                     const isMyTeam = myClubId ? team.id == myClubId : false;
                                     return (
                                         <div key={team.id}>
-                                            <h2>
-                                                <span style={{ backgroundColor: team.color }} />
-                                                {team.name} {isMyTeam}
-                                            </h2>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h2>
+                                                    <span style={{ backgroundColor: team.color }} />
+                                                    {team.name} {isMyTeam}
+                                                </h2>
+                                                {isMyTeam && (
+                                                        <button
+                                                            onClick={handleToggleDt}
+                                                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                                                                isDtActive 
+                                                                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                                                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                            }`}
+                                                        >
+                                                            {isDtActive ? 'DT Activo ' : 'Activar DT'}
+                                                        </button>
+                                                    )}
+                                            </div>
                                             <LiveChangeBehaviour
                                                 match_id={matchId}
                                                 players={teamPlayers}
                                                 behaviours={behaviours}
                                                 isMyTeam={isMyTeam}
+                                                isDtActive = {isDtActive}
                                             />
                                         </div>
                                     );
