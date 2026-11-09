@@ -1,14 +1,20 @@
+import hashlib
 from collections.abc import Callable
 from typing import Any
 
 from primitives.behaviour_api.actions import Actions
-from primitives.behaviour_api.queries import Queries
+from primitives.behaviour_api.queries import DtQueries, Queries
+from primitives.behaviours import BehaviourMode
 
 
 API_VERSION = 1
 
 RegisteredFunction = Callable[..., Any]
 Registry = dict[str, RegisteredFunction]
+
+
+def program_key(source: str, kind: str) -> str:
+    return hashlib.sha256(f"{API_VERSION}\0{kind}\0{source}".encode("utf-8")).hexdigest()
 
 
 # Nombre público en español -> nombre interno en inglés.
@@ -35,6 +41,15 @@ QUERY_METHODS = {
     "rivales": "opponents",
     "compañero_mas_cercano": "closer_teammate",
     "rival_mas_cercano": "closest_opponent",
+}
+
+DT_QUERY_METHODS = {
+    "vamos_ganando": "winning",
+    "vamos_empatando": "drawing",
+    "vamos_perdiendo": "losing",
+    "tiempo_jugado": "time_played",
+    "perdiendo_por": "losing_by",
+    "ganando_por": "winning_by",
 }
 
 
@@ -106,3 +121,19 @@ def build_registry(queries: Queries) -> tuple[Registry, Registry]:
     }
 
     return query_registry, action_registry
+
+def build_dt_registry(queries: DtQueries) -> Registry:
+    def cambiar_comportamiento(jugador_id: int, modo: BehaviourMode) -> dict:
+        return {"player_id": jugador_id, "mode": modo}
+
+    def sustituir(saliente_id: int, entrante_id: int) -> dict:
+        return {"outgoing_player_id": saliente_id, "incoming_player_id": entrante_id}
+
+    return {
+        **{
+            public_name: getattr(queries, internal_name)
+            for public_name, internal_name in DT_QUERY_METHODS.items()
+        },
+        "cambiar_comportamiento": cambiar_comportamiento,
+        "sustituir": sustituir,
+    }

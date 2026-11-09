@@ -58,13 +58,16 @@ def teams(monkeypatch):
     player_repo.get_players_by_club.side_effect = lambda db, cid: players[cid]
     behaviour_repo = Mock()
     behaviour_repo.get_all_behaviours.side_effect = lambda db, cid: behaviours[cid]
+    dt_repo = Mock()
+    dt_repo.get_dt_by_club_id.return_value = None
     monkeypatch.setattr(service, "matches_repository", matches)
     monkeypatch.setattr(service, "team_repository", saved)
     monkeypatch.setattr(service, "player_repository", player_repo)
     monkeypatch.setattr(service, "behaviour_repository", behaviour_repo)
+    monkeypatch.setattr(service, "dt_repository", dt_repo)
     return SimpleNamespace(
         players=players, behaviours=behaviours, lineups=lineups,
-        matches=matches, saved=saved,
+        matches=matches, saved=saved, dt_repo=dt_repo,
     )
 
 
@@ -224,12 +227,22 @@ def test_missing_match_or_opponent_is_rejected_before_loading_teams(db, teams, m
 
 
 def test_builder_captures_both_benches_without_putting_them_on_field(db, teams):
+    local_dt = SimpleNamespace(
+        is_active=True, behaviour_id=1, behaviour=SimpleNamespace(code="Táctica local"),
+    )
+    teams.dt_repo.get_dt_by_club_id.side_effect = lambda db, club_id: local_dt if club_id == 7 else None
+
     match = service.build_match(db, 42)
+
     assert [p.id for p in match.local_team.substitutes] == [71, 73, 75]
     assert [p.id for p in match.visitor_team.substitutes] == [91, 93, 95]
     assert [p.behaviour_id for p in match.local_team.substitutes] == [700, 700, 700]
     assert len(match.world.players) == 6
     assert set(match.player_bodies) == {74, 70, 72, 94, 90, 92}
+    assert match.local_team.dt_active is True
+    assert match.local_team.dt_code == local_dt.behaviour.code
+    assert match.visitor_team.dt_active is False
+    assert match.visitor_team.dt_code is None
 
 
 def test_bench_configuration_is_frozen_and_recovers_from_json_checkpoint(db, teams):

@@ -10,7 +10,7 @@ vi.mock('./hooks/useMyClub', () => ({useMyClub: vi.fn()}));
 vi.mock('./api', () => ({
     getDefaultTeam: vi.fn(), getFormations: vi.fn(),
     updateDefaultTeam: vi.fn(), updateMyClub: vi.fn(),
-    assignPlayerBehaviour: vi.fn(),
+    assignPlayerBehaviour: vi.fn(), listDtBehaviours: vi.fn(async () => ({items: []})),
 }));
 
 const club = {id: 7, name: 'Club de prueba', avatar: 'shield', friendlyAvailable: true};

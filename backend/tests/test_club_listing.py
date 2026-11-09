@@ -14,6 +14,7 @@ from app.database import Base, get_db
 from app.errors import AppError
 from app.main import app_error_handler, validation_error_handler
 from app.models.auth_model import AuthSession, Club, User
+from app.models.dt_model import Dt, DtBehaviour
 from app.security import hash_session_token
 
 
@@ -37,6 +38,8 @@ def client():
             User.__table__,
             Club.__table__,
             AuthSession.__table__,
+            DtBehaviour.__table__,
+            Dt.__table__,
         ],
     )
 
@@ -303,4 +306,3 @@ def test_my_club_route_is_not_captured_as_profile_id(client):
 
     assert response.status_code == 200, response.text
     assert response.json()["name"] == "Zulu"
-    

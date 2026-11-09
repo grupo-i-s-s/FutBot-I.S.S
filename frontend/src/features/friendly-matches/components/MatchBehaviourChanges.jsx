@@ -1,26 +1,38 @@
 import {useState} from 'react';
 import { changeBehaviour } from '../matchApi';
-import '../MatchPage.css'
+import '../MatchPage.css';
 
-export default function LiveChangeBehaviour({ match_id, players, behaviours, isMyTeam }) {
-    const [change, setChange] = useState({});
-    const [persistedBehaviour, setPersistedBehaviour] = useState({});
+const modeNames = {
+    BALANCED: 'Equilibrado',
+    OFFENSIVE: 'Ofensivo',
+    DEFENSIVE: 'Defensivo',
+    CUSTOM: 'Personalizado',
+};
 
-    const changeBehaviourHandler = async (playerId, behaviourId) => {
+export default function LiveChangeBehaviour({ matchId, players, behaviours, isMyTeam, canEdit }) {
+    const [pending, setPending] = useState({});
+    const [errors, setErrors] = useState({});
 
-        setPersistedBehaviour(prev =>({...prev, [playerId]:behaviourId}));
-        setChange(prev => ({...prev, [playerId]:true}));
-
-        await changeBehaviour(match_id, playerId, Number(behaviourId));
-
-        setChange(prev => ({...prev, [playerId]:false}));
-    };
+    async function changeBehaviourHandler(playerId, behaviourId) {
+        if (!isMyTeam || !canEdit || pending[playerId]) return;
+        setPending(current => ({ ...current, [playerId]: true }));
+        setErrors(current => ({ ...current, [playerId]: '' }));
+        try {
+            await changeBehaviour(matchId, playerId, Number(behaviourId));
+        } catch (error) {
+            setErrors(current => ({ ...current, [playerId]: error.message || 'No se pudo enviar el cambio.' }));
+        } finally {
+            setPending(current => ({ ...current, [playerId]: false }));
+        }
+    }
 
     return (
         <div>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {players.map((player) => (
-                    <li key={player.id}>
+                {players.map((player) => {
+                    const behaviour = behaviours.find(item => item.id === player.behaviourId);
+                    const behaviourName = behaviour?.name ?? modeNames[player.behaviourMode] ?? 'Sin comportamiento';
+                    return <li key={player.id}>
                         <div className="border rounded-lg p-3 shadow-sm bg-white flex items-center gap-3">
                             <div>
                                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-primary">
@@ -35,14 +47,15 @@ export default function LiveChangeBehaviour({ match_id, players, behaviours, isM
                                     <>
                                         <p className="mt-2">
                                             <span className="font-medium">Comportamiento actual:</span>{' '}
-                                            {player.behaviourName}
+                                            {behaviourName}
                                         </p>
 
                                         <div className="mt-2">
                                             <select
                                                 className="w-full text-sm p-1 border rounded"
-                                                value={persistedBehaviour[player.id] || player.behaviourId}
-                                                disabled={change[player.id]}
+                                                aria-label={`Comportamiento de ${player.name}`}
+                                                value={behaviour?.id ?? ''}
+                                                disabled={pending[player.id] || !canEdit || behaviours.length === 0}
                                                 onChange={(e) => changeBehaviourHandler(player.id, e.target.value)}
                                             >
                                                 <option value="" disabled>Cambiar táctica...</option>
@@ -51,9 +64,10 @@ export default function LiveChangeBehaviour({ match_id, players, behaviours, isM
                                                 ))}
                                             </select>
                                             
-                                            {change[player.id] && (
+                                            {pending[player.id] && (
                                                 <span className="text-xs text-gray-500 mt-1 block">Enviando orden...</span>
                                             )}
+                                            {errors[player.id] && <p className="text-xs text-destructive" role="alert">{errors[player.id]}</p>}
                                         </div>
                                     </>
                                 ) : (
@@ -61,8 +75,8 @@ export default function LiveChangeBehaviour({ match_id, players, behaviours, isM
                                 )}
                             </div>
                         </div>
-                    </li>
-                ))}
+                    </li>;
+                })}
             </ul>
         </div>
     );

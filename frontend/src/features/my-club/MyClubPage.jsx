@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router';
 import { CircleAlert, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClubHeader from './components/ClubHeader';
 import ClubSettingsDialog from './components/ClubSettingsDialog';
+import DtSettings from './components/DtSettings';
 import TeamSettings from './components/TeamSettings';
 import LeagueList from './components/LeagueList';
 import PlayerList from './components/PlayerList';
@@ -16,10 +18,11 @@ import { updateMyClub } from './api';
 const PAGE_CLASSES = 'mx-auto w-[calc(100%_-_32px)] max-w-4xl space-y-6 py-8 sm:py-12 xl:w-[calc(100%_-_560px)]';
 
 export default function MyClubPage() {
+    const location = useLocation();
     const [page, setPage] = useState(1);
     const { status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub, updatePlayer, } = useMyClub(page, 9);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [notice, setNotice] = useState('');
+    const [notice, setNotice] = useState(location.state?.notice ?? '');
 
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -89,15 +92,18 @@ export default function MyClubPage() {
             )}
 
             <div className="relative">
-                <PlayerList
-                    players={players}
-                    behaviours={behaviours}
-                    onBehaviourAssigned={updatePlayer}
-                    currentPage={page}
-                    totalPages={totalPages}
-                    totalPlayers={totalPlayers}
-                    onPageChange={setPage}
-                />
+                <div className="space-y-6">
+                    <DtSettings key={club.id} dt={club.dt} />
+                    <PlayerList
+                        players={players}
+                        behaviours={behaviours}
+                        onBehaviourAssigned={updatePlayer}
+                        currentPage={page}
+                        totalPages={totalPages}
+                        totalPlayers={totalPlayers}
+                        onPageChange={setPage}
+                    />
+                </div>
 
 
                 <aside

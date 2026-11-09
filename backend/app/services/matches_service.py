@@ -172,3 +172,43 @@ def create_behaviour_test_match(db: Session, club_id: int) -> dict:
         "message": "Partido de prueba creado.",
         "match_id": match.match_id,
     }
+
+def set_match_dt(db: Session, match_id: int, club_id: int, dt_active: bool) -> dict:
+    try:
+        match = matches_repository.get_by_id_for_update(db, match_id)
+        if match is None:
+            raise AppError("MATCH_NOT_FOUND", "El partido no existe.")
+        if club_id not in (match.creator_id, match.visitor_id):
+            raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
+
+        team_key = "local_team" if club_id == match.creator_id else "visitor_team"
+        team = (match.runtime_state or {}).get(team_key)
+        if match.status != "RUNNING" or not team:
+            raise AppError("MATCH_STATE_INVALID", "El partido no admite cambios de DT.")
+        if dt_active and not team.get("dt_code"):
+            raise AppError("DT_BEHAVIOUR_REQUIRED", "El club debe asignar un comportamiento antes del partido.")
+
+        if dt_active != team.get("dt_active", False):
+            match.runtime_state = {**match.runtime_state, team_key: {**team, "dt_active": dt_active}}
+            if match.snapshot:
+                state = match.snapshot["state"]
+                match.sequence += 1
+                match.snapshot = {
+                    **match.snapshot,
+                    "sequence": match.sequence,
+                    "sentAt": datetime.now(timezone.utc).isoformat(),
+                    "state": {
+                        **state,
+                        "teams": [
+                            {**entry, "dtActive": dt_active, "dtConfigured": bool(team.get("dt_code"))}
+                            if entry["id"] == club_id else entry
+                            for entry in state["teams"]
+                        ],
+                    },
+                }
+
+        db.commit()
+        return {"message": "Estado del DT actualizado con éxito", "dt_active": dt_active}
+    except Exception:
+        db.rollback()
+        raise

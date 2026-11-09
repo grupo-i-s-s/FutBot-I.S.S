@@ -4,6 +4,7 @@ import { abandonarLobby, iniciarLiga, obtenerIdentidad, obtenerLobby } from './a
 import LeagueRanking from './LeagueRanking.jsx';
 import LeagueFixture from './LeagueFixture.jsx';
 import './CreateLeagueLobby.css';
+import {buttonVariants} from '@/components/ui/button';
 
 export function LeagueLobby() {
     const { id } = useParams();
@@ -248,6 +249,15 @@ function LeagueLobbyContent({ id }) {
                 </div>
 
                 <div className="lobby-actions">
+                        {lobby.isRegistered && (
+                            <Link
+                                to={`/leagues/${id}/lineup`}
+                                className={buttonVariants({size: 'sm', variant: 'outline'})}
+                            >
+                                Ver plantel
+                            </Link>
+                        )}
+
                     <button
                         type="button"
                         disabled={loading || starting}

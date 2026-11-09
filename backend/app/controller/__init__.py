@@ -10,6 +10,7 @@ from app.controller.matches_controller import matches_router
 from app.controller.player_controller import player_router
 from app.controller.planned_substitution_controller import planned_substitution_router
 from app.controller.team_controller import team_router, catalogs_router
+from app.controller.dt_controller import dt_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -23,3 +24,4 @@ api_router.include_router(planned_substitution_router)
 api_router.include_router(club_router)
 api_router.include_router(team_router)
 api_router.include_router(catalogs_router)
+api_router.include_router(dt_router)

@@ -1,12 +1,14 @@
-import hashlib
 import json
 import sys
 from dataclasses import asdict
 
 from primitives.behaviour_api.context import snapshot_from_dict
-from primitives.behaviour_api.registry import API_VERSION
-from primitives.behaviour_api.validation import ExecutionError, _restrict_worker, execute_once, execution_diagnostic, \
-    validate_static
+from primitives.behaviour_api.registry import API_VERSION, program_key
+from primitives.behaviour_api.validation import (
+    ExecutionError, _restrict_worker, execute_dt_once, execute_once,
+    execution_diagnostic, validate_static,
+)
+from primitives.dt_behaviour import DtObservation
 
 MAX_MESSAGE = 512 * 1024
 MAX_PROGRAMS = 6
@@ -55,13 +57,13 @@ def main() -> None:
 
             if operation == "load":
                 source = request["source"]
-
-                expected = hashlib.sha256(f"{API_VERSION}\0{source}".encode("utf-8")).hexdigest()
+                kind = request.get("kind", "PLAYER")
+                expected = program_key(source, kind)
 
                 if key != expected:
                     raise ValueError("Identificador de programa inválido.")
 
-                diagnostics = validate_static(source)
+                diagnostics = validate_static(source, kind)
 
                 if diagnostics:
                     response.update(code="INVALID_PROGRAM", diagnostics=diagnostics,)
@@ -71,11 +73,7 @@ def main() -> None:
                         raise ValueError("Se superó el límite de programas.")
 
                     if key not in programs:
-                        programs[key] = compile(
-                            source,
-                            "<behaviour>",
-                            "exec",
-                        )
+                        programs[key] = (kind, compile(source, "<behaviour>", "exec"))
 
                     response["ok"] = True
 
@@ -84,8 +82,11 @@ def main() -> None:
                 response["ok"] = True
 
             elif operation == "decide":
+                kind, program = programs[key]
+                if kind != "PLAYER":
+                    raise ValueError("El programa no corresponde a un jugador.")
                 command = execute_once(
-                    programs[key],
+                    program,
                     snapshot_from_dict(request["snapshot"]),
                     request["player_id"],
                 )
@@ -95,6 +96,15 @@ def main() -> None:
                     command=asdict(command),
                 )
 
+            elif operation == "decide_dt":
+                kind, program = programs[key]
+                if kind != "DT":
+                    raise ValueError("El programa no corresponde a un DT.")
+                obs_data = request["observation"]
+                obs = DtObservation(**obs_data)
+
+                action = execute_dt_once(program, obs)
+                response.update(ok=True, action=asdict(action))
             else:
                 raise ValueError("Operación desconocida.")
 

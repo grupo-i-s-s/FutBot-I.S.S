@@ -82,7 +82,10 @@ export function validateSnapshot(snapshot, matchId) {
         && field.goalWidth < field.height
         && Array.isArray(teams) && teams.length >= 1 && teams.length <= 2
         && teams.every((team) => integer(team.id) && team.id > 0 && typeof team.name === 'string'
-            && ['LEFT', 'RIGHT'].includes(team.side) && integer(team.score))
+            && ['LEFT', 'RIGHT'].includes(team.side) && integer(team.score)
+            && (team.dtActive === undefined || typeof team.dtActive === 'boolean')
+            && (team.dtConfigured === undefined || typeof team.dtConfigured === 'boolean')
+            && (team.dtError == null || typeof team.dtError === 'string'))
         && new Set(teams.map((team) => team.id)).size === teams.length
         && new Set(teams.map((team) => team.side)).size === teams.length
         && Array.isArray(players) && new Set(players.map((player) => player?.id)).size === players.length
