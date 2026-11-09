@@ -122,9 +122,11 @@ def list_for_club(db: Session, club_id: int):
         select(Matches, creator.name, visitor.name)
         .join(creator, creator.id == Matches.creator_id)
         .outerjoin(visitor, visitor.id == Matches.visitor_id)
-        .where(or_(Matches.creator_id == club_id, Matches.visitor_id == club_id),
+        .where(
+            or_(Matches.creator_id == club_id, Matches.visitor_id == club_id),
             Matches.creator_id != 999,
-            Matches.visitor_id != 999,)
+            or_(Matches.visitor_id.is_(None), Matches.visitor_id != 999),
+            )
         .order_by(Matches.init_date.desc(), Matches.match_id.desc())
     ).all()
 

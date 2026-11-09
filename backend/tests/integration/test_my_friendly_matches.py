@@ -1,3 +1,5 @@
+from urllib import response
+
 import pytest
 from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
@@ -8,27 +10,36 @@ from app.config import settings
 from app.database import engine, get_db
 from app.main import app
 from app.models.matches_model import Matches
+from app.services import auth_service
 
 
 @pytest.fixture
-def match_accounts():
-    # Los commits de la API liberan savepoints; el rollback final conserva la BD.
-    # No iniciamos el lifespan: este flujo HTTP no necesita ejecutar el scheduler.
+def match_accounts(monkeypatch):
+    verification_codes = {}
+    monkeypatch.setattr(
+        auth_service.email_service,
+        "send_verification_code",
+        lambda email, code: verification_codes.__setitem__(email, code),
+    )
+
     with engine.connect() as connection:
         transaction = connection.begin()
         with Session(bind=connection, join_transaction_mode="create_savepoint") as db:
             app.dependency_overrides[get_db] = lambda: db
             clients = []
+
             try:
                 accounts = []
                 prefix = uuid4().hex[:10]
+
                 for label in ("creator", "visitor", "outsider"):
                     client = TestClient(app)
                     clients.append(client)
                     client.headers.update({
                         "Origin": next(iter(settings.allowed_origins)),
-                        "X-FutBot-Request": "1",
+                        "X-Futbot-Request": "1",
                     })
+
                     credentials = {
                         "email": f"{prefix}_{label}@example.com",
                         "password": "friendly-match-password",
@@ -38,8 +49,17 @@ def match_accounts():
                         "passwordConfirmation": credentials["password"],
                         "clubName": f"{prefix} {label}",
                     })
-                    assert response.status_code == 201, response.text
-                    assert client.post("/auth/login", json=credentials).status_code == 200
+                    assert response.status_code == 202, response.text
+
+                    verification = client.post("/auth/verify-email", json={
+                        "email": credentials["email"],
+                        "code": verification_codes[credentials["email"]],
+                    })
+                    assert verification.status_code == 200, verification.text
+
+                    login = client.post("/auth/login", json=credentials)
+                    assert login.status_code == 200, login.text
+
                     club = client.get("/club/me").json()
                     availability = client.patch("/club/me", json={
                         "name": club["name"],
@@ -47,12 +67,15 @@ def match_accounts():
                         "friendlyAvailable": True,
                     })
                     assert availability.status_code == 200, availability.text
-                    accounts.append((client, response.json()["clubId"]))
+
+                    accounts.append((client, verification.json()["clubId"]))
+
                 yield db, accounts
             finally:
                 for client in clients:
                     client.close()
                 app.dependency_overrides.clear()
+
         transaction.rollback()
 
 
@@ -60,8 +83,8 @@ def test_creator_can_recover_match_but_cannot_join_it(match_accounts):
     db, accounts = match_accounts
     (creator, creator_id), (visitor, _), (outsider, _) = accounts
     start = datetime.now(timezone.utc) + timedelta(hours=1)
-    response = creator.post("/friendly-matches", json={"startDateTime": start.isoformat()})
-    assert response.status_code == 201
+    response = creator.post("/friendly-matches",json={"startDateTime": start.isoformat()},)
+    assert response.status_code == 201, response.text
     match_id = response.json()["matchId"]
 
     own = creator.get("/friendly-matches/me").json()
