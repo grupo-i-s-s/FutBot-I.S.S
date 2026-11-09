@@ -3,6 +3,41 @@ export const isTerminal = (snapshot) => ['FINISHED', 'CANCELLED'].includes(snaps
 const integer = (value) => Number.isSafeInteger(value) && value >= 0;
 const positive = (value) => Number.isFinite(value) && value > 0;
 const entity = (value) => value && Number.isFinite(value.x) && Number.isFinite(value.y) && positive(value.radius);
+export const isPaused = (state) =>
+    state?.status === 'RUNNING'
+    && ['HYDRATION_BREAK', 'HALF_BREAK'].includes(state.phase);
+
+function validBreakState(state) {
+    if (!state || typeof state !== 'object') return false;
+
+    const fields = ['phase', 'breakIndex', 'breakRemainingMs'];
+    const hasBreakFields = fields.some((field) =>
+        Object.hasOwn(state, field)
+    );
+
+    if (!hasBreakFields) return true;
+
+    if (!fields.every((field) => Object.hasOwn(state, field))) {
+        return false;
+    }
+
+    if (!integer(state.breakRemainingMs)) return false;
+
+    if (state.phase === 'PLAYING') {
+        return state.breakIndex === null
+            && state.breakRemainingMs === 0;
+    }
+
+    if (!isPaused(state) || state.breakRemainingMs <= 0) {
+        return false;
+    }
+
+    if (state.phase === 'HALF_BREAK') {
+        return state.breakIndex === 2;
+    }
+
+    return state.breakIndex === 1 || state.breakIndex === 3;
+}
 
 // HTTP y WebSocket comparten contrato. Validar antes de dibujar evita mezclar
 // partidos o interpretar una versión incompatible como posiciones válidas.
@@ -15,6 +50,7 @@ export function validateSnapshot(snapshot, matchId) {
         && snapshot.matchId === matchId && integer(snapshot.sequence)
         && typeof snapshot.sentAt === 'string'
         && ['WAITING', 'RUNNING', 'FINISHED', 'CANCELLED'].includes(state?.status)
+        && validBreakState(state)
         && integer(state.clockMs) && integer(state.durationMs) && state.durationMs > 0
         && state.clockMs <= state.durationMs
         && positive(field?.width) && positive(field?.height) && positive(field?.goalWidth)

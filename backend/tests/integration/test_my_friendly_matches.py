@@ -37,10 +37,16 @@ def match_accounts():
                         **credentials,
                         "passwordConfirmation": credentials["password"],
                         "clubName": f"{prefix} {label}",
-                        "avatar": "avatar-1",
                     })
                     assert response.status_code == 201, response.text
                     assert client.post("/auth/login", json=credentials).status_code == 200
+                    club = client.get("/club/me").json()
+                    availability = client.patch("/club/me", json={
+                        "name": club["name"],
+                        "avatar": club["avatar"],
+                        "friendlyAvailable": True,
+                    })
+                    assert availability.status_code == 200, availability.text
                     accounts.append((client, response.json()["clubId"]))
                 yield db, accounts
             finally:

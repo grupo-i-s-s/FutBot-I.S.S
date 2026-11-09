@@ -1,0 +1,15 @@
+services:
+  test-db:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_USER: futbot_test
+      POSTGRES_PASSWORD: futbot_test
+      POSTGRES_DB: futbot_test
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U futbot_test -d futbot_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      

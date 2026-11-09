@@ -7,6 +7,7 @@ from app.database import SessionLocal
 from app.errors import AppError
 from app.repository import matches_repository
 from app.services.match_execution_service import run_persisted_match
+from app.services.league_execution_service import get_due_league_match_ids
 
 logger = logging.getLogger(__name__)
 CHECK_INTERVAL_SECONDS = 1
@@ -14,7 +15,9 @@ CHECK_INTERVAL_SECONDS = 1
 
 def _get_due_match_ids() -> list[int]:
     with SessionLocal() as db:
-        return matches_repository.get_due_match_ids(db, datetime.now(timezone.utc))
+        now = datetime.now(timezone.utc)
+        league_matches = get_due_league_match_ids(db, now)
+        return league_matches + matches_repository.get_due_match_ids(db, now)
 
 
 def _run_match(match_id: int, stop_event: Event) -> None:

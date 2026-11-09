@@ -83,7 +83,7 @@ def test_create_player_rolls_back_on_error(monkeypatch):
 def test_assign_behaviour_updates_player_in_own_club(monkeypatch):
     db = MagicMock()
     player = MagicMock(id=11, club_id=3)
-    behaviour = MagicMock(id=7, club_id=3)
+    behaviour = MagicMock(id=7, club_id=3, kind="PLAYER", validation_status="VALID")
     get_player = MagicMock(return_value=player)
     get_behaviour = MagicMock(return_value=behaviour)
     set_behaviour = MagicMock()
@@ -134,7 +134,7 @@ def test_assign_behaviour_rolls_back_failed_write(monkeypatch):
         player_service.player_repository, "get_player_by_id", MagicMock(return_value=MagicMock(id=11))
     )
     monkeypatch.setattr(
-        player_service.behaviour_repository, "get_behaviour_by_id", MagicMock(return_value=MagicMock(id=7))
+        player_service.behaviour_repository, "get_behaviour_by_id", MagicMock(return_value=MagicMock(id=7, kind="PLAYER", validation_status="VALID"))
     )
     monkeypatch.setattr(
         player_service.player_repository,
@@ -149,12 +149,24 @@ def test_assign_behaviour_rolls_back_failed_write(monkeypatch):
     db.commit.assert_not_called()
 
 
-def test_player_listing_is_scoped_to_authenticated_club(db, monkeypatch):
-    players = [object()]
-    get_players = MagicMock(return_value=players)
-    monkeypatch.setattr(player_service.player_repository, "get_players_by_club", get_players)
-    assert player_service.get_players(db, 7) is players
-    get_players.assert_called_once_with(db, 7)
+def test_player_listing_is_scoped_to_authenticated_club(db):
+    players = [object(), object()]
+    query = db.query.return_value
+    filtered = query.filter.return_value
+    filtered.count.return_value = 12
+    paginated = filtered.order_by.return_value.offset.return_value.limit.return_value
+    paginated.all.return_value = players
+
+    result, total = player_service.get_players(db, 7, page=2, limit=10)
+
+    assert result is players
+    assert total == 12
+    db.query.assert_called_once_with(Player)
+    conditions = query.filter.call_args.args
+    assert any(condition.compare(Player.club_id == 7) for condition in conditions)
+    assert any(condition.compare(Player.is_deleted.is_(False)) for condition in conditions)
+    filtered.order_by.return_value.offset.assert_called_once_with(10)
+    filtered.order_by.return_value.offset.return_value.limit.assert_called_once_with(10)
     db.commit.assert_not_called()
 
 
@@ -168,7 +180,7 @@ def test_player_write_commit_failure_rolls_back(db, monkeypatch, operation):
             player_service.behaviour_repository.get_default_behaviour.return_value = MagicMock(id=7)
             player_service.create_player(db, 7, valid_payload())
         else:
-            player_service.behaviour_repository.get_behaviour_by_id.return_value = MagicMock(id=7)
+            player_service.behaviour_repository.get_behaviour_by_id.return_value = MagicMock(id=7, kind="PLAYER", validation_status="VALID")
             player_service.assign_behaviour(db, 7, 11, 7)
     db.rollback.assert_called_once()
     db.refresh.assert_not_called()

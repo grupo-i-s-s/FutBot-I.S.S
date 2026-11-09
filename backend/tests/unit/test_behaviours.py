@@ -37,7 +37,9 @@ def test_chaser_approaches_ball_from_attacking_side(goal, home, expected):
 
 
 @pytest.mark.parametrize("goal, home", [((100, 30), (30, 30)), ((0, 30), (70, 30))])
-def test_shots_aim_off_center_and_inside_opponent_goal(goal, home):
+@pytest.mark.parametrize("offset", [-12, 0, 12])
+def test_shots_aim_towards_opponent_goal_with_random_offset(goal, home, offset, monkeypatch):
+    monkeypatch.setattr("primitives.behaviours.random.uniform", lambda *_: offset)
     observation = Observation(
         player_position=(48, 30), ball_position=(50, 30), home_position=home,
         opponent_goal=goal, is_closest_teammate=True,
@@ -46,7 +48,7 @@ def test_shots_aim_off_center_and_inside_opponent_goal(goal, home):
     for mode in BehaviourMode:
         x, y = decide(mode, observation).kick_target
         assert x == goal[0]
-        assert 22.5 < y < 37.5 and y != 30
+        assert y == goal[1] + offset
 
 
 def test_program_code_determines_behaviour_even_when_name_changes():

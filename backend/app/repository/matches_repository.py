@@ -36,6 +36,14 @@ def get_club_names(db: Session, club_ids: tuple[int, ...]) -> dict[int, str]:
     )
 
 
+def get_club_avatars(db: Session, club_ids: tuple[int, ...]) -> dict[int, str]:
+    return dict(
+        db.execute(
+            select(Club.id, Club.avatar).where(Club.id.in_(club_ids))
+        ).all()
+    )
+
+
 def get_by_id(db: Session, match_id: int) -> Matches | None:
     return db.get(Matches, match_id)
 
@@ -97,6 +105,7 @@ def list_available(db: Session, club_id: int, now: datetime):
         select(Matches, Club.name)
         .join(Club, Club.id == Matches.creator_id)
         .where(
+            Club.friendly_available.is_(True),
             Matches.visitor_id.is_(None),
             Matches.creator_id != club_id,
             Matches.init_date > now,
@@ -113,7 +122,9 @@ def list_for_club(db: Session, club_id: int):
         select(Matches, creator.name, visitor.name)
         .join(creator, creator.id == Matches.creator_id)
         .outerjoin(visitor, visitor.id == Matches.visitor_id)
-        .where(or_(Matches.creator_id == club_id, Matches.visitor_id == club_id))
+        .where(or_(Matches.creator_id == club_id, Matches.visitor_id == club_id),
+            Matches.creator_id != 999,
+            Matches.visitor_id != 999,)
         .order_by(Matches.init_date.desc(), Matches.match_id.desc())
     ).all()
 
@@ -123,6 +134,7 @@ def get_due_match_ids(db: Session, now: datetime) -> list[int]:
         db.scalars(
             select(Matches.match_id)
             .where(
+                Matches.league_round_id.is_(None),
                 Matches.init_date <= now,
                 Matches.status.in_(("WAITING", "WAITING_OPPONENT", "SCHEDULED", "RUNNING")),
             )
@@ -142,12 +154,10 @@ def get_clubs_for_update(db: Session, club_ids: tuple[int, ...]) -> list[Club]:
         ).all()
     )
 
-
-def clubs_have_running_match(db: Session, club_ids: tuple[int, ...], match_id: int) -> bool:
-    running_match_id = db.scalar(
+def clubs_have_running_match(db: Session, club_ids: tuple[int, ...], match_id: int | None = None) -> bool:
+    query = (
         select(Matches.match_id)
         .where(
-            Matches.match_id != match_id,
             Matches.status == "RUNNING",
             or_(
                 Matches.creator_id.in_(club_ids),
@@ -156,4 +166,23 @@ def clubs_have_running_match(db: Session, club_ids: tuple[int, ...], match_id: i
         )
         .limit(1)
     )
-    return running_match_id is not None
+    if match_id is not None:
+        query = query.where(Matches.match_id != match_id)
+    return db.scalar(query) is not None
+
+def get_active_test_match(db: Session, club_id: int, bot_club_id: int) -> Matches | None:
+    return db.scalar(
+        select(Matches)
+        .where(
+            Matches.creator_id == club_id,
+            Matches.visitor_id == bot_club_id,
+            Matches.league_round_id.is_(None),
+            Matches.status.in_(
+                ("WAITING", "WAITING_OPPONENT", "SCHEDULED", "RUNNING")
+            ),
+        )
+        .order_by(Matches.match_id)
+        .limit(1)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )

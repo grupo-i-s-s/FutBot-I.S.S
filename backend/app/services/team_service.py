@@ -3,15 +3,26 @@ from sqlalchemy.orm import Session
 from app.errors import AppError
 from app.repository import (behaviour_repository, player_repository, team_repository)
 from app.schemas.team_schemas import DefaultTeamRead, Lineup
-
-FORMATIONS = {1: "Formación 1"}
+from primitives.formations import FORMATIONS
 
 
 def get_formations() -> dict:
     return {
         "items": [
-            {"id": formation_id, "name": name}
-            for formation_id, name in FORMATIONS.items()
+            {
+                "id": formation.id,
+                "name": formation.name,
+                "description": formation.description,
+                "slots": [
+                    {"label": label, "x": x, "y": y}
+                    for label, (x, y) in zip(
+                        formation.labels,
+                        formation.positions,
+                        strict=True,
+                    )
+                ],
+            }
+            for formation in FORMATIONS.values()
         ]
     }
 
@@ -30,6 +41,8 @@ def get_default_team(db: Session, club_id: int) -> DefaultTeamRead:
 
 def update_default_team(db: Session, club_id: int, data: Lineup) -> DefaultTeamRead:
     try:
+        behaviour_repository.lock_club(db, club_id)
+        
         if data.formation_id not in FORMATIONS:
             raise AppError(
                 "VALIDATION_ERROR",
@@ -41,7 +54,9 @@ def update_default_team(db: Session, club_id: int, data: Lineup) -> DefaultTeamR
         behaviours = behaviour_repository.get_all_behaviours(db, club_id)
 
         player_ids = {player.id for player in players}
-        behaviour_ids = {behaviour.id for behaviour in behaviours}
+        behaviour_ids = {behaviour.id for behaviour in behaviours
+                          if behaviour.kind == "PLAYER" 
+                          and behaviour.validation_status=="VALID"}
 
         for group_name, group in (
                 ("starters", data.starters),

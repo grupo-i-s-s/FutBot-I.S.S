@@ -1,11 +1,11 @@
 BEGIN;
 
 ALTER TABLE matches
-    ADD COLUMN cancellation_reason VARCHAR(64);
+    ADD COLUMN IF NOT EXISTS cancellation_reason VARCHAR(64);
 
 ALTER TABLE matches
-DROP
-CONSTRAINT ck_matches_status;
+    DROP CONSTRAINT IF EXISTS ck_matches_status,
+    DROP CONSTRAINT IF EXISTS ck_matches_cancellation_reason;
 
 ALTER TABLE matches
     ADD CONSTRAINT ck_matches_status CHECK (
