@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.errors import AppError
-from app.schemas.auth_schemas import ChangePasswordRequest, LoginRequest, RegisterRequest
+from app.schemas.auth_schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, VerifyEmailRequest, ResendVerificationRequest
 from app.services import auth_service as service
 
 
@@ -13,14 +13,14 @@ def auth(monkeypatch, now):
     mocks = SimpleNamespace(
         users=Mock(), sessions=Mock(), behaviours=Mock(), players=Mock(), teams=Mock(),
         hash_password=Mock(return_value="encoded-password"),
-        verify=Mock(return_value=True), hash_token=Mock(return_value="hashed-token"),
-    )
+        verify=Mock(return_value=True), hash_token=Mock(return_value="hashed-token"), pending=Mock(), email=Mock())
     for name, value in {
         "user_repository": mocks.users, "session_repository": mocks.sessions,
         "behaviour_repository": mocks.behaviours, "player_repository": mocks.players,
         "team_repository": mocks.teams, "hash_password": mocks.hash_password,
         "verify_password": mocks.verify, "hash_session_token": mocks.hash_token,
         "new_session_token": Mock(return_value="t" * 43), "utc_now": Mock(return_value=now),
+        "pending_email_verification_repository": mocks.pending, "email_service": mocks.email, "new_email_verification_code": Mock(return_value="004281"),
     }.items():
         monkeypatch.setattr(service, name, value)
     mocks.users.get_by_email.return_value = SimpleNamespace(
@@ -46,70 +46,120 @@ def registration(auth):
         "passwordConfirmation": "safe-password", "clubName": "My club",
     })
 
+def test_registration_creates_pending_request_and_sends_code(db, auth, registration, now):
+    auth.pending.get_by_email.return_value = None
 
-def test_registration_saves_complete_default_team_before_confirming(db, auth, registration):
-    def before_commit():
-        auth.users.create_club.assert_called_once_with(
-            db, user_id=1, name="my club", avatar="avatar-01.png",
-        )
-        auth.teams.save.assert_called_once_with(db, 7, {
-            "formationId": 1,
-            "starters": [{"playerId": i, "behaviourId": 10 + (i - 1) // 2} for i in (1, 2, 3)],
-            "substitutes": [{"playerId": i, "behaviourId": 10 + (i - 1) // 2} for i in (4, 5, 6)],
-        })
-
-    db.commit.side_effect = before_commit
     result = service.register(db, registration)
-    assert (result.id, result.email, result.club_id) == (1, "user@example.com", 7)
-    auth.users.create_user.assert_called_once_with(db, email="user@example.com", password_hash="encoded-password")
-    auth.players.create_default_players.assert_called_once_with(
-        db, 7, auth.behaviours.create_default_behaviours.return_value,
+
+    assert result == {
+        "message": "Se envio código para verificar tu correo."
+    }
+    auth.pending.create.assert_called_once()
+    values = auth.pending.create.call_args.kwargs
+    assert values["email"] == "user@example.com"
+    assert values["password_hash"] == "encoded-password"
+    assert values["code_hash"] == "encoded-password"
+    assert values["expires_at"] == now + timedelta(minutes=10)
+    auth.email.send_verification_code.assert_called_once_with(
+        "user@example.com", "004281"
     )
-    db.commit.assert_called_once()
-    db.rollback.assert_not_called()
-
-
-def test_registration_rejects_existing_email_before_creating_entities(db, auth, registration):
-    auth.users.get_by_email.return_value = SimpleNamespace(id=2)
-    with pytest.raises(AppError) as error:
-        service.register(db, registration)
-    assert error.value.code == "ACCOUNT_DUPLICATE"
-    assert "email" in error.value.fields
     auth.users.create_user.assert_not_called()
-    db.commit.assert_not_called()
+    db.commit.assert_called_once()
 
 
-@pytest.mark.parametrize("constraint,field", [("uq_users_email", "email"), ("clubs_name_key", "clubName")])
-def test_registration_translates_duplicate_write_failures(db, auth, registration, integrity_error, constraint, field):
-    auth.users.create_club.side_effect = integrity_error(constraint)
+def test_registration_rejects_existing_account_without_sending_email(db, auth, registration):
+    auth.users.get_by_email.return_value = SimpleNamespace(id=2)
+
     with pytest.raises(AppError) as error:
         service.register(db, registration)
+
     assert error.value.code == "ACCOUNT_DUPLICATE"
-    assert field in error.value.fields
+    auth.pending.create.assert_not_called()
+    auth.email.send_verification_code.assert_not_called()
     db.rollback.assert_called_once()
+
+def test_registration_rejects_existing_pending_verification(db, auth, registration, now):
+    auth.pending.get_by_email.return_value = SimpleNamespace(expires_at=now + timedelta(minutes=5),)
+
+    with pytest.raises(AppError) as error:
+        service.register(db, registration)
+
+    assert error.value.code == "EMAIL_VERIFICATION_PENDING"
+    auth.pending.create.assert_not_called()
+    auth.pending.delete_by_email.assert_not_called()
+    auth.email.send_verification_code.assert_not_called()
     db.commit.assert_not_called()
-
-
-@pytest.mark.parametrize("step", ["players", "teams", "commit"])
-def test_registration_failure_does_not_confirm_partial_account(db, auth, registration, step):
-    failure = RuntimeError("simulated failure")
-    target = {"players": auth.players.create_default_players, "teams": auth.teams.save, "commit": db.commit}[step]
-    target.side_effect = failure
-    with pytest.raises(RuntimeError) as error:
-        service.register(db, registration)
-    assert error.value is failure
     db.rollback.assert_called_once()
-    if step != "commit":
-        db.commit.assert_not_called()
+
+def test_registration_replaces_expired_pending_verification(db, auth, registration, now):
+    auth.pending.get_by_email.return_value = SimpleNamespace(
+        expires_at=now - timedelta(seconds=1),
+    )
+
+    service.register(db, registration)
+
+    auth.pending.delete_by_email.assert_called_once_with(
+        db, "user@example.com"
+    )
+    auth.pending.create.assert_called_once()
+    values = auth.pending.create.call_args.kwargs
+    assert values["email"] == "user@example.com"
+    assert values["created_at"] == now
+    assert values["expires_at"] == now + timedelta(minutes=10)
+    assert values["last_sent_at"] == now
+    assert values["resend_window_started_at"] == now
+
+    auth.hash_password.assert_any_call("004281")
+    auth.email.send_verification_code.assert_called_once_with("user@example.com", "004281")
+    auth.users.create_user.assert_not_called()
+    db.commit.assert_called_once()
+
+def test_verify_email_creates_account_and_deletes_pending_request(db, auth, registration, now):
+    pending = SimpleNamespace(
+        expires_at=now + timedelta(minutes=10),
+        code_hash="stored-code-hash",
+        password_hash="stored-password-hash",
+        club_name="my club",
+    )
+    auth.pending.get_by_email.return_value = pending
+
+    result = service.verify_email(
+        db,
+        VerifyEmailRequest(email="user@example.com", code="004281"),
+    )
+
+    assert result.email == "user@example.com"
+    auth.verify.assert_called_once_with("004281", "stored-code-hash")
+    auth.users.create_user.assert_called_once_with(
+        db,
+        email="user@example.com",
+        password_hash="stored-password-hash",
+    )
+    auth.pending.delete_by_email.assert_called_once_with(db, "user@example.com")
+    db.commit.assert_called_once()
 
 
-def test_registration_preserves_unrecognized_integrity_error(db, auth, registration, integrity_error):
-    failure = integrity_error("other_constraint")
-    auth.users.create_club.side_effect = failure
-    with pytest.raises(type(failure)) as error:
-        service.register(db, registration)
-    assert error.value is failure
-    db.rollback.assert_called_once()
+def test_verify_email_rejects_wrong_code_and_counts_attempt(db, auth, registration, now):
+    pending = SimpleNamespace(
+        expires_at=now + timedelta(minutes=10),
+        code_hash="stored-code-hash",
+        password_hash="stored-password-hash",
+        club_name="my club",
+    )
+    auth.pending.get_by_email.return_value = pending
+    auth.verify.return_value = False
+    auth.pending.increment_attempts.return_value = 1
+
+    with pytest.raises(AppError) as error:
+        service.verify_email(
+            db,
+            VerifyEmailRequest(email="user@example.com", code="000000"),
+        )
+
+    assert error.value.code == "EMAIL_VERIFICATION_INVALID"
+    auth.pending.increment_attempts.assert_called_once_with(db, pending)
+    auth.users.create_user.assert_not_called()
+    db.commit.assert_called_once()
 
 
 @pytest.mark.parametrize("previous", [None, "previous-token"])
@@ -244,3 +294,68 @@ def test_session_write_commit_failures_are_rolled_back(db, auth, operation):
                 oldPassword="old-password", newPassword="new-password"))
     assert error.value is failure
     db.rollback.assert_called_once()
+
+def test_resend_verification_rejects_before_60_seconds(db, auth, now):
+    pending = SimpleNamespace(
+        expires_at=now + timedelta(minutes=10),
+        last_sent_at=now - timedelta(seconds=59),
+        resend_window_started_at=now - timedelta(minutes=10),
+        resend_count=1,
+    )
+    auth.pending.get_by_email.return_value = pending
+
+    with pytest.raises(AppError) as error:
+        service.resend_verification(
+            db, ResendVerificationRequest(email="user@example.com")
+        )
+
+    assert error.value.code == "EMAIL_VERIFICATION_RESEND_LIMIT"
+    auth.pending.update_for_resend.assert_not_called()
+    auth.email.send_verification_code.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
+def test_resend_verification_rejects_after_five_resends_within_hour(db, auth, now):
+    pending = SimpleNamespace(
+        expires_at=now + timedelta(minutes=10),
+        last_sent_at=now - timedelta(seconds=61),
+        resend_window_started_at=now - timedelta(minutes=30),
+        resend_count=5,
+    )
+    auth.pending.get_by_email.return_value = pending
+
+    with pytest.raises(AppError) as error:
+        service.resend_verification(
+            db, ResendVerificationRequest(email="user@example.com")
+        )
+
+    assert error.value.code == "EMAIL_VERIFICATION_RESEND_LIMIT"
+    auth.pending.update_for_resend.assert_not_called()
+    auth.email.send_verification_code.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
+def test_resend_verification_resets_expired_hourly_window(db, auth, now):
+    pending = SimpleNamespace(
+        expires_at=now + timedelta(minutes=10),
+        last_sent_at=now - timedelta(seconds=61),
+        resend_window_started_at=now - timedelta(hours=1, seconds=1),
+        resend_count=5,
+    )
+    auth.pending.get_by_email.return_value = pending
+
+    result = service.resend_verification(
+        db, ResendVerificationRequest(email="user@example.com")
+    )
+
+    assert result == {
+        "message": "Si existe una verificación pendiente, se envió un nuevo código."
+    }
+    values = auth.pending.update_for_resend.call_args.kwargs
+    assert values["resend_window_started_at"] == now
+    assert values["resend_count"] == 1
+    auth.email.send_verification_code.assert_called_once_with(
+        "user@example.com", "004281"
+    )
+    db.commit.assert_called_once()
+    db.rollback.assert_not_called()

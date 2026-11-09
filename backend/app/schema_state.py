@@ -1,4 +1,4 @@
-from app.models.auth_model import AuthSession, Club, User
+from app.models.auth_model import AuthSession, Club, User, PendingEmailVerification
 from app.models.behaviour_model import Behavior
 from app.models.league_model import League, LeagueRegistration, LeagueRound, LeagueStanding
 from app.models.matches_model import Matches
@@ -12,6 +12,7 @@ REQUIRED_COLUMNS = {
     for model in (
         User, Club, AuthSession, Behavior, Player, League, LeagueRegistration,
         LeagueRound, LeagueStanding, DefaultTeam, Matches, PlannedSubstitution,
+        PendingEmailVerification,
     )
 }
 

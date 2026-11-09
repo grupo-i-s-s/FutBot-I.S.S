@@ -9,7 +9,7 @@ from app import migrate
 
 
 APPLICATION_TABLES = {
-    "users", "clubs", "auth_sessions", "behaviors", "players", "leagues",
+    "users", "clubs", "auth_sessions", "pending_email_verifications","behaviors", "players", "leagues",
     "league_registrations", "league_rounds", "league_standings", "matches", "default_teams",
     "planned_substitutions",
 }
@@ -111,7 +111,8 @@ def test_history_without_any_application_tables_is_rebuilt(migration_database):
         repaired_history = history(connection)
         assert [row[0] for row in repaired_history] == [path.name for path in files]
         assert repaired_history != original_history
-        assert connection.execute("SELECT count(*) FROM users").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM users WHERE email = %s",("oponente-prueba@local.invalid",)).fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM users WHERE email <> %s",("oponente-prueba@local.invalid",)).fetchone()[0] == 0
 
 
 def test_history_with_an_unrelated_table_is_not_automatically_reset(migration_database):

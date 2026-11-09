@@ -209,10 +209,12 @@ def leave_league(db: Session, league_id: int, club_id: int) -> dict:
         )
 
     if league.creator_club_id == club_id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No es posible que un jugador creador abandone su propia liga",
-        )
+        league_repository.delete_league(db, league)
+        db.commit()
+        return {
+            "message": "Has eliminado la liga exitosamente.",
+            "league_id": league_id,
+        }
 
     if league.status != "open":
         raise HTTPException(

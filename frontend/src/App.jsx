@@ -11,6 +11,7 @@ import CreatePlayerPage from './features/create-players/CreatePlayersPage.jsx';
 import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx';
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx';
 import { LeagueLobby } from './features/lobby-league/CreateLeagueLobby.jsx';
+import CancelledLeague from './features/lobby-league/CancelledLeague.jsx';
 import ChangePasswordPage from './features/change-password/ChangePasswordPage.jsx';
 import InscripcionLigaPage from './features/inscripcion-liga/InscripcionLigaPage.jsx';
 import BehaviourDetailPage from './features/behaviours/BehaviourDetailPage.jsx';
@@ -18,10 +19,13 @@ import CreateBehaviourPage from './features/create-behaviour/CreateBehaviourPage
 import BehaviourList from './features/behaviours/components/BehaviourList.jsx';
 import LeagueListPage from './features/list-leagues/LeagueListPage.jsx';
 import NavBar from './features/nav-bar/navBar.jsx';
+import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
+import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
+import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
 
 export default function App() {
     const { pathname } = useLocation();
-    const mostrarNavBar = !['/', '/home', '/login', '/registro'].includes(pathname);
+    const mostrarNavBar = !['/', '/home', '/login', '/registro', '/verificar-email'].includes(pathname);
 
     return (
         <>
@@ -40,6 +44,7 @@ export default function App() {
                 <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
                 <Route path="/behaviours/:behaviourId" element={<BehaviourDetailPage />} />
                 <Route path="/ligas-disponibles" element={<LeagueListPage />} />
+                <Route path="/liga-cancelada" element={<CancelledLeague />} />
                 <Route path="/inscripcion-liga" element={<InscripcionLigaPage />} />
                 <Route path="/leagues/:id/join" element={<InscripcionLigaPage />} />
                 <Route path="/crear-liga" element={<CrearLiga />} />
@@ -47,7 +52,10 @@ export default function App() {
                 <Route path="/leagues/:id/lobby" element={<LeagueLobby />} />
                 <Route path="/behaviours" element={<BehaviourList />} />
                 <Route path="/crear-comportamiento" element={<CreateBehaviourPage />} />
+                <Route path="/verificar-email" element={<VerifyEmailPage />} />
+                <Route path="/clubes" element={<ClubsListPage />} />
                 <Route path="*" element={<NotFoundPage />} />
+                <Route path="/club/:clubId" element={<ClubProfilePage />} />
             </Routes>
         </>
     );
