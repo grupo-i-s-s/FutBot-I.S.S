@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
-import {act, cleanup, fireEvent, render, screen} from '@testing-library/react';
+import {act, cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router';
 import MatchesPage from './Matches.jsx';
 import MatchPage from './MatchPage.jsx';
@@ -184,9 +184,30 @@ it('conserva el contexto desde la portada al listado y al volver del partido', a
     expect(screen.getByText('Página 2 · 41 amistosos')).toBeInTheDocument();
 });
 
-it('ofrece enlaces para crear un amistoso y abrir la pestaña de Mi club', async () => {
-    await show();
+const filteredMatches = '/partidos-disponibles?creatorName=River&page=2#amistosos';
 
-    expect(screen.getByRole('link', {name: 'Crear amistoso'})).toHaveAttribute('href', '/crear-partido');
+it.each([
+    {entry: filteredMatches, triggerRole: 'button', trigger: 'Crear amistoso'},
+    {entry: '/inicio?creatorName=River&page=2#amistosos', triggerRole: 'link', trigger: 'Crear Partido Amistoso'},
+])('cancela el formulario desde $entry sin perder el filtro ni la página del listado', async ({entry, triggerRole, trigger}) => {
+    await show(entry);
+
+    const create = screen.getByRole(triggerRole, {name: trigger});
+    if (triggerRole === 'link') expect(create).toHaveAttribute('href', filteredMatches);
+    await act(async () => fireEvent.click(create));
+    const dialog = within(screen.getByRole('dialog', {name: 'Crear amistoso'}));
+    expect(screen.getByTestId('url')).toHaveTextContent(filteredMatches);
+    fireEvent.change(dialog.getByLabelText('Fecha y hora de inicio'), {target: {value: '2040-06-12T20:00'}});
+    await act(async () => fireEvent.click(dialog.getByRole('button', {name: 'Cancelar'})));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('url')).toHaveTextContent(filteredMatches);
+    expect(screen.getByLabelText('Buscar por nombre del club')).toHaveValue('River');
+    expect(screen.getByText('Página 2 · 41 amistosos')).toBeInTheDocument();
     expect(screen.getByRole('link', {name: 'Mis amistosos'})).toHaveAttribute('href', '/mi-club?tab=amistosos');
+
+    await click('Crear amistoso');
+    const reopened = screen.getByRole('dialog', {name: 'Crear amistoso'});
+    expect(within(reopened).getByLabelText('Fecha y hora de inicio')).toHaveValue('');
+    await act(async () => fireEvent.keyDown(reopened, {key: 'Escape'}));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });

@@ -8,7 +8,6 @@ import MatchesPage from './features/friendly-matches/Matches.jsx';
 import MatchPage from './features/friendly-matches/MatchPage.jsx';
 import MyClubPage from './features/my-club/MyClubPage.jsx';
 import NotFoundPage from './features/not-found/NotFoundPage.jsx';
-import CreateFriendlyMatch from './features/friendly-matches/Create_friendly_match.jsx';
 import CreatePlayerPage from './features/create-players/CreatePlayersPage.jsx';
 import CrearLiga from './features/crear-liga/CreateLeaguePage.jsx';
 import CreatePrivateLeague from './features/crear-liga/CreatePrivateLeaguePage.jsx';
@@ -100,7 +99,7 @@ export default function App() {
                     <Route path={routes.home} element={<HomePage />} />
                     <Route path={routes.myClub} element={<MyClubPage />} />
                     <Route path={routes.friendlyMatches} element={<MatchesPage />} />
-                    <Route path={routes.createMatch} element={<CreateFriendlyMatch />} />
+                    <Route path="/crear-partido" element={<LegacyRedirect to={routes.friendlyMatches}/>} />
                     <Route path={routes.createPlayer} element={<CreatePlayerPage />} />
                     <Route path={routes.match} element={<MatchPage />} />
                     <Route path={routes.changePassword} element={<ChangePasswordPage />} />

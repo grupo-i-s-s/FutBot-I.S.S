@@ -32,7 +32,7 @@ it('muestra los accesos de Inicio sin buscador ni mensaje de lista vacía', asyn
     await act(async () => show(AvailableFriendlyMatches, []));
 
     expect(screen.getByRole('link', {name: 'Ver amistosos disponibles'})).toHaveAttribute('href', '/partidos-disponibles');
-    expect(screen.getByRole('link', {name: 'Crear Partido Amistoso'})).toHaveAttribute('href', '/crear-partido');
+    expect(screen.getByRole('link', {name: 'Crear Partido Amistoso'})).toHaveAttribute('href', '/partidos-disponibles');
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.queryByText('No hay partidos disponibles.')).not.toBeInTheDocument();

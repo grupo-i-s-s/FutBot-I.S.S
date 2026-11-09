@@ -1,5 +1,5 @@
-import {useState} from 'react';
-import {CalendarDays, CircleAlert, LogIn, Plus, RefreshCw, Swords} from 'lucide-react';
+import {useEffect, useState} from 'react';
+import {CalendarDays, CircleAlert, LogIn, RefreshCw, Swords} from 'lucide-react';
 import {Link, useLocation, useNavigate} from 'react-router';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import {Avatar, AvatarFallback} from '@/components/ui/avatar';
@@ -10,6 +10,7 @@ import {Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle} f
 import {Skeleton} from '@/components/ui/skeleton';
 import {routePath, routes} from '@/routes.js';
 import {joinFriendlyMatch} from './api.js';
+import CreateFriendlyMatchDialog from './components/CreateFriendlyMatchDialog.jsx';
 import FriendlyMatchSearch, {FriendlyMatchPagination} from './components/FriendlyMatchSearch.jsx';
 import {useFriendlyMatches} from './hooks/useFriendlyMatches.js';
 import {friendlyMatchError} from './scheduleConflict.js';
@@ -21,8 +22,17 @@ export default function MatchesPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const returnTo = location.pathname + location.search + location.hash;
+    const openCreateMatch = location.state?.openCreateMatch === true;
     const joining = joiningId !== null;
     const {items, total} = search.result;
+
+    useEffect(() => {
+        if (!openCreateMatch) return;
+
+        const state = {...location.state};
+        delete state.openCreateMatch;
+        navigate(returnTo, {replace: true, state});
+    }, [location.state, navigate, openCreateMatch, returnTo]);
 
     async function handleJoinMatch(matchId) {
         if (joining) return;
@@ -60,10 +70,7 @@ export default function MatchesPage() {
                         >
                             Mis amistosos
                         </Link>
-                        <Link to={routes.createMatch} state={{returnTo}} className={buttonVariants({size: 'lg'})}>
-                            <Plus data-icon="inline-start" aria-hidden="true"/>
-                            Crear amistoso
-                        </Link>
+                        <CreateFriendlyMatchDialog initiallyOpen={openCreateMatch} returnTo={returnTo}/>
                     </div>
                 </CardContent>
             </Card>

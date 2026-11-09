@@ -10,6 +10,7 @@ import {routes} from '@/routes.js';
 export default function AvailableFriendlyMatches() {
     const search = useFriendlyMatches();
     const location = useLocation();
+    const availableMatches = {pathname: routes.friendlyMatches, search: location.search, hash: location.hash};
 
 
     return (
@@ -22,11 +23,11 @@ export default function AvailableFriendlyMatches() {
                     <h2 id="home-matches-title">Amistosos disponibles</h2>
                 </div>
             </div>
-            <Link to={{pathname: routes.friendlyMatches, search: location.search, hash: location.hash}} className="home-panel-link">
+            <Link to={availableMatches} className="home-panel-link">
                 Ver amistosos disponibles
                 <ArrowRight size={17} aria-hidden="true"/>
             </Link>
-            <Link to={routes.createMatch} className="home-panel-link">
+            <Link to={availableMatches} state={{openCreateMatch: true}} className="home-panel-link">
                 Crear Partido Amistoso
                 <ArrowRight size={17} aria-hidden="true"/>
             </Link>
