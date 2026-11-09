@@ -72,7 +72,7 @@ curl -fsS http://localhost:8000/openapi.json | python3 docs/check_api_reference.
 | GET | `/friendly-matches` | `200` | — | Amistosos disponibles por club creador. |
 | GET | `/friendly-matches/me` | `200` | — | Amistosos propios. |
 | POST | `/friendly-matches` | `201` | `CreateFriendlyMatchRequest` | Crea un amistoso con `startDateTime` en ISO 8601. |
-| POST | `/friendly-matches/{match_id}/join` | `200` | — | Une al club al amistoso indicado en el path. |
+| POST | `/friendly-matches/{match_id}/join` | `200` | — | Une al club al amistoso indicado. Devuelve `409 FRIENDLY_SCHEDULE_CONFLICT` si alguno de los dos clubes ya tiene un amistoso confirmado que se superpone, incluidas las pausas. `error.fields` indica la franja ocupada en `conflictStart` y `conflictEnd`. |
 | POST | `/friendly-matches/behaviour-test` | `201` | — | Crea un partido de prueba contra el bot. |
 | GET | `/matches/{match_id}` | `200` | — | Snapshot de un amistoso, partido de liga o prueba. |
 | POST | `/matches/{match_id}/live-requests` | `200` | `LiveRequestCreate` | En modo manual, encola un cambio con `playerId` y `behaviourId`. Devuelve `queued` y `requestId`. |
