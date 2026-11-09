@@ -45,6 +45,7 @@ services:
       SMTP_FROM: "${SMTP_FROM:-}"
       SMTP_STARTTLS: "${SMTP_STARTTLS:-true}"
       SMTP_TIMEOUT: "${SMTP_TIMEOUT:-10}"
+      PASSWORD_RESET_SECRET: "${PASSWORD_RESET_SECRET:-}"
     volumes:
       - ./backend:/app
     depends_on:

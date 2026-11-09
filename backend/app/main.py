@@ -85,6 +85,9 @@ error_status = {
     "LEAGUE_NOT_FOUND": 404,
     "LEAGUE_NOT_REGISTERED": 403,
     "LEAGUE_LINEUP_CONFLICT": 409,
+    "PASSWORD_RESET_INVALID": 400,
+    "PASSWORD_RESET_RATE_LIMIT": 429,
+    "PASSWORD_RESET_NOT_CONFIGURED": 503,
 }
 
 
@@ -103,7 +106,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         status_code=error_status.get(exc.code, 400), 
         content={"error": error},
         headers={"Retry-After": exc.fields["retryAfter"]}
-        if exc.code == "LEAGUE_ACCESS_RATE_LIMIT" else None,
+        if exc.code in { "LEAGUE_ACCESS_RATE_LIMIT", "PASSWORD_RESET_RATE_LIMIT"} else None
         )
 
 

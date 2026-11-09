@@ -24,10 +24,11 @@ import VerifyEmailPage from './features/register/VerifyEmailPage.jsx';
 import ClubsListPage from './features/list-clubs/ClubsListPage.jsx';
 import ClubProfilePage from './features/club-profile/ClubProfilePage.jsx';
 import LeagueLineupPage from './features/league-lineup/LeagueLineupPage.jsx';
+import PasswordResetPage from './features/password-reset/PasswordResetPage.jsx';
 
 export default function App() {
     const { pathname } = useLocation();
-    const mostrarNavBar = !['/', '/home', '/login', '/registro', '/verificar-email'].includes(pathname);
+    const mostrarNavBar = !['/', '/home', '/login', '/registro','/verificar-email', '/recuperar-contrasena'].includes(pathname);
 
     return (
         <>
@@ -58,6 +59,7 @@ export default function App() {
                 <Route path="/verificar-email" element={<VerifyEmailPage />} />
                 <Route path="/clubes" element={<ClubsListPage />} />
                 <Route path="/club/:clubId" element={<ClubProfilePage />} />
+                <Route path="/recuperar-contrasena" element={<PasswordResetPage />} />
                 <Route path="/leagues/:id/lineup" element={<LeagueLineupPage />} />
                 <Route path="/ranking-global" element={<GlobalRanking />} />
                 <Route path="*" element={<NotFoundPage />} />
