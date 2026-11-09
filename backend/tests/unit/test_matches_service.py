@@ -17,6 +17,7 @@ def available_clubs(monkeypatch):
     ])
     monkeypatch.setattr(matches_repository, "get_clubs_for_update", lookup)
     monkeypatch.setattr(matches_repository, "get_confirmed_league_slots", Mock(return_value=[]))
+    monkeypatch.setattr(matches_repository, "get_confirmed_friendly_slots", Mock(return_value=[]))
     return lookup
 
 
