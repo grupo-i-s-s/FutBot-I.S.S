@@ -10,6 +10,7 @@ from app.controller import api_router
 from app.database import engine
 from app.dependencies import require_browser_write
 from app.errors import AppError
+from app.schemas.error_schemas import ApiErrorResponse, HttpErrorResponse
 from app.services.match_scheduler_service import run_match_scheduler
 
 
@@ -34,6 +35,16 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
     dependencies=[Depends(require_browser_write)],
+    responses={
+        400: {
+            "description": "Datos inválidos o solicitud rechazada",
+            "model": ApiErrorResponse | HttpErrorResponse,
+        },
+        "4XX": {
+            "description": "Error de sesión, permisos, recurso o estado",
+            "model": ApiErrorResponse | HttpErrorResponse,
+        },
+    },
 )
 
 app.include_router(api_router)
