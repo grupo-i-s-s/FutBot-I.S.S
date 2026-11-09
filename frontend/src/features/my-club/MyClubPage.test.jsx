@@ -1,10 +1,12 @@
 import {act, cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
-import {Link, MemoryRouter, Route, Routes, useLocation} from 'react-router';
+import {createMemoryRouter, Link, MemoryRouter, Route, RouterProvider, Routes, useLocation} from 'react-router';
 import {toast} from 'sonner';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {Toaster} from '@/components/ui/sonner';
 
 import MyClubPage from './MyClubPage';
+import {deleteBehaviour, getBehaviour, getBehaviourUsage, updateBehaviour} from '../behaviours/api.js';
+import {createBehaviour} from '../create-behaviour/api.js';
 import {createPlayer} from '../create-players/api.js';
 import {listMyFriendlyMatches} from '../friendly-matches/api.js';
 import {
@@ -22,6 +24,12 @@ vi.mock('./api', () => ({
 
 vi.mock('../friendly-matches/api.js', () => ({listMyFriendlyMatches: vi.fn()}));
 vi.mock('../create-players/api.js', () => ({createPlayer: vi.fn()}));
+vi.mock('../create-behaviour/api.js', () => ({createBehaviour: vi.fn()}));
+vi.mock('../behaviours/api.js', () => ({
+    createBehaviourTestMatch: vi.fn(),
+    deleteBehaviour: vi.fn(), getBehaviour: vi.fn(), getBehaviourUsage: vi.fn(), updateBehaviour: vi.fn(),
+}));
+vi.mock('@monaco-editor/react', () => ({default: () => null}));
 
 const club = {id: 7, name: 'Club de prueba', avatar: 'shield', friendlyAvailable: true};
 const behaviours = [{id: 10, name: 'Equilibrado'}, {id: 11, name: 'Ofensivo'}];
@@ -382,11 +390,13 @@ describe('Configuración de formación del club', () => {
 
         fireEvent.click(screen.getByRole('tab', {name: 'Comportamientos'}));
         const catalog = within(await screen.findByRole('tabpanel', {name: 'Comportamientos'}));
-        for (const {id, name} of behaviours) {
+        for (const {name} of behaviours) {
             expect(catalog.getByText(name)).toBeInTheDocument();
-            expect(catalog.getByRole('link', {name: `Ver detalle de ${name}`})).toHaveAttribute('href', `/comportamientos/${id}`);
+            expect(catalog.getByRole('button', {name: `Ver detalle de ${name}`})).toBeEnabled();
         }
-        expect(catalog.getByRole('link', {name: 'Gestionar comportamientos'})).toHaveAttribute('href', '/comportamientos');
+        expect(catalog.getByRole('button', {name: 'Crear nuevo comportamiento'})).toBeEnabled();
+        expect(catalog.getByRole('button', {name: 'Probar comportamiento'})).toBeEnabled();
+        expect(catalog.queryByRole('link', {name: 'Gestionar comportamientos'})).not.toBeInTheDocument();
 
         expect(screen.queryByText('Liga del club')).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole('tab', {name: 'Ligas inscriptas'}));
@@ -412,6 +422,108 @@ describe('Configuración de formación del club', () => {
         for (const fetchOnce of [getMyClub, listBehaviours, listMyLeagues, getDefaultTeam, getFormations]) {
             expect(fetchOnce).toHaveBeenCalledTimes(1);
         }
+    });
+
+    it('agrega el comportamiento creado al catálogo y lo deja disponible para el equipo', async () => {
+        const created = {id: 12, name: 'Presión lateral', description: '', kind: 'PLAYER', version: 1, validationStatus: 'VALID'};
+        createBehaviour.mockResolvedValueOnce(created);
+        const router = createMemoryRouter([{path: '/mi-club', element: <MyClubPage/>}], {
+            initialEntries: ['/mi-club?tab=behaviours'],
+        });
+        renderWithToaster(<RouterProvider router={router}/>);
+
+        const catalog = within(await screen.findByRole('tabpanel', {name: 'Comportamientos'}));
+        fireEvent.click(catalog.getByRole('button', {name: 'Crear nuevo comportamiento'}));
+        const form = within(await screen.findByRole('dialog', {name: 'Crear comportamiento'}));
+        fireEvent.change(form.getByLabelText('Nombre del comportamiento'), {target: {value: created.name}});
+        fireEvent.click(form.getByRole('button', {name: 'Guardar comportamiento'}));
+
+        expect(await catalog.findByRole('button', {name: `Ver detalle de ${created.name}`})).toBeVisible();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(await saveToast('Comportamiento creado')).toBeVisible();
+        expect(router.state.location.search).toBe('?tab=behaviours');
+        expect(createBehaviour).toHaveBeenCalledExactlyOnceWith(created.name, expect.stringContaining('def decide'));
+
+        fireEvent.click(screen.getByRole('tab', {name: 'Mi equipo'}));
+        const editor = await teamEditor();
+        await chooseComboboxOption(editor.getByRole('combobox', {name: 'Comportamiento del lugar 1'}), 'Presión', created.name);
+        expect(listBehaviours).toHaveBeenCalledTimes(1);
+    });
+
+    it('consulta el código al abrir el detalle y permite reintentar sin salir de la pestaña', async () => {
+        const behaviour = behaviours[0];
+        const code = 'def decide(observation):\n    return ir_a_pelota()\n';
+        getBehaviour
+            .mockRejectedValueOnce(new Error('No se pudo cargar el código.'))
+            .mockResolvedValueOnce({...behaviour, code});
+        const router = createMemoryRouter([{path: '/mi-club', element: <MyClubPage/>}], {
+            initialEntries: ['/mi-club?tab=behaviours'],
+        });
+        render(<RouterProvider router={router}/>);
+
+        const trigger = await screen.findByRole('button', {name: `Ver detalle de ${behaviour.name}`});
+        expect(getBehaviour).not.toHaveBeenCalled();
+        fireEvent.click(trigger);
+        const detail = within(await screen.findByRole('dialog', {name: 'Detalle de comportamiento'}));
+        expect(await detail.findByRole('alert')).toHaveTextContent('No se pudo cargar el código.');
+        fireEvent.click(detail.getByRole('button', {name: 'Reintentar'}));
+
+        const source = await detail.findByRole('region', {name: 'Código del comportamiento'});
+        expect(source.textContent).toBe(code);
+        expect(detail.queryByRole('textbox')).not.toBeInTheDocument();
+        expect(getBehaviour.mock.calls.map(([id]) => id)).toEqual([behaviour.id, behaviour.id]);
+        fireEvent.click(detail.getByRole('button', {name: 'Cerrar'}));
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+        expect(router.state.location).toMatchObject({pathname: '/mi-club', search: '?tab=behaviours'});
+    });
+
+    it('sincroniza la edición y eliminación del catálogo con el borrador de Mi equipo', async () => {
+        const detail = {id: 12, name: 'Ataque lateral', kind: 'PLAYER', code: 'return', version: 1, validationStatus: 'VALID'};
+        const description = 'Avance por la banda';
+        listBehaviours.mockResolvedValueOnce({items: [...behaviours, {...detail, description}]});
+        getBehaviour.mockResolvedValueOnce(detail);
+        getBehaviourUsage.mockResolvedValueOnce({inUse: false, references: {}});
+        updateBehaviour.mockResolvedValueOnce({...detail, name: 'Presión alta', version: 2});
+        deleteBehaviour.mockResolvedValueOnce(null);
+        const router = createMemoryRouter([{path: '/mi-club', element: <MyClubPage/>}], {
+            initialEntries: ['/mi-club'],
+        });
+        renderWithToaster(<RouterProvider router={router}/>);
+
+        const editor = await teamEditor();
+        const formation = await editor.findByLabelText('Formación');
+        const selection = editor.getByRole('combobox', {name: 'Comportamiento del lugar 1'});
+        fireEvent.change(formation, {target: {value: '2'}});
+        await chooseComboboxOption(selection, 'Ataque lateral', detail.name);
+
+        fireEvent.click(screen.getByRole('tab', {name: 'Comportamientos'}));
+        const catalog = within(await screen.findByRole('tabpanel', {name: 'Comportamientos'}));
+        fireEvent.click(catalog.getByRole('button', {name: `Editar ${detail.name}`}));
+        const edit = within(await screen.findByRole('dialog', {name: 'Editar comportamiento'}));
+        fireEvent.change(await edit.findByLabelText('Nombre del comportamiento'), {target: {value: 'Presión alta'}});
+        fireEvent.click(edit.getByRole('button', {name: 'Guardar cambios'}));
+
+        expect(await catalog.findByText('Presión alta')).toBeVisible();
+        expect(catalog.getByText(description)).toBeVisible();
+        expect(await saveToast('Comportamiento actualizado')).toBeVisible();
+        expect(updateBehaviour).toHaveBeenCalledWith(12, {name: 'Presión alta', code: detail.code, expectedVersion: 1});
+
+        fireEvent.click(screen.getByRole('tab', {name: 'Mi equipo'}));
+        expect((await teamEditor()).getByLabelText('Formación')).toHaveValue('2');
+        expect(selection).toHaveValue('Presión alta');
+        fireEvent.click(screen.getByRole('tab', {name: 'Comportamientos'}));
+        fireEvent.click(await screen.findByRole('button', {name: 'Eliminar Presión alta'}));
+        const deletion = within(await screen.findByRole('dialog'));
+        fireEvent.click(deletion.getByRole('button', {name: 'Eliminar'}));
+
+        expect(await saveToast('Comportamiento eliminado')).toBeVisible();
+        expect(screen.queryByRole('button', {name: 'Editar Presión alta'})).not.toBeInTheDocument();
+        expect(deleteBehaviour).toHaveBeenCalledWith(12);
+        fireEvent.click(screen.getByRole('tab', {name: 'Mi equipo'}));
+        expect((await teamEditor()).getByLabelText('Formación')).toHaveValue('2');
+        expect(selection).toHaveValue('');
+        expect(listBehaviours).toHaveBeenCalledTimes(1);
+        expect(getDefaultTeam).toHaveBeenCalledTimes(1);
     });
 
     it('crea un jugador desde el modal y lo muestra en la última página de Jugadores', async () => {

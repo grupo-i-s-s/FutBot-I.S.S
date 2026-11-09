@@ -1,5 +1,6 @@
 import {useEffect, useId, useRef, useState} from 'react';
 import {LoaderCircle, Pencil, PencilOff} from 'lucide-react';
+import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {
     Dialog,
@@ -122,6 +123,11 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
         } catch (requestError) {
             setError(requestError);
 
+            toast.error('No se pudieron guardar los cambios', {
+                description: requestError.message,
+                position: 'top-right',
+            });
+
             if (requestError.code === 'BEHAVIOUR_IN_USE') {
                 setUsage({
                     inUse: true,
@@ -198,7 +204,7 @@ export default function BehaviourEdit({behaviour, onUpdated}) {
                         size="icon"
                         aria-label={title}
                         title={title}
-                        className="size-10 rounded-xl text-blue-700 hover:bg-blue-50"
+                        className="size-10 rounded-xl text-primary hover:bg-primary/10 hover:text-primary"
                     />
                 }
             >

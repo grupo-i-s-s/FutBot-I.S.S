@@ -1,12 +1,10 @@
-import {useRef, useState} from 'react';
 import {Link, useNavigate} from 'react-router';
 import {Button} from '@/components/ui/button';
 import {routes} from '@/routes.js';
-import {createBehaviour, createDtBehaviour, validateBehaviour} from './api';
 import BehaviourCodeEditor from '../behaviours/components/BehaviourCodeEditor';
 import {useUnsavedChanges} from '../behaviours/hooks/useUnsavedChanges';
-
-const PLAYER_TEMPLATE = 'def decide(observation):\n    return ir_a_pelota()\n';
+import {createDtBehaviour} from './api.js';
+import {useBehaviourCreation} from './useBehaviourCreation.js';
 
 const DT_TEMPLATE = [
     'from primitives.dt_behaviour import DtAction',
@@ -34,94 +32,27 @@ const dtApiFunctions = [
     {name: 'DtAction(cambios, sustituciones)', description: 'Devuelve las órdenes que evaluará el motor. La lista de sustituciones es opcional.'},
 ];
 
-export default function CreateBehaviourPage({kind = 'PLAYER'}) {
-    return <BehaviourCreationForm key={kind} kind={kind}/>;
-}
-
-function BehaviourCreationForm({kind}) {
-    const isDt = kind === 'DT';
-    const template = isDt ? DT_TEMPLATE : PLAYER_TEMPLATE;
-    const [name, setName] = useState('');
-    const [code, setCode] = useState(template);
-    const [error, setError] = useState('');
-    const [diagnostics, setDiagnostics] = useState([]);
-    const [isValid, setIsValid] = useState(false);
-    const [action, setAction] = useState('');
-    const pending = useRef(false);
+export default function CreateBehaviourPage() {
     const navigate = useNavigate();
-    const allowNavigation = useUnsavedChanges(name !== '' || code !== template);
+    const {
+        name, setName, code, changeCode, error, diagnostics, isValid, action, dirty, handleValidate, handleSubmit,
+    } = useBehaviourCreation({
+        kind: 'COACH', template: DT_TEMPLATE, create: createDtBehaviour, onCreated: handleCreated,
+    });
+    const allowNavigation = useUnsavedChanges(dirty);
 
-    function clearFeedback() {
-        setError('');
-        setDiagnostics([]);
-        setIsValid(false);
-    }
-
-    async function handleValidate() {
-        if (pending.current || !code.trim()) return;
-        pending.current = true;
-        clearFeedback();
-        setAction('validate');
-
-        try {
-            const result = await validateBehaviour(isDt ? 'COACH' : 'PLAYER', code);
-            setIsValid(result.valid);
-            setDiagnostics(result.diagnostics ?? []);
-            if (!result.valid) setError('Revisá el código antes de guardarlo.');
-        } catch (err) {
-            setError(err.message || 'No se pudo validar el comportamiento.');
-            setDiagnostics(err.diagnostics ?? []);
-        } finally {
-            pending.current = false;
-            setAction('');
-        }
-    }
-
-    async function handleSubmit(event) {
-        event.preventDefault();
-        if (pending.current) return;
-        clearFeedback();
-
-        if (!name.trim() || !code.trim()) {
-            setError('Deben completarse todos los campos.');
-            return;
-        }
-
-        pending.current = true;
-        setAction('save');
-
-        try {
-            if (isDt) {
-                await createDtBehaviour(name.trim(), code);
-                allowNavigation();
-                navigate(routes.myClub, {
-                    replace: true,
-                    state: {tab: 'dt', notice: 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.'},
-                });
-            } else {
-                await createBehaviour(name, code);
-                allowNavigation();
-                navigate(routes.behaviours, {
-                    replace: true,
-                    state: {notice: 'Comportamiento creado exitosamente.'},
-                });
-            }
-        } catch (err) {
-            const fields = Object.values(err.fields ?? {});
-            setError(fields.join(' ') || err.message || 'No se pudo crear el comportamiento.');
-            setDiagnostics(err.diagnostics ?? []);
-        } finally {
-            pending.current = false;
-            setAction('');
-        }
+    function handleCreated() {
+        allowNavigation();
+        navigate(routes.myClub, {
+            replace: true,
+            state: {tab: 'dt', notice: 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.'},
+        });
     }
 
     return (
         <div className="max-w-4xl mx-auto p-6 flex flex-col">
-            {isDt && <Link to={routes.myClub} state={{tab: 'dt'}} className="mb-4 text-sm underline">Volver a Mi club</Link>}
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">
-                {isDt ? 'Crear comportamiento del DT' : 'Crear Comportamiento'}
-            </h2>
+            <Link to={routes.myClub} state={{tab: 'dt'}} className="mb-4 text-sm underline">Volver a Mi club</Link>
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">Crear comportamiento del DT</h2>
             <form onSubmit={handleSubmit} className="w-full space-y-4">
                 <div>
                     <label htmlFor="behaviour-name" className="sr-only">Nombre del comportamiento</label>
@@ -129,7 +60,7 @@ function BehaviourCreationForm({kind}) {
                         id="behaviour-name"
                         type="text"
                         placeholder="Ingrese el nombre"
-                        maxLength={isDt ? 30 : 50}
+                        maxLength={30}
                         value={name}
                         disabled={Boolean(action)}
                         className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
@@ -138,18 +69,13 @@ function BehaviourCreationForm({kind}) {
                 </div>
                 <BehaviourCodeEditor
                     value={code}
-                    onChange={(value) => {
-                        setCode(value);
-                        clearFeedback();
-                    }}
+                    onChange={changeCode}
                     diagnostics={diagnostics}
                     documentId="new"
-                    kind={isDt ? 'COACH' : 'PLAYER'}
+                    kind="COACH"
                     readOnly={Boolean(action)}
-                    functions={isDt ? dtApiFunctions : undefined}
-                    helpDescription={isDt
-                        ? 'Escribí una función decide(obs) que devuelva DtAction con los cambios tácticos y las sustituciones del equipo.'
-                        : undefined}
+                    functions={dtApiFunctions}
+                    helpDescription="Escribí una función decide(obs) que devuelva DtAction con los cambios tácticos y las sustituciones del equipo."
                 />
                 <div className="flex flex-wrap justify-end gap-2">
                     <Button type="button" variant="outline" onClick={handleValidate} disabled={Boolean(action) || !code.trim()}>

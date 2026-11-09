@@ -14,9 +14,10 @@ export function deleteBehaviour(behaviourId) {
     });
 }
 
-export function createBehaviourTestMatch() {
+export function createBehaviourTestMatch({signal} = {}) {
     return request('/friendly-matches/behaviour-test', {
         method: 'POST',
+        signal,
     });
 }
 

@@ -7,7 +7,7 @@ function withBehaviourName(players, behaviours) {
     return players.map((player) => ({
         ...player,
         behaviourName:
-            player.behaviour?.name ?? behaviourNames.get(player.behaviorId) ?? 'Sin comportamiento',
+            behaviourNames.get(player.behaviorId) ?? player.behaviour?.name ?? 'Sin comportamiento',
     }));
 }
 
@@ -72,11 +72,26 @@ export function useMyClub(page = 1, pageSize = 9) {
 
     const reload = useCallback(() => setAttempt((value) => value + 1), []);
     const reloadRoster = useCallback(() => setRosterAttempt(value => value + 1), []);
+    const addCatalogueBehaviour = useCallback(created => {
+        setBehaviours(current => current.some(behaviour => behaviour.id === created.id)
+            ? current
+            : [...current, created]);
+    }, []);
+    const updateCatalogueBehaviour = useCallback(({id, name, version, validationStatus}) => {
+        setBehaviours(current => current.map(behaviour => {
+            if (behaviour.id !== id || behaviour.version > version) return behaviour;
+            return {...behaviour, name, version, validationStatus};
+        }));
+    }, []);
+    const removeCatalogueBehaviour = useCallback(id => {
+        setBehaviours(current => current.filter(behaviour => behaviour.id !== id));
+    }, []);
     const rosterLoading = !roster.query || roster.query.page !== page
         || roster.query.pageSize !== pageSize || roster.query.attempt !== rosterAttempt;
 
     return {
         status, error, club, behaviours, leagues, reload, setClub,
+        addCatalogueBehaviour, updateCatalogueBehaviour, removeCatalogueBehaviour,
         players: withBehaviourName(roster.items, behaviours),
         totalPages: roster.totalPages, totalPlayers: roster.total,
         rosterLoading, rosterError: rosterLoading ? null : roster.error, reloadRoster,

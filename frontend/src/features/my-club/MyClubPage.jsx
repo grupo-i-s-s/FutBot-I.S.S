@@ -43,6 +43,7 @@ export default function MyClubPage() {
     const {
         status, error, club, players, totalPages, totalPlayers, behaviours, leagues, reload, setClub,
         rosterLoading, rosterError, reloadRoster,
+        addCatalogueBehaviour, updateCatalogueBehaviour, removeCatalogueBehaviour,
     } = useMyClub(page, ROSTER_PAGE_SIZE);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -175,7 +176,12 @@ export default function MyClubPage() {
                 </TabsContent>
 
                 <TabsContent value="behaviours">
-                    <ClubBehaviourList behaviours={behaviours} />
+                    <ClubBehaviourList
+                        behaviours={behaviours}
+                        onCreated={addCatalogueBehaviour}
+                        onUpdated={updateCatalogueBehaviour}
+                        onDeleted={removeCatalogueBehaviour}
+                    />
                 </TabsContent>
 
                 <TabsContent value="dt" keepMounted>
