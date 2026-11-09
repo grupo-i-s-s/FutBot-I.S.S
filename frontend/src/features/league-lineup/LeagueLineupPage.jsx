@@ -151,7 +151,7 @@ function LeagueLineupEditor({leagueId}) {
 
     const busy = loading || saving;
     const locked = busy || !saved.editable;
-    const validation = validateDraft(draft, catalogs);
+    const validation = saved.editable ? validateDraft(draft, catalogs) : '';
 
     return (
         <main className="mx-auto max-w-3xl space-y-4 p-4">
@@ -220,6 +220,8 @@ function LeagueLineupEditor({leagueId}) {
                     const title = index < 3
                         ? `Titular ${index + 1}`
                         : `Suplente ${index - 2}`;
+                    const missingSavedBehaviour = !saved.editable && slot.behaviourId
+                        && !catalogs.behaviours.some(({id}) => String(id) === slot.behaviourId);
 
                     return (
                         <fieldset
@@ -271,6 +273,12 @@ function LeagueLineupEditor({leagueId}) {
                                 >
                                     <option value="">Elegir comportamiento</option>
 
+                                    {missingSavedBehaviour && (
+                                        <option value={slot.behaviourId}>
+                                            Comportamiento guardado #{slot.behaviourId}
+                                        </option>
+                                    )}
+
                                     {catalogs.behaviours.map((behaviour) => (
                                         <option
                                             key={behaviour.id}
@@ -285,7 +293,7 @@ function LeagueLineupEditor({leagueId}) {
                     );
                 })}
 
-                {validation && saved.editable && <p>{validation}</p>}
+                {validation && <p>{validation}</p>}
 
                 {error && (
                     <p role="alert" className="text-destructive">
