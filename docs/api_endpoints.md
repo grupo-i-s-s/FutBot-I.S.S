@@ -95,6 +95,8 @@ Al cancelar el partido, los planes pendientes pasan a `EXPIRED` en la misma tran
 
 `WS /matches/{match_id}/stream` transmite el mismo formato de snapshot que `GET /matches/{match_id}`. Ambos accesos requieren una sesión de un club participante. El stream valida el `Origin`, envía cambios de secuencia y vuelve a comprobar la sesión durante la conexión. El cliente puede pedir el snapshot por HTTP al conectar o reconectar. El estado del partido, el marcador y los cambios confirmados se obtienen del snapshot.
 
+Cada club recibe su propia planificación en `pendingSubstitution` y los rechazos de sus órdenes. El campo del rival llega como `null`. Los cambios aplicados aparecen para ambos clubes. Las dos vistas conservan la secuencia del snapshot guardado.
+
 ## Compatibilidad durante la migración
 
 Las rutas anteriores de esta tabla siguen aceptando su método y cuerpo originales. Aplican las mismas reglas que sus rutas canónicas. OpenAPI muestra las rutas canónicas.
