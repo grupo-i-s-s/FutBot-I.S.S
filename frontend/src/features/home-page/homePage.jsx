@@ -51,8 +51,7 @@ export default function HomePage() {
                 <AvaiableLeagues/>
                 <WelcomePannel/>
                 <AvailableFriendlyMatches/>
-            </main>
+            </main>          
         </div>
-
     );
 }

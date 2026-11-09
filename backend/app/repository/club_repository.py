@@ -1,11 +1,9 @@
-from sqlalchemy import select, func, case, union_all
+from sqlalchemy import case, func, select, union_all
 from sqlalchemy.orm import Session, selectinload
-from app.models.league_model import League, LeagueRegistration, LeagueRound
-from app.models.matches_model import Matches
 
 from app.models.auth_model import Club
-from app.models.league_model import League, LeagueRegistration
-
+from app.models.league_model import League, LeagueRegistration, LeagueRound
+from app.models.matches_model import Matches
 
 def update_club(
         db: Session,

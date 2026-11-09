@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.errors import AppError
 from app.models.auth_model import Club, User
+from app.models.stats_model import Stats
 from app.repository import (
     session_repository,
     user_repository,
@@ -95,6 +96,8 @@ def _create_account(
         name=club_name,
         avatar=DEFAULT_AVATAR,
     )
+
+    db.add(Stats(club_id=club.id))
 
     dt_behaviours = dt_repository.create_default_dt_behaviours(db, user.id)
     default_dt_behaviour_id = dt_behaviours[0].id if dt_behaviours else None
