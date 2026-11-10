@@ -30,3 +30,17 @@ it('muestra el cambio predeterminado recibido del motor y conserva los cambios m
     }));
     expect(await screen.findByRole('combobox')).toHaveValue('11');
 });
+
+it('muestra el PACSS del contrincante sin exponer su comportamiento ni controles', () => {
+    render(<LiveChangeBehaviour matchId="42"
+        players={[{id: 2, name: 'Rival', power: 20, agility: 40, control: 60, speed: 80, strength: 100, behaviourName: 'Táctica rival'}]}
+        behaviours={[]} isMyTeam={false} allowManualActions={false} canChange={false}/>);
+
+    const attributes = screen.getByLabelText('PACSS de Rival');
+    for (const [label, value] of [['Power', 20], ['Agility', 40], ['Control', 60], ['Speed', 80], ['Strength', 100]]) {
+        expect([...attributes.querySelectorAll('dt')].find(item => item.textContent === label)?.nextElementSibling)
+            .toHaveTextContent(String(value));
+    }
+    expect(screen.queryByText('Táctica rival')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+});

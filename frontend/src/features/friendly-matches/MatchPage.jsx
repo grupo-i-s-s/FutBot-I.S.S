@@ -141,7 +141,7 @@ export default function MatchPage() {
                                     const isMyTeam = team.id === club?.id;
                                     const lineup = state.lineups?.find(lineup => lineup.clubId === team.id);
                                     return (
-                                        <Card key={team.id} className="min-w-0 rounded-2xl" role="region" aria-label={`Plantel de ${team.name}`}>
+                                        <Card key={team.id} className="w-full min-w-0 max-w-md justify-self-center rounded-2xl" role="region" aria-label={`Plantel de ${team.name}`}>
                                             <CardHeader className="gap-3 border-b px-5 pb-4">
                                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                                     <h2 className="flex min-w-0 items-center gap-2 text-lg font-bold wrap-anywhere">

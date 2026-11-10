@@ -62,6 +62,20 @@ def test_goal_is_awarded_to_correct_side_and_resets_positions(monkeypatch):
     assert tuple(match.world.ball.position) == match.init_ball_pos
 
 
+def test_snapshot_includes_player_pacss():
+    visitor = team(2)
+    player = replace(visitor.players[0], power=20, agility=40, control=60, speed=80, strength=100)
+    visitor = replace(visitor, players=(player, *visitor.players[1:]))
+    match = match_simulation.Match(team(1), visitor)
+
+    snapshot = match.snapshot(sequence=1, sent_at="2026-11-09T12:00:00Z")
+    opponent = next(item for item in snapshot["state"]["players"] if item["id"] == player.id)
+
+    assert {field: opponent[field] for field in ("power", "agility", "control", "speed", "strength")} == {
+        "power": 20, "agility": 40, "control": 60, "speed": 80, "strength": 100,
+    }
+
+
 def test_match_rejects_player_from_another_club():
     wrong_profile = replace(team(2).players[0], id=99, name="Ajeno")
     local = team(1)

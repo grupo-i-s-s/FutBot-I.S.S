@@ -9,6 +9,11 @@ const modeNames = {
     CUSTOM: 'Personalizado',
 };
 
+const PACSS_ATTRIBUTES = [
+    ['Power', 'power'], ['Agility', 'agility'], ['Control', 'control'],
+    ['Speed', 'speed'], ['Strength', 'strength'],
+];
+
 function PlayerBehaviour({matchId, player, behaviours, allowManualActions, canChange}) {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
@@ -70,7 +75,18 @@ export default function LiveChangeBehaviour({matchId, players, behaviours, isMyT
                     {isMyTeam ? (
                         <PlayerBehaviour matchId={matchId} player={player} behaviours={behaviours}
                             allowManualActions={allowManualActions} canChange={canChange}/>
-                    ) : <p className="mt-1.5 text-xs text-muted-foreground">Oculto</p>}
+                    ) : (
+                        <dl aria-label={`PACSS de ${player.name}`} className="mt-1.5 grid grid-cols-5 gap-1 text-center">
+                            {PACSS_ATTRIBUTES.map(([label, field]) => (
+                                <div key={field} className="min-w-0 rounded-md bg-secondary/50 px-1 py-1">
+                                    <dt className="text-[10px] text-muted-foreground">{label}</dt>
+                                    <dd className="text-xs font-semibold tabular-nums text-primary">
+                                        {Number.isFinite(player[field]) ? player[field] : '—'}
+                                    </dd>
+                                </div>
+                            ))}
+                        </dl>
+                    )}
                 </li>
             ))}
         </ul>
