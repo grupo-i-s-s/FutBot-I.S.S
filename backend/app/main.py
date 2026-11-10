@@ -10,6 +10,7 @@ from app.controller import api_router
 from app.database import engine
 from app.dependencies import require_browser_write
 from app.errors import AppError
+from app.schemas.error_schemas import ApiErrorResponse, HttpErrorResponse
 from app.services.match_scheduler_service import run_match_scheduler
 
 
@@ -34,11 +35,29 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
     dependencies=[Depends(require_browser_write)],
+    responses={
+        400: {
+            "description": "Datos inválidos o solicitud rechazada",
+            "model": ApiErrorResponse | HttpErrorResponse,
+        },
+        "4XX": {
+            "description": "Error de sesión, permisos, recurso o estado",
+            "model": ApiErrorResponse | HttpErrorResponse,
+        },
+    },
 )
 
 app.include_router(api_router)
 
 error_status = {
+    "LEAGUE_ACCESS_INVALID": 409,
+    "LEAGUE_ACCESS_RATE_LIMIT": 429,
+    "LEAGUE_FULL": 409,
+    "LEAGUE_CLOSED": 409,
+    "LEAGUE_SCHEDULE_CONFLICT": 409,
+    "LEAGUE_LINEUP_INVALID": 409,
+    "LEAGUE_LINEUP_CHANGED": 409,
+    "ALREADY_REGISTERED": 409,
     "ACCOUNT_DUPLICATE": 400,
     "PASSWORD_INVALID": 400,
     "INVALID_CREDENTIALS": 401,
@@ -47,6 +66,8 @@ error_status = {
     "BEHAVIOUR_NOT_FOUND": 404,
     "PLAYER_NOT_FOUND": 404,
     "ACCOUNT_INCOMPLETE": 409,
+    "CLUB_NOT_AVAILABLE": 409,
+    "FRIENDLY_SCHEDULE_CONFLICT": 409,
     "MATCH_NOT_FOUND": 404,
     "MATCH_FORBIDDEN": 403,
     "MATCH_SELF_JOIN": 409,
@@ -58,22 +79,52 @@ error_status = {
     "MATCH_INVALID_BEHAVIOUR": 409,
     "MATCH_ALREADY_RUNNING": 409,
     "MATCH_STATE_INVALID": 409,
+    "MATCH_DT_MODE_FIXED": 409,
+    "MATCH_DT_MANUAL_ACTION_FORBIDDEN": 409,
+    "SUBSTITUTION_COMMAND_CONFLICT": 409,
+    "SUBSTITUTION_INVALID_PLAYERS": 409,
+    "SUBSTITUTION_QUOTA_USED": 409,
+    "PAUSE_CLOSED": 409,
     "MATCH_INVALID_DURATION": 400,
+    "BEHAVIOUR_INVALID": 400,
+    "BEHAVIOUR_IN_USE": 409,
+    "BEHAVIOUR_NAME_DUPLICATE": 409,
+    "DT_BEHAVIOUR_REQUIRED": 409,
+    "EMAIL_VERIFICATION_INVALID": 400,
+    "EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED": 429,
+    "EMAIL_VERIFICATION_PENDING": 409,
+    "EMAIL_VERIFICATION_RESEND_LIMIT": 429,
+    "EMAIL_DELIVERY_FAILED": 503,
+    "EMAIL_NOT_CONFIGURED": 503,
+    "CLUB_NOT_FOUND": 404,
+    "VERSION_CONFLICT": 409,
+    "LEAGUE_NOT_FOUND": 404,
+    "LEAGUE_NOT_REGISTERED": 403,
+    "LEAGUE_LINEUP_CONFLICT": 409,
+    "PASSWORD_RESET_INVALID": 400,
+    "PASSWORD_RESET_RATE_LIMIT": 429,
+    "PASSWORD_RESET_NOT_CONFIGURED": 503,
 }
 
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    error = {
+        "code": exc.code,
+        "message": exc.message,
+        "fields": exc.fields,
+    }
+
+    if exc.diagnostics is not None:
+        error["diagnostics"]=exc.diagnostics
+
     return JSONResponse(
-        status_code=error_status.get(exc.code, 400),
-        content={
-            "error": {
-                "code": exc.code,
-                "message": exc.message,
-                "fields": exc.fields,
-            }
-        },
-    )
+        status_code=error_status.get(exc.code, 400), 
+        content={"error": error},
+        headers={"Retry-After": exc.fields["retryAfter"]}
+        if exc.code in { "LEAGUE_ACCESS_RATE_LIMIT", "PASSWORD_RESET_RATE_LIMIT"} else None
+        )
+
 
 
 @app.exception_handler(RequestValidationError)

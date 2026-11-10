@@ -1,9 +1,9 @@
-"""Pruebas del plantel inicial (comportamientos y jugadores default) creado al registrarse.
+"""Pruebas del plantel inicial creado al verificar el correo.
 
 - Las pruebas unitarias están en tests/unit/test_default_squad.py y test_auth_service.py.
 - Las de integración usan la base configurada, pero trabajan dentro de una
   transacción que se revierte al final: no dejan datos. Requieren que las
-  migraciones 001 y 002 estén aplicadas.
+  migraciones estén aplicadas.
 """
 import pytest
 from collections.abc import Iterator
@@ -16,13 +16,16 @@ from app.database import engine, get_db
 from app.main import app
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
+from app.models.dt_model import Dt, DtBehaviour
 from app.models.player_model import Player
 from app.repository import behaviour_repository, player_repository
+from app.services import auth_service
 
 BROWSER_HEADERS = {
     "Origin": next(iter(settings.allowed_origins)),
     "X-Futbot-Request": "1",
 }
+VERIFICATION_CODE = "004281"
 
 
 def register_payload(suffix: str = "a") -> dict:
@@ -31,19 +34,22 @@ def register_payload(suffix: str = "a") -> dict:
         "password": "password-segura",
         "passwordConfirmation": "password-segura",
         "clubName": f"Club {suffix}",
-        "avatar": "avatar-1",
     }
 
 
 # --- Integración con PostgreSQL (con rollback) ------------------------------
 
 @pytest.fixture
-def db_session() -> Iterator[Session]:
+def db_session(monkeypatch) -> Iterator[Session]:
     """Sesión sobre una transacción externa que se revierte al terminar.
 
     Los commit del servicio sólo liberan savepoints, así que nada queda guardado.
     """
-    missing = {"users", "clubs", "behaviors", "players"} - set(inspect(engine).get_table_names())
+    monkeypatch.setattr(auth_service, "new_email_verification_code", lambda: VERIFICATION_CODE)
+    monkeypatch.setattr(auth_service.email_service, "send_verification_code", lambda email, code: None)
+
+    tables = {"users", "clubs", "behaviors", "players", "dt", "dt_behaviours", "pending_email_verifications"}
+    missing = tables - set(inspect(engine).get_table_names())
     if missing:
         pytest.fail(f"Faltan tablas {sorted(missing)}: aplicá las migraciones antes de correr los tests.")
 
@@ -63,14 +69,21 @@ def db_session() -> Iterator[Session]:
 def register_and_get_club(client: TestClient, session: Session, suffix: str) -> Club:
     payload = register_payload(suffix)
     response = client.post("/auth/register", json=payload, headers=BROWSER_HEADERS)
-    assert response.status_code == 201, response.text
+    assert response.status_code == 202, response.text
+
+    response = client.post(
+        "/auth/verify-email",
+        json={"email": payload["email"], "code": VERIFICATION_CODE},
+        headers=BROWSER_HEADERS,
+    )
+    assert response.status_code == 200, response.text
 
     return session.scalar(
         select(Club).join(User, User.id == Club.user_id).where(User.email == payload["email"])
     )
 
 
-def test_register_endpoint_persists_default_behaviours_and_players(db_session):
+def test_email_verification_persists_default_behaviours_players_and_dt(db_session):
     with TestClient(app) as client:
         club = register_and_get_club(client, db_session, "a")
 
@@ -85,6 +98,10 @@ def test_register_endpoint_persists_default_behaviours_and_players(db_session):
     assert all(sum(p.behavior_id == behavior.id for p in players) == 2 for behavior in behaviors)
     assert all(not p.is_deleted for p in players)
     assert all(not behavior.is_deleted for behavior in behaviors)
+    dt = db_session.scalar(select(Dt).where(Dt.club_id == club.id))
+    assert not dt.is_active
+    dt_behaviour = db_session.get(DtBehaviour, dt.behaviour_id)
+    assert dt_behaviour.user_id == club.user_id
 
 
 def test_each_club_gets_its_own_default_squad(db_session):

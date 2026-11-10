@@ -5,6 +5,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
 
+TEST_OPPONENT_CLUB_ID = 999
+CHECKPOINT_UNRECOVERABLE = "CHECKPOINT_UNRECOVERABLE"
+
 
 class Matches(Base):
     __tablename__ = "matches"
@@ -20,6 +23,7 @@ class Matches(Base):
                         name="ck_matches_cancellation_reason"),
     )
     match_id: Mapped[int] = mapped_column(primary_key=True)
+    league_round_id: Mapped[int | None] = mapped_column(ForeignKey("league_rounds.id", ondelete="CASCADE"),nullable=True,index=True)
     creator_id: Mapped[int] = mapped_column(ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
     visitor_id: Mapped[int | None] = mapped_column(ForeignKey("clubs.id", ondelete="CASCADE"), nullable=True)
     init_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -36,3 +40,5 @@ class Matches(Base):
     runtime_state: Mapped[dict | None] = mapped_column(
         JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql"))
     cancellation_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    league_id: Mapped[int | None] = mapped_column(ForeignKey("leagues.id", ondelete="RESTRICT"), nullable=True, index=True)
+    lineup_snapshot: Mapped[dict | None] = mapped_column(JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql"), nullable=True)

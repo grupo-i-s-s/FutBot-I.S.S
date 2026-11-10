@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 
 from app.database import Base
+
+TERMINAL_LEAGUE_STATUSES = {"finished", "cancelled", "canceled"}
 
 
 class League(Base):
@@ -35,6 +37,11 @@ class League(Base):
         String(20),
         nullable=False,
         default="open",
+    )
+    
+    draw_seed: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
     )
 
     access_code: Mapped[str | None] = mapped_column(
@@ -102,4 +109,76 @@ class LeagueRegistration(Base):
             "club_id",
             name="uq_league_registrations_league_club",
         ),
+        CheckConstraint(
+            "lineup_version >= 0",
+            name="ck_league_registrations_lineup_version",
+        ),
     )
+
+    lineup_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+
+class LeagueRound(Base):
+    __tablename__ = "league_rounds"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    league_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("leagues.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    scheduled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    schedule_confirmed: Mapped[bool] = mapped_column(
+        default=False, server_default="false",
+    )
+
+    bye_club_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("clubs.id"),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "league_id",
+            "number",
+            name="uq_league_rounds_league_number",
+        ),
+    )
+
+
+class LeagueStanding(Base):
+    __tablename__ = "league_standings"
+
+    league_id: Mapped[int] = mapped_column(
+        ForeignKey("leagues.id", ondelete="CASCADE"), primary_key=True,
+    )
+    club_id: Mapped[int] = mapped_column(
+        ForeignKey("clubs.id", ondelete="CASCADE"), primary_key=True,
+    )
+    played: Mapped[int] = mapped_column(default=0, server_default="0")
+    wins: Mapped[int] = mapped_column(default=0, server_default="0")
+    draws: Mapped[int] = mapped_column(default=0, server_default="0")
+    losses: Mapped[int] = mapped_column(default=0, server_default="0")
+    goals_for: Mapped[int] = mapped_column(default=0, server_default="0")
+    goals_against: Mapped[int] = mapped_column(default=0, server_default="0")
+    points: Mapped[int] = mapped_column(default=0, server_default="0")

@@ -11,9 +11,12 @@ export default function MatchCanvas({snapshot, live}) {
         const scoreChanged = old && old.state.teams.some((team) => (
             snapshot.state.teams.find((next) => next.id === team.id)?.score !== team.score
         ));
+        const sidesChanged = old && old.state.teams.some((team) => (
+            snapshot.state.teams.find((next) => next.id === team.id)?.side !== team.side
+        ));
         const now = performance.now();
         const canBlend = live && old && old.state.status === snapshot.state.status
-            && !scoreChanged && now - old.receivedAt < 500;
+            && !scoreChanged && !sidesChanged && now - old.receivedAt < 500;
         history.current = {
             previous: canBlend ? old : null,
             current: {state: snapshot.state, receivedAt: now},

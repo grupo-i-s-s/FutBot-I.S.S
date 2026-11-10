@@ -1,24 +1,95 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from typing import NoReturn
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
-from app.models.matches_model import Matches
+from app.models.matches_model import Matches, TEST_OPPONENT_CLUB_ID
 from app.repository import matches_repository
 from app.schemas.matches_schemas import CreateFriendlyMatchRequest, MatchStateResponse
+from app.models.auth_model import Club
+from app.services.match_builder_service import build_match
+from app.services.match_schedule_service import (
+    FRIENDLY_SCHEDULE_CONFLICT,
+    LEAGUE_SCHEDULE_CONFLICT,
+    find_friendly_schedule_conflict,
+    find_league_schedule_conflict,
+)
+from app.services.match_start_service import cancel_match
+from primitives.match_simulation import DEFAULT_DURATION_MS
+
+MATCH_DT_MANUAL_ACTION_FORBIDDEN = "MATCH_DT_MANUAL_ACTION_FORBIDDEN"
+
+def _require_available_clubs(
+        db: Session, club_ids: tuple[int, ...], current_club_id: int
+) -> None:
+    # Releer bajo bloqueo evita aceptar un rival con la disponibilidad que tenía
+    # al cargar el listado o al autenticar la petición.
+    clubs = {
+        club.id: club
+        for club in matches_repository.get_clubs_for_update(db, club_ids)
+    }
+    current = clubs.get(current_club_id)
+    if current is None or not current.friendly_available:
+        raise AppError(
+            "CLUB_NOT_AVAILABLE",
+            "Tu club no está disponible para amistosos. "
+            "Activá la disponibilidad desde Mi club.",
+        )
+    if any(club_id not in clubs or not clubs[club_id].friendly_available for club_id in club_ids):
+        raise AppError(
+            "CLUB_NOT_AVAILABLE",
+            "El club rival ya no está disponible para amistosos.",
+        )
 
 
-def list_available(db: Session, club_id: int) -> list[dict]:
-    return [
+def _require_free_league_slot(
+        db: Session, club_ids: tuple[int, ...], start: datetime, duration_ms: int,
+) -> None:
+    try:
+        conflict = find_league_schedule_conflict(db, club_ids, start, duration_ms)
+    except OverflowError as exc:
+        raise AppError("MATCH_INVALID_DATE", "La franja de juego excede el rango de fechas permitido.") from exc
+    if conflict is not None:
+        occupied_start, occupied_end = conflict
+        raise AppError(
+            LEAGUE_SCHEDULE_CONFLICT,
+            "El horario se superpone con un partido de liga confirmado.",
+            {"conflictStart": occupied_start.isoformat(), "conflictEnd": occupied_end.isoformat()},
+        )
+
+
+def _require_free_friendly_slot(
+        db: Session, club_ids: tuple[int, ...], current_club_id: int, start: datetime, duration_ms: int,
+) -> None:
+    try:
+        conflict = find_friendly_schedule_conflict(db, club_ids, start, duration_ms)
+    except OverflowError as exc:
+        raise AppError("MATCH_INVALID_DATE", "La franja de juego excede el rango de fechas permitido.") from exc
+    if conflict is not None:
+        occupied_start, occupied_end, participants = conflict
+        club = "Tu club" if current_club_id in participants else "El club rival"
+        raise AppError(
+            FRIENDLY_SCHEDULE_CONFLICT,
+            f"{club} ya tiene un amistoso confirmado en esa franja. Elegí otro horario.",
+            {"conflictStart": occupied_start.isoformat(), "conflictEnd": occupied_end.isoformat()},
+        )
+
+
+def list_available(db: Session, club_id: int, *, creator_name: str | None = None,
+                   page: int = 1, page_size: int = 20) -> dict:
+    matches, total = matches_repository.list_available(
+        db, club_id, datetime.now(timezone.utc), creator_name=creator_name, page=page, page_size=page_size,
+    )
+    items = [
         {
             "match_id": match.match_id,
             "creator_club_name": club_name,
             "start_datetime": match.init_date,
         }
-        for match, club_name in matches_repository.list_available(
-            db, club_id, datetime.now(timezone.utc)
-        )
+        for match, club_name in matches
     ]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 def list_for_club(db: Session, club_id: int) -> list[dict]:
@@ -51,6 +122,13 @@ def join_match(db: Session, match_id: int, club_id: int) -> dict:
     ) or match.init_date <= datetime.now(timezone.utc):
         raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
 
+    club_ids = (match.creator_id, club_id)
+    _require_available_clubs(db, club_ids, club_id)
+    if match.init_date <= datetime.now(timezone.utc):
+        raise AppError("MATCH_STARTED", "Ya pasó la fecha de inicio del partido.")
+    _require_free_league_slot(db, club_ids, match.init_date, match.duration_ms)
+    _require_free_friendly_slot(db, club_ids, club_id, match.init_date, match.duration_ms)
+
     match.visitor_id = club_id
     match.status = "SCHEDULED"
     # El snapshot de espera cambia al incorporarse el rival. Los espectadores
@@ -72,7 +150,14 @@ def create_friendly_match(
     if start_dt <= now_utc:
         raise AppError("MATCH_INVALID_DATE", "La fecha de inicio debe ser futura.")
 
-    match = Matches(creator_id=club_id, init_date=start_dt, status="WAITING_OPPONENT")
+    _require_available_clubs(db, (club_id,), club_id)
+    if start_dt <= datetime.now(timezone.utc):
+        raise AppError("MATCH_INVALID_DATE", "La fecha de inicio debe ser futura.")
+
+    _require_free_league_slot(db, (club_id,), start_dt, DEFAULT_DURATION_MS)
+    match = Matches(
+        creator_id=club_id, init_date=start_dt, duration_ms=DEFAULT_DURATION_MS, status="WAITING_OPPONENT",
+    )
     db.add(match)
     db.commit()
     db.refresh(match)
@@ -99,3 +184,62 @@ def get_match_state(db, match_id: int, club_id: int) -> MatchStateResponse:
         visitor_score=match.visitor_score,
         duration_ms=match.duration_ms,
     )
+
+def create_behaviour_test_match(db: Session, club_id: int) -> dict:
+    if club_id == TEST_OPPONENT_CLUB_ID:
+        raise AppError(
+            "MATCH_SELF_JOIN",
+            "El club rival de prueba no puede ser el club de tu sesión.",
+        )
+
+    if db.get(Club, TEST_OPPONENT_CLUB_ID) is None:
+        raise AppError(
+            "MATCH_NOT_FOUND",
+            "No está configurado el club rival de prueba.",
+        )
+    
+    now = datetime.now(timezone.utc)
+    previous_match = matches_repository.get_active_test_match(db, club_id, TEST_OPPONENT_CLUB_ID)
+
+    if previous_match is not None:
+        cancel_match(db, previous_match, "REPLACED_BY_NEW_TEST_MATCH", now)
+
+    match = Matches(
+        creator_id= club_id,
+        visitor_id= TEST_OPPONENT_CLUB_ID,
+        init_date= now + timedelta(seconds=1),
+        status = "SCHEDULED",
+    )
+    db.add(match)
+    db.flush()
+
+    build_match(db, match.match_id)
+
+    db.commit()
+    return {
+        "message": "Partido de prueba creado.",
+        "match_id": match.match_id,
+    }
+
+def reject_match_dt_change(db: Session, match_id: int, club_id: int) -> NoReturn:
+    match = matches_repository.get_by_id(db, match_id)
+    if match is None:
+        raise AppError("MATCH_NOT_FOUND", "El partido no existe.")
+    if club_id not in (match.creator_id, match.visitor_id):
+        raise AppError("MATCH_FORBIDDEN", "El club no participa de este partido.")
+
+    team_key = "local_team" if club_id == match.creator_id else "visitor_team"
+    if match.status != "RUNNING" or not (match.runtime_state or {}).get(team_key):
+        raise AppError("MATCH_STATE_INVALID", "El partido no admite cambios de DT.")
+    raise AppError(
+        "MATCH_DT_MODE_FIXED",
+        "El modo de control se fija al iniciar el partido. Configurá el DT desde Mi club para futuros partidos.",
+    )
+
+
+def require_manual_match_control(team: dict | None) -> None:
+    if team and team.get("dt_active") is True:
+        raise AppError(
+            MATCH_DT_MANUAL_ACTION_FORBIDDEN,
+            "El DT dirige a tu equipo en este partido. Las órdenes manuales están deshabilitadas.",
+        )

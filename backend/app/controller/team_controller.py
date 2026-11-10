@@ -8,16 +8,18 @@ from app.schemas.team_schemas import (
 )
 from app.services import team_service
 
-team_router = APIRouter(prefix="/team", tags=["team"])
+team_router = APIRouter(tags=["clubs"])
 catalogs_router = APIRouter(prefix="/catalogs", tags=["catalogs"])
 
 
-@team_router.get("/default", response_model=DefaultTeamRead)
+@team_router.get("/clubs/me/default-team", response_model=DefaultTeamRead)
+@team_router.get("/team/default", response_model=DefaultTeamRead, include_in_schema=False)
 def get_default_team(club: CurrentClub, db: Database):
     return team_service.get_default_team(db, club.id)
 
 
-@team_router.put("/default", response_model=DefaultTeamRead)
+@team_router.put("/clubs/me/default-team", response_model=DefaultTeamRead)
+@team_router.put("/team/default", response_model=DefaultTeamRead, include_in_schema=False)
 def update_default_team(
         data: Lineup,
         club: CurrentClub,

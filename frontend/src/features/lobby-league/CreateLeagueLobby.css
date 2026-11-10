@@ -39,7 +39,8 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.lobby-card h2, .lobby-card h3 {
+.lobby-card h2,
+.lobby-card h3 {
     margin-top: 0;
     margin-bottom: 1rem;
     color: #374151;
@@ -103,7 +104,7 @@
 }
 
 .leave-league {
-    max-width: 155px;
+    max-width: 130px;
     background-color: #e13c4a;
     color: white;
     border: none;
@@ -126,4 +127,50 @@
 
 .lobby-status.error {
     color: #ef4444;
+}
+
+.lobby-container button,
+.lobby-container select {
+    padding: 0.5rem 0.75rem;
+}
+
+.lobby-container button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.league-fixture-matches {
+    list-style: none;
+    padding: 0;
+}
+
+.league-fixture-matches li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.league-next-match {
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.league-table-scroll {
+    overflow-x: auto;
+}
+
+.league-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.league-table th,
+.league-table td {
+    padding: 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
 }

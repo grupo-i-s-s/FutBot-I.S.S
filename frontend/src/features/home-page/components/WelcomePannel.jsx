@@ -1,6 +1,7 @@
 import {ArrowRight} from 'lucide-react';
 import {Link} from 'react-router';
 import '../homePage.css';
+import {routes} from '@/routes.js';
 
 export default function WelcomePannel() {
     return (
@@ -10,7 +11,7 @@ export default function WelcomePannel() {
                 <span className="home-title">FutBot<span>.</span></span>
             </h1>
             <p className="home-club"> Arma tu equipo</p>
-            <Link to="/mi-club" className="home-teams">
+            <Link to={routes.myClub} className="home-teams">
                 Ir a mi Club
                 <ArrowRight size={20} aria-hidden="true"/>
             </Link>

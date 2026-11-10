@@ -2,6 +2,7 @@ import {Link} from 'react-router';
 import {SearchX} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle,} from '@/components/ui/empty';
+import {routes} from '@/routes.js';
 
 export default function NotFoundPage() {
     return (
@@ -15,7 +16,7 @@ export default function NotFoundPage() {
                     <EmptyDescription>La dirección que ingresaste no existe.</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                    <Button nativeButton={false} render={<Link to="/mi-club"/>}>Ir a Mi club</Button>
+                    <Button nativeButton={false} render={<Link to={routes.myClub}/>}>Ir a Mi club</Button>
                 </EmptyContent>
             </Empty>
         </main>

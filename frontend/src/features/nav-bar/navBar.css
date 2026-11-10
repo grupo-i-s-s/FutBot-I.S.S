@@ -1,0 +1,88 @@
+.app-nav {
+    color: #164b35;
+    background: #f5f7f2;
+    border-bottom: 1px solid #dde6dd;
+}
+
+.app-nav-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    max-width: 1440px;
+    min-height: 80px;
+    margin-inline: auto;
+    padding: 12px clamp(16px, 3vw, 32px);
+}
+
+.app-nav-club {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 200px;
+    min-width: 0;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.app-nav-club > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-nav-club > :first-child {
+    flex: none;
+    width: 64px;
+    height: 64px;
+}
+
+.app-nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-inline-start: auto;
+    max-width: 100%;
+}
+
+.app-nav-action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 6px 10px;
+    border: 1px solid #b9cdbd;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.app-nav-action:hover,
+.app-nav-action[aria-current='page'] {
+    background: #e5eee2;
+}
+
+.app-nav :is(a, button):focus-visible {
+    outline: 2px solid #164b35;
+    outline-offset: 2px;
+}
+
+.app-nav-action:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+.app-nav-error {
+    flex-basis: 100%;
+    color: #a61b1b;
+    font-size: 14px;
+}
+
+@media (max-width: 640px) {
+    .app-nav-links {
+        flex-basis: 100%;
+        margin-inline-start: 0;
+    }
+}

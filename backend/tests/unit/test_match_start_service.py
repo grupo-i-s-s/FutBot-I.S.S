@@ -12,15 +12,17 @@ from app.services import match_start_service as service
 @pytest.fixture
 def start(monkeypatch, now):
     row = SimpleNamespace(match_id=42, creator_id=1, visitor_id=7,
-                          status="SCHEDULED", init_date=now, sequence=3, snapshot=None)
+                          status="SCHEDULED", init_date=now, duration_ms=300_000, sequence=3, snapshot=None)
     snapshot = {"sequence": 3, "state": {"status": "WAITING", "teams": [{"id": 1}]}}
     repository = Mock()
+    repository.get_active_test_match.return_value = None
     repository.get_clubs_for_update.return_value = [SimpleNamespace(id=1), SimpleNamespace(id=7)]
     repository.clubs_have_running_match.return_value = False
     builder = Mock(return_value=object())
     monkeypatch.setattr(service, "matches_repository", repository)
+    monkeypatch.setattr(service, "find_league_schedule_conflict", Mock(return_value=None))
     monkeypatch.setattr(service, "build_match", builder)
-    monkeypatch.setattr(service, "read_snapshot", Mock(return_value=snapshot))
+    monkeypatch.setattr(service, "snapshot_from_match", Mock(return_value=snapshot))
     return SimpleNamespace(row=row, repo=repository, builder=builder, snapshot=snapshot)
 
 
@@ -41,6 +43,14 @@ def test_future_match_is_untouched(db, start, now):
     start.repo.get_clubs_for_update.assert_not_called()
     start.builder.assert_not_called()
     db.flush.assert_not_called()
+
+
+def test_league_match_cannot_start_outside_its_round(db, start, now):
+    start.row.league_round_id = 8
+    assert service.prepare_match_start(db, start.row, now) is None
+    assert start.row.status == "SCHEDULED"
+    start.repo.get_clubs_for_update.assert_not_called()
+    start.builder.assert_not_called()
 
 
 @pytest.mark.parametrize("status", ["RUNNING", "FINISHED", "CANCELLED"])
@@ -72,7 +82,8 @@ def test_cancellation_publishes_new_sequence_without_mutating_previous_snapshot(
     assert start.row.snapshot["sequence"] == 4
     assert start.snapshot == before
     assert start.row.snapshot is not start.snapshot
-    service.read_snapshot.assert_called_once_with(db, 42, 1)
+    service.snapshot_from_match.assert_called_once_with(db, start.row)
+    start.repo.expire_pending_substitutions.assert_called_once_with(db, 42)
     db.flush.assert_called_once()
     db.commit.assert_not_called()
     if reason in {"NO_OPPONENT", "INVALID_CLUBS", "CLUB_BUSY"}:

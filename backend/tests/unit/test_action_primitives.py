@@ -1,4 +1,5 @@
 """Nuestros límites y decisiones de movimiento; sin motor de física."""
+
 import pytest
 from pymunk.vec2d import Vec2d
 from types import SimpleNamespace
@@ -15,7 +16,9 @@ def body(x, y):
 def test_run_to_limits_speed_to_avoid_overshooting(distance, expected_speed):
     player = body(0, 0)
     run_to(player, (distance, 0), speed=10, dt=0.1)
-    assert tuple(player.velocity) == (expected_speed, 0)
+    expected_xpos = expected_speed * 0.18 + 3 * 0.82
+    expected_ypos = 4 * 0.82
+    assert tuple(player.velocity) == pytest.approx((expected_xpos, expected_ypos))
     assert tuple(player.position) == (0, 0)
 
 
@@ -34,11 +37,19 @@ def test_invalid_movement_preserves_previous_velocity(speed, dt):
     assert tuple(player.velocity) == (3, 4)
 
 
-@pytest.mark.parametrize("ball_x, target, speed, reach", [
-    (2.01, (10, 0), 10, 2), (2, (10, 0), 0, 2),
-    (2, (10, 0), -1, 2), (2, (10, 0), 10, -1), (2, (2, 0), 10, 2),
-])
-def test_invalid_or_out_of_range_kick_does_not_change_ball(ball_x, target, speed, reach):
+@pytest.mark.parametrize(
+    "ball_x, target, speed, reach",
+    [
+        (2.01, (10, 0), 10, 2),
+        (2, (10, 0), 0, 2),
+        (2, (10, 0), -1, 2),
+        (2, (10, 0), 10, -1),
+        (2, (2, 0), 10, 2),
+    ],
+)
+def test_invalid_or_out_of_range_kick_does_not_change_ball(
+    ball_x, target, speed, reach
+):
     ball = body(ball_x, 0)
     assert kick(body(0, 0), ball, target, speed, reach) is False
     assert tuple(ball.velocity) == (3, 4)

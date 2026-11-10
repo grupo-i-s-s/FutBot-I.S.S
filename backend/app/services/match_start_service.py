@@ -3,17 +3,18 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
-from app.models.matches_model import Matches
+from app.models.matches_model import Matches, TEST_OPPONENT_CLUB_ID
 from app.repository import matches_repository
 from app.services.match_builder_service import build_match
-from app.services.match_snapshot_service import read_snapshot
+from app.services.match_schedule_service import LEAGUE_SCHEDULE_CONFLICT, find_league_schedule_conflict
+from app.services.match_snapshot_service import snapshot_from_match, with_closed_match_pauses
 from primitives.match_simulation import Match
 
 PENDING_STATUSES = ("WAITING", "WAITING_OPPONENT", "SCHEDULED")
 
 
-def _cancel_match(db: Session, match: Matches, reason: str, now: datetime) -> None:
-    snapshot = deepcopy(read_snapshot(db, match.match_id, match.creator_id))
+def cancel_match(db: Session, match: Matches, reason: str, now: datetime) -> None:
+    snapshot = deepcopy(snapshot_from_match(db, match))
 
     snapshot["sequence"] = match.sequence + 1
     snapshot["sentAt"] = now.isoformat()
@@ -23,8 +24,9 @@ def _cancel_match(db: Session, match: Matches, reason: str, now: datetime) -> No
     match.status = "CANCELLED"
     match.cancellation_reason = reason
     match.sequence = snapshot["sequence"]
-    match.snapshot = snapshot
+    match.snapshot = with_closed_match_pauses(snapshot)
 
+    matches_repository.expire_pending_substitutions(db, match.match_id)
     db.flush()
 
 
@@ -32,31 +34,50 @@ def prepare_match_start(db: Session, match: Matches, now: datetime, *, duration_
     if match.status not in PENDING_STATUSES:
         raise AppError("MATCH_STATE_INVALID", "El partido no está pendiente de inicio.")
 
+    if getattr(match, "league_round_id", None) is not None:
+        return None
+
     if match.init_date > now:
         return None
 
     if match.visitor_id is None:
-        _cancel_match(db, match, "NO_OPPONENT", now)
+        cancel_match(db, match, "NO_OPPONENT", now)
         return None
 
     club_ids = (match.creator_id, match.visitor_id)
+
+    active_tests = []
+    for club_id in sorted(club_ids):
+        test_match = matches_repository.get_active_test_match(db, club_id, TEST_OPPONENT_CLUB_ID)
+        if test_match is not None and test_match.match_id != match.match_id:
+            active_tests.append(test_match)
+
     clubs = matches_repository.get_clubs_for_update(db, club_ids)
 
     if len(clubs) != 2:
-        _cancel_match(db, match, "INVALID_CLUBS", now)
+        cancel_match(db, match, "INVALID_CLUBS", now)
         return None
 
+    if TEST_OPPONENT_CLUB_ID not in club_ids and find_league_schedule_conflict(
+        db, club_ids, match.init_date, match.duration_ms if duration_ms is None else duration_ms,
+    ):
+        cancel_match(db, match, LEAGUE_SCHEDULE_CONFLICT, now)
+        return None
+
+    for test_match in active_tests:
+        cancel_match(db, test_match, "REPLACED_BY_FRIENDLY_MATCH", now)
+
     if matches_repository.clubs_have_running_match(db, club_ids, match.match_id):
-        _cancel_match(db, match, "CLUB_BUSY", now)
+        cancel_match(db, match, "CLUB_BUSY", now)
         return None
 
     try:
         return build_match(db, match.match_id, duration_ms=duration_ms)
     except AppError as exc:
         if exc.code == "MATCH_INVALID_LINEUP":
-            _cancel_match(db, match, "INVALID_LINEUP", now)
+            cancel_match(db, match, "INVALID_LINEUP", now)
             return None
         if exc.code == "MATCH_INVALID_BEHAVIOUR":
-            _cancel_match(db, match, "INVALID_BEHAVIOUR", now)
+            cancel_match(db, match, "INVALID_BEHAVIOUR", now)
             return None
         raise

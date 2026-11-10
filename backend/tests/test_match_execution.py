@@ -1,6 +1,7 @@
 import pytest
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -16,9 +17,13 @@ from app.errors import AppError
 from app.main import app
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
-from app.models.matches_model import Matches
+from app.models.dt_model import Dt, DtBehaviour
+from app.models.league_model import League, LeagueRound
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
 from app.models.player_model import Player
-from app.repository import matches_repository
+from app.models.planned_substitution_model import PlannedSubstitution
+from app.models.team_model import DefaultTeam
+from app.repository import matches_repository, stats_repository
 from app.services import match_execution_service as execution
 from app.services.match_snapshot_service import read_snapshot
 from app.services.match_stream_services import StreamAccess
@@ -27,23 +32,47 @@ from primitives.behaviours import DEFAULT_CODES
 
 
 @pytest.fixture
-def database(monkeypatch):
+def database(monkeypatch, sqlite_match_dates):
+    monkeypatch.setattr(
+        "app.services.match_builder_service.Match",
+        partial(
+            match_simulation.Match,
+            hydration_break_ms=0,
+            half_break_ms=0,
+        ),
+    )
     # Persistencia real con sesiones independientes, sin requerir Docker.
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
-    tables = [User.__table__, Club.__table__, Behavior.__table__, Player.__table__, Matches.__table__]
+    tables = [model.__table__ for model in (
+        User, Club, Behavior, Player, DefaultTeam, League, LeagueRound,
+        Matches, PlannedSubstitution, Dt, DtBehaviour,
+    )]
     Base.metadata.create_all(engine, tables=tables)
     with Session(engine) as db:
         for club_id in (1, 2):
             db.add(User(id=club_id, email=f"club{club_id}@test.com", password_hash="unused"))
-            db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}", avatar="avatar"))
+            db.add(Club(id=club_id, user_id=club_id, name=f"Club {club_id}",
+                        avatar=f"avatar-{club_id:02d}.png"))
             db.add(Behavior(id=club_id, club_id=club_id, name="Equilibrado", description="test",
-                            code=DEFAULT_CODES["Equilibrado"]))
-            for index in range(3):
+                            code=DEFAULT_CODES["Equilibrado"], kind="PLAYER", version=1,
+                            validation_status="VALID"))
+            for index in range(6):
                 db.add(Player(id=club_id * 10 + index, club_id=club_id, behavior_id=club_id,
                               name=f"Jugador {club_id}-{index}", power=60, agility=60,
                               control=60, speed=60, strength=60))
+            db.add(DefaultTeam(club_id=club_id, line_up={
+                "formationId": 1,
+                "starters": [
+                    {"playerId": club_id * 10 + index, "behaviourId": club_id}
+                    for index in range(3)
+                ],
+                "substitutes": [
+                    {"playerId": club_id * 10 + index, "behaviourId": club_id}
+                    for index in range(3, 6)
+                ],
+            }))
         db.add(Matches(match_id=42, creator_id=1, visitor_id=2,
-                       init_date=datetime.now(timezone.utc) + timedelta(hours=1), duration_ms=200))
+                       init_date=datetime.now(timezone.utc) - timedelta(seconds=1), duration_ms=200))
         db.commit()
 
     @contextmanager
@@ -68,6 +97,10 @@ def test_executor_persists_result_and_second_call_does_not_play_again(database, 
         assert row.local_score == 0 and row.visitor_score == 6
         assert row.started_at is not None and row.finished_at is not None
         assert row.snapshot == final
+        assert row.runtime_state["version"] == 6
+        assert [team["avatar"] for team in final["state"]["teams"]] == [
+            "avatar-01.png", "avatar-02.png",
+        ]
         assert read_snapshot(db, 42, 1) == final
         assert read_snapshot(db, 42, 2) == final
         sequence, finished_at = row.sequence, row.finished_at
@@ -76,6 +109,8 @@ def test_executor_persists_result_and_second_call_does_not_play_again(database, 
     with Session(database) as db:
         row = db.get(Matches, 42)
         assert row.sequence == sequence and row.finished_at == finished_at
+        visitor = stats_repository.get_club_profile_stats(db, 2)
+        assert (visitor["played"], visitor["wins"], visitor["points"]) == (1, 1, 0)
 
 
 def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monkeypatch):
@@ -98,6 +133,8 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
         assert row.local_score == 3 and row.sequence == 2
         # Cambiar el club después de comenzar no reconstruye la alineación.
         db.get(Behavior, 1).code = "código incompatible nuevo"
+        db.get(Behavior, 1).version = 2
+        db.get(Club, 1).avatar = "avatar-20.png"
         db.commit()
 
     monkeypatch.setattr(execution, "sleep", lambda _: None)
@@ -107,7 +144,45 @@ def test_resume_keeps_committed_clock_goals_and_frozen_behaviours(database, monk
     final = execution.run_persisted_match(42)
     assert final["state"]["status"] == "FINISHED"
     assert final["state"]["teams"][0]["score"] == 6
+    assert final["state"]["teams"][0]["avatar"] == "avatar-01.png"
+    assert {
+        player["behaviourVersion"]
+        for player in final["state"]["players"]
+        if player["teamId"] == 1
+    } == {1}
     assert final["sequence"] == 3
+
+
+@pytest.mark.parametrize("checkpoint", [None, {"version": 99}, ["legacy"]])
+def test_unrecoverable_match_releases_clubs_and_exposes_partial_score(database, checkpoint):
+    with Session(database) as db:
+        row = db.get(Matches, 42)
+        row.status = "RUNNING"
+        row.started_at = datetime.now(timezone.utc)
+        row.sequence = 5
+        row.clock_ms = 100
+        row.local_score = 2
+        row.runtime_state = checkpoint
+        row.snapshot = {"state": {"status": "RUNNING", "phase": "HALF_BREAK"}}
+        db.commit()
+
+    cancelled = execution.run_persisted_match(42)
+
+    assert cancelled["sequence"] == 6
+    state = cancelled["state"]
+    assert state["status"] == "CANCELLED"
+    assert state["cancellationReason"] == CHECKPOINT_UNRECOVERABLE
+    assert state["clockMs"] == 100 and state["durationMs"] == 200
+    assert [team["score"] for team in state["teams"]] == [2, 0]
+    assert "phase" not in state and state["players"] == [] and state["ball"] is None
+    with Session(database) as db:
+        row = db.get(Matches, 42)
+        assert row.finished_at is not None
+        assert row.runtime_state == checkpoint
+        assert read_snapshot(db, 42, 1) == read_snapshot(db, 42, 2) == cancelled
+        assert not matches_repository.clubs_have_running_match(db, (1, 2))
+        assert 42 not in matches_repository.get_due_match_ids(db, datetime.now(timezone.utc))
+    assert execution.run_persisted_match(42) == cancelled
 
 
 def test_persistence_failure_never_publishes_uncommitted_final_state(database, monkeypatch):
@@ -131,6 +206,7 @@ def test_persistence_failure_never_publishes_uncommitted_final_state(database, m
         assert snapshot["sequence"] == 1
         assert snapshot["state"]["status"] == "RUNNING"
         assert snapshot["state"]["clockMs"] == 0
+        assert stats_repository.get_club_profile_stats(db, 1)["played"] == 0
 
 
 def test_waiting_read_and_access_checks_do_not_start_match(database):
@@ -170,7 +246,10 @@ def test_get_and_websocket_return_same_persisted_final_snapshot(database, monkey
                 with client.websocket_connect("/matches/42/stream",
                                               headers={"Origin": next(iter(settings.allowed_origins))}) as socket:
                     assert socket.receive_json() == final
-                    assert socket.receive() == {"type": "websocket.close", "code": 1000, "reason": "Partido finalizado"}
+                    assert socket.receive() == {
+                        "type": "websocket.close", "code": 1000,
+                        "reason": "Partido finalizado o cancelado",
+                    }
         finally:
             app.dependency_overrides.clear()
 

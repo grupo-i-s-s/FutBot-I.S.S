@@ -11,6 +11,8 @@ from app.dependencies import get_current_club
 from app.main import app
 from app.repository import league_repository
 from app.security import verify_password
+from app.services import league_lineup_service as lineups
+from primitives.behaviours import DEFAULT_CODES
 
 
 @pytest.fixture(autouse=True)
@@ -23,8 +25,18 @@ def no_background_scheduler(monkeypatch):
 
 
 @pytest.fixture
-def league_client():
+def league_client(monkeypatch):
     db = Mock()
+    slots = [{"playerId": i, "behaviourId": 1} for i in range(1, 7)]
+    db.get.return_value = SimpleNamespace(
+        line_up={"formationId": 2, "starters": slots[:3], "substitutes": slots[3:]},
+    )
+    monkeypatch.setattr(lineups.player_repository, "get_players_by_club", lambda *_: [
+        SimpleNamespace(id=i) for i in range(1, 7)
+    ])
+    behaviour = SimpleNamespace(id=1, name="Equilibrado", code=DEFAULT_CODES["Equilibrado"],
+                                kind="PLAYER", version=1, validation_status="VALID")
+    monkeypatch.setattr(lineups.behaviour_repository, "get_all_behaviours", lambda *_: [behaviour])
 
     # La sesión simulada debe devolver los valores generados al hacer flush.
     def generated_values():
@@ -71,6 +83,7 @@ def test_creation_registers_creator_and_returns_lobby(league_client, monkeypatch
     response = client.post(f"/leagues/{'private' if is_private else 'public'}", json=payload)
 
     assert response.status_code == 201
+    assert set(response.json()) == {"leagueId", "message"}
     league = db.add.call_args.args[0]
     assert league.name == "Liga de prueba"
     assert league.is_private is is_private
@@ -78,6 +91,9 @@ def test_creation_registers_creator_and_returns_lobby(league_client, monkeypatch
     assert league.start_datetime.tzinfo is not None
     assert league.round_interval == "DAILY"
     assert [registration.club_id for registration in league.registrations] == [club.id]
+    assert league.registrations[0].line_up == db.get.return_value.line_up
+    assert league.registrations[0].line_up is not db.get.return_value.line_up
+    assert league.access_code is None
     if is_private:
         assert league.password_hash != payload["password"]
         assert verify_password(payload["password"], league.password_hash)
@@ -103,7 +119,11 @@ def test_creation_registers_creator_and_returns_lobby(league_client, monkeypatch
     assert body["registeredTeams"] == 1
     assert body["remainingSlots"] == 7
     assert body["isRegistered"] is True
-    assert "password_hash" not in body
+    assert not {"password", "passwordHash", "password_hash", "accessCode", "access_code"} & body.keys()
+
+    monkeypatch.setattr(league_repository, "get_available_leagues", lambda *args, **kwargs: ([(league, 1, True)], None))
+    item = client.get("/leagues").json()["items"][0]
+    assert not {"password", "passwordHash", "password_hash", "accessCode", "access_code"} & item.keys()
 
 
 @pytest.mark.parametrize("visibility", ["public", "private"])
@@ -145,6 +165,16 @@ def test_private_creation_requires_password(league_client):
     response = client.post("/leagues/private", json={**league_payload(), "password": "   "})
     assert response.status_code == 400
     db.add.assert_not_called()
+
+
+def test_creation_requires_valid_default_team(league_client):
+    client, db, _ = league_client
+    db.get.return_value = None
+    response = client.post("/leagues/public", json=league_payload())
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "LEAGUE_LINEUP_INVALID"
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
 
 
 def test_duplicate_league_rolls_back(league_client):

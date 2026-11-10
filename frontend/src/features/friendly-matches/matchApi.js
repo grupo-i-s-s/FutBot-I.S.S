@@ -10,6 +10,14 @@ export function getMatchSnapshot(matchId, signal) {
     return request(`/matches/${validateMatchId(matchId)}`, {signal});
 }
 
+export function planSubstitution(matchId, body, signal) {
+    return request(`/matches/${validateMatchId(matchId)}/planned-substitution`, {method: 'PUT', body, signal});
+}
+
+export function requestSubstitution(matchId, body, signal) {
+    return request(`/matches/${validateMatchId(matchId)}/substitutions`, {method: 'POST', body, signal});
+}
+
 export function matchStreamUrl(matchId) {
     const id = validateMatchId(matchId);
 
@@ -17,4 +25,13 @@ export function matchStreamUrl(matchId) {
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
 
     return url.toString();
+}
+
+export function changeBehaviour(matchId, playerId, behaviourId) {
+    const id = validateMatchId(matchId);
+
+    return request(`/matches/${id}/live-requests`, {
+        method: 'POST',
+        body: {playerId, behaviourId},
+    });
 }

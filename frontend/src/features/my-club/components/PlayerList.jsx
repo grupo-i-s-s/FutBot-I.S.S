@@ -1,11 +1,10 @@
-import {Plus, Users} from 'lucide-react';
-import {Link} from 'react-router';
-import {Avatar, AvatarFallback} from '@/components/ui/avatar';
-import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
-import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
-import {Item, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item';
-import {BehaviorSelector} from './BehaviorSelector';
-import {buttonVariants} from '@/components/ui/button';
+import { Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { buttonVariants } from '@/components/ui/button';
+import CreatePlayerDialog from '@/features/create-players/CreatePlayerDialog.jsx';
 
 const PACSS_ATTRIBUTES = [
     ['Power', 'power'],
@@ -15,30 +14,41 @@ const PACSS_ATTRIBUTES = [
     ['Strength', 'strength'],
 ];
 
-export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
+export default function PlayerList({
+    players, currentPage, totalPages, totalPlayers,
+    onPageChange, loading, error, onRetry, onPlayerCreated,
+}) {
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <Users className="size-5" aria-hidden="true"/>
+                    <Users className="size-5" aria-hidden="true" />
                     Jugadores
                 </CardTitle>
-                <CardDescription>{players.length} jugadores en el plantel</CardDescription>
+                {totalPlayers != null && <CardDescription>{totalPlayers} jugadores en el plantel</CardDescription>}
 
-                <CardAction>
-                    <Link to="/crear-jugador" className={buttonVariants({size: 'sm'})}>
-                        <Plus className="size-4" aria-hidden="true"/>
-                        Crear Nuevo jugador
-                    </Link>
+                <CardAction className="flex flex-col items-stretch gap-2">
+                    <CreatePlayerDialog onCreated={onPlayerCreated} />
                 </CardAction>
             </CardHeader>
 
             <CardContent>
-                {players.length === 0 ? (
+                {loading ? (
+                    <p role="status">Cargando jugadores…</p>
+                ) : error ? (
+                    <div className="space-y-2">
+                        <p role="alert" className="text-sm text-destructive">
+                            No se pudo cargar el plantel. {error.message}
+                        </p>
+                        <button type="button" className={buttonVariants({variant: 'outline', size: 'sm'})} onClick={onRetry}>
+                            Reintentar carga del plantel
+                        </button>
+                    </div>
+                ) : players.length === 0 ? (
                     <Empty className="border">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
-                                <Users/>
+                                <Users />
                             </EmptyMedia>
                             <EmptyTitle>Sin jugadores</EmptyTitle>
                             <EmptyDescription>
@@ -78,19 +88,42 @@ export default function PlayerList({players, behaviours, onBehaviourAssigned}) {
                                             </span>{' '}
                                             {player.behaviourName}
                                         </ItemDescription>
-
-                                        <BehaviorSelector
-                                            player={player}
-                                            behaviours={behaviours}
-                                            onBehaviourAssigned={onBehaviourAssigned}
-                                        />
                                     </ItemContent>
                                 </Item>
                             </li>
                         ))}
                     </ul>
                 )}
+
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t pt-4 mt-6">
+                        <span className="text-sm text-muted-foreground">
+                            Página {currentPage} de {totalPages}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => onPageChange?.(currentPage - 1)}
+                                disabled={loading || currentPage <= 1}
+                                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                            >
+                                <ChevronLeft className="size-4 mr-1" />
+                                Anterior
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onPageChange?.(currentPage + 1)}
+                                disabled={loading || currentPage >= totalPages}
+                                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                            >
+                                Siguiente
+                                <ChevronRight className="size-4 ml-1" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </CardContent>
-        </Card>
+        </Card >
     );
 }

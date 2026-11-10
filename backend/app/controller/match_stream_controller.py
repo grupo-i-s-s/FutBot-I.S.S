@@ -1,21 +1,32 @@
 import asyncio
 from contextlib import suppress
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Response, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
 from app.database import SessionLocal
 from app.dependencies import CurrentClub, Database
 from app.errors import AppError
-from app.services import match_stream_services
+from app.schemas.error_schemas import ApiErrorResponse
+from app.services import match_stream_services, behaviour_service, matches_service
 from app.services.match_snapshot_service import read_snapshot
+from app.schemas.matches_schemas import (
+    LiveRequests,
+    LiveRequestCreate,
+    LiveRequestResponse,
+    MatchDtUpdate,
+)
+from app.repository import matches_repository
+from app.services.match_request_handler import enqueue_request
+from primitives.behaviour_api.runtime import resolve_program
 
 match_stream_router = APIRouter(prefix="/matches", tags=["matches"])
 SESSION_CHECK_SECONDS = 15
 
 
 @match_stream_router.get("/{match_id}")
-def get_match_snapshot(match_id: int, db: Database, club: CurrentClub):
+def get_match_snapshot(match_id: int, db: Database, club: CurrentClub, response: Response):
+    response.headers["Cache-Control"] = "private, no-store"
     return read_snapshot(db, match_id, club.id)
 
 
@@ -83,3 +94,113 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
         incoming.cancel()
         with suppress(asyncio.CancelledError, WebSocketDisconnect):
             await incoming
+
+
+@match_stream_router.post(
+    "/{match_id}/dt", deprecated=True, status_code=409, response_model=ApiErrorResponse,
+)
+def update_match_dt(match_id: int, data: MatchDtUpdate, db: Database, club: CurrentClub):
+    matches_service.reject_match_dt_change(db, match_id, club.id)
+
+
+@match_stream_router.post("/{match_id}/live-requests", response_model=LiveRequestResponse)
+def create_live_request(match_id: int, data: LiveRequestCreate, db: Database, club: CurrentClub):
+    return update_behaviour(match_id, data, db, club)
+
+
+@match_stream_router.post("/{match_id}/live_request", include_in_schema=False)
+def update_behaviour(
+    match_id: int,
+    data: LiveRequests,
+    db: Database,
+    club: CurrentClub,
+):
+    match = matches_repository.get_by_id(
+        db,
+        match_id,
+    )
+
+    if match is None:
+        raise AppError(
+            "MATCH_NOT_FOUND",
+            "El partido no existe.",
+        )
+
+    if club.id not in (
+        match.creator_id,
+        match.visitor_id,
+    ):
+        raise AppError(
+            "MATCH_FORBIDDEN",
+            "El club no participa del partido.",
+        )
+
+    if match.status != "RUNNING" or not match.runtime_state:
+        raise AppError(
+            "MATCH_STATE_INVALID",
+            "El partido no admite cambios en este momento.",
+        )
+
+    own_team = next(
+        (
+            match.runtime_state[key]
+            for key in ("local_team", "visitor_team")
+            if match.runtime_state.get(key, {}).get("club_id")
+            == club.id
+        ),
+        None,
+    )
+    matches_service.require_manual_match_control(own_team)
+
+    if own_team is None or not any(
+        player["id"] == data.player_id
+        for player in own_team.get("players", [])
+    ):
+        raise AppError(
+            "MATCH_FORBIDDEN",
+            "El jugador no es titular de tu equipo.",
+        )
+
+    behaviour = behaviour_service.behaviour_id(
+        db,
+        club.id,
+        data.behaviour_id,
+    )
+
+    if (
+        behaviour.kind != "PLAYER"
+        or behaviour.validation_status != "VALID"
+    ):
+        raise AppError(
+            "BEHAVIOUR_INVALID",
+            "El comportamiento no está habilitado.",
+        )
+
+    try:
+        program = resolve_program(
+            behaviour.code,
+            behaviour.name,
+            version=behaviour.version,
+        )
+
+    except ValueError as error:
+        raise AppError(
+            "BEHAVIOUR_INVALID",
+            str(error),
+        ) from error
+
+    request_id = enqueue_request(
+        match_id,
+        {
+            "action": "CHANGE_BEHAVIOUR",
+            "player_id": data.player_id,
+            "club_id": club.id,
+            "behaviour_id": behaviour.id,
+            "program": program,
+        },
+    )
+
+    return {
+        "queued": True,
+        "requestId": request_id,
+    }

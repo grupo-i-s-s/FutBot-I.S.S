@@ -22,17 +22,20 @@ import {
 import {Input} from '@/components/ui/input';
 import {Switch} from '@/components/ui/switch';
 import {ToggleGroup, ToggleGroupItem} from '@/components/ui/toggle-group';
-import {AVATAR_OPTIONS} from '../avatars';
+import {AVATAR_OPTIONS, DEFAULT_AVATAR, findAvatar} from '../avatars';
 import ClubAvatar from './ClubAvatar';
 
 const MAX_NAME_LENGTH = 50;
 
 export default function ClubSettingsDialog({
-                                               club, isOpen, onOpenChange, onSave, isSaving, saveError
-                                           }) {
+    club, isOpen, onOpenChange, onSave, isSaving, saveError,
+}) {
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent
+                className="max-h-[85vh] overflow-y-auto sm:max-w-lg"
+                showCloseButton={!isSaving}
+            >
                 {isOpen && (
                     <ClubSettingsForm
                         club={club}
@@ -48,7 +51,7 @@ export default function ClubSettingsDialog({
 
 function ClubSettingsForm({club, onSave, isSaving, saveError}) {
     const [clubName, setClubName] = useState(club.name);
-    const [avatar, setAvatar] = useState(club.avatar);
+    const [avatar, setAvatar] = useState(() => findAvatar(club.avatar)?.key ?? DEFAULT_AVATAR);
     const [isFriendlyAvailable, setIsFriendlyAvailable] = useState(club.friendlyAvailable);
     const [nameError, setNameError] = useState('');
 
@@ -73,64 +76,77 @@ function ClubSettingsForm({club, onSave, isSaving, saveError}) {
     }
 
     return (
-        <form onSubmit={handleSubmit} noValidate className="grid gap-4">
+        <form aria-label="Datos del club" onSubmit={handleSubmit} noValidate className="grid gap-4">
             <DialogHeader>
                 <DialogTitle className="text-lg font-bold">Configurar club</DialogTitle>
-                <DialogDescription>Cambiá el nombre, el avatar y la disponibilidad para amistosos.</DialogDescription>
+                <DialogDescription>
+                    Cambiá el nombre, el avatar y la disponibilidad para amistosos.
+                    Podés editar la formación y el plantel en Mi equipo.
+                </DialogDescription>
             </DialogHeader>
 
-            <FieldGroup>
-                <Field data-invalid={Boolean(nameError)}>
-                    <FieldLabel htmlFor="club-name">Nombre del club</FieldLabel>
-                    <Input
-                        id="club-name"
-                        value={clubName}
-                        maxLength={MAX_NAME_LENGTH}
-                        onChange={(event) => {
-                            setClubName(event.target.value);
-                            setNameError('');
-                        }}
-                        aria-invalid={Boolean(nameError)}
-                    />
-                    <FieldError>{nameError}</FieldError>
-                </Field>
+            <fieldset disabled={isSaving}>
+                <FieldGroup>
+                    <Field data-invalid={Boolean(nameError)}>
+                        <FieldLabel htmlFor="club-name">Nombre del club</FieldLabel>
+                        <Input
+                            id="club-name"
+                            value={clubName}
+                            maxLength={MAX_NAME_LENGTH}
+                            onChange={(event) => {
+                                setClubName(event.target.value);
+                                setNameError('');
+                            }}
+                            aria-invalid={Boolean(nameError)}
+                        />
+                        <FieldError>{nameError}</FieldError>
+                    </Field>
 
-                <FieldSet>
-                    <FieldLegend variant="label">Avatar</FieldLegend>
-                    <ToggleGroup
-                        value={[avatar]}
-                        onValueChange={handleAvatarChange}
-                        variant="outline"
-                        spacing={2}
-                        className="grid w-full grid-cols-3 sm:grid-cols-6"
-                    >
-                        {AVATAR_OPTIONS.map((option) => (
-                            <ToggleGroupItem
-                                key={option.key}
-                                value={option.key}
-                                aria-label={option.label}
-                                title={option.label}
-                                className="h-auto flex-col gap-1 py-2 text-xs data-pressed:border-primary data-pressed:ring-2 data-pressed:ring-primary"
-                            >
-                                <ClubAvatar avatar={option.key} clubName={clubName} size="md"/>
-                                {option.label}
-                            </ToggleGroupItem>
-                        ))}
-                    </ToggleGroup>
-                </FieldSet>
+<FieldSet>
+    <FieldLegend variant="label">Avatar</FieldLegend>
 
-                <Field orientation="horizontal">
-                    <FieldContent>
-                        <FieldLabel htmlFor="friendly-available">Disponible para amistosos</FieldLabel>
-                        <FieldDescription>Otros clubes podrán invitarte a jugar.</FieldDescription>
-                    </FieldContent>
-                    <Switch
-                        id="friendly-available"
-                        checked={isFriendlyAvailable}
-                        onCheckedChange={setIsFriendlyAvailable}
-                    />
-                </Field>
-            </FieldGroup>
+    <ToggleGroup
+        aria-label="Biblioteca de avatares"
+        value={[avatar]}
+        onValueChange={handleAvatarChange}
+        multiple={false}
+        disabled={isSaving}
+        variant="outline"
+        spacing={2}
+        className="grid w-full grid-cols-3 sm:grid-cols-5"
+    >
+        {AVATAR_OPTIONS.map((option) => (
+            <ToggleGroupItem
+                key={option.key}
+                type="button"
+                value={option.key}
+                aria-label={option.label}
+                title={option.label}
+                className="h-auto flex-col gap-1 py-2 text-xs aria-pressed:border-primary aria-pressed:ring-2 aria-pressed:ring-primary"
+            >
+                <ClubAvatar
+                    avatar={option.key}
+                    clubName={clubName}
+                    size="md"
+                />
+                {option.label}
+            </ToggleGroupItem>
+        ))}
+    </ToggleGroup>
+</FieldSet>
+                    <Field orientation="horizontal">
+                        <FieldContent>
+                            <FieldLabel htmlFor="friendly-available">Disponible para amistosos</FieldLabel>
+                            <FieldDescription>Otros clubes podrán invitarte a jugar.</FieldDescription>
+                        </FieldContent>
+                        <Switch
+                            id="friendly-available"
+                            checked={isFriendlyAvailable}
+                            onCheckedChange={setIsFriendlyAvailable}
+                        />
+                    </Field>
+                </FieldGroup>
+            </fieldset>
 
             {saveError && (
                 <p role="alert" className="text-sm text-destructive">

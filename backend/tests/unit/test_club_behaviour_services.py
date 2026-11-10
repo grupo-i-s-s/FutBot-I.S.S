@@ -10,20 +10,21 @@ from app.services import behaviour_service, club_services
 @pytest.fixture
 def club_repo(monkeypatch):
     repo = Mock()
+    repo.get_by_name.return_value = None
     monkeypatch.setattr(club_services, "club_repository", repo)
     return repo
 
 
 def changes():
-    return ClubUpdate(name="My club", avatar="avatar-1", friendlyAvailable=True)
+    return ClubUpdate(name="My club", avatar="avatar-20.png", friendlyAvailable=True)
 
 
 def test_club_update_passes_only_validated_fields_and_confirms(db, club_repo):
-    club = SimpleNamespace(id=7)
+    club = SimpleNamespace(id=7, name="Previous name")
     club_repo.update_club.return_value = club
     assert club_services.update_club(db, club, changes()) is club
     club_repo.update_club.assert_called_once_with(
-        db, club, name="My club", avatar="avatar-1", friendly_available=True,
+        db, club, name="My club", avatar="avatar-20.png", friendly_available=True,
     )
     db.commit.assert_called_once()
 
@@ -31,7 +32,7 @@ def test_club_update_passes_only_validated_fields_and_confirms(db, club_repo):
 def test_duplicate_club_name_is_readable_and_rolls_back(db, club_repo, integrity_error):
     club_repo.update_club.side_effect = integrity_error("clubs_name_key")
     with pytest.raises(AppError) as error:
-        club_services.update_club(db, SimpleNamespace(id=7), changes())
+        club_services.update_club(db, SimpleNamespace(id=7, name="Previous name"), changes())
     assert error.value.code == "CLUB_NAME_DUPLICATE"
     assert "name" in error.value.fields
     db.rollback.assert_called_once()
@@ -44,7 +45,7 @@ def test_club_update_propagates_unrecognized_failure(db, club_repo, integrity_er
     target = db.commit if source == "commit" else club_repo.update_club
     target.side_effect = failure
     with pytest.raises(type(failure)) as error:
-        club_services.update_club(db, SimpleNamespace(id=7), changes())
+        club_services.update_club(db, SimpleNamespace(id=7, name="Previous name"), changes())
     assert error.value is failure
     db.rollback.assert_called_once()
 
@@ -79,5 +80,5 @@ def test_behaviour_list_and_detail_use_current_club(db, monkeypatch):
     monkeypatch.setattr(behaviour_service, "behaviour_repository", repo)
     assert behaviour_service.list_behaviours(db, 7) == [behaviour]
     assert behaviour_service.behaviour_id(db, 7, 42) is behaviour
-    repo.get_all_behaviours.assert_called_once_with(db, 7)
+    repo.get_all_behaviours.assert_called_once_with(db, 7, kind=None)
     db.commit.assert_not_called()

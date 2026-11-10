@@ -7,7 +7,12 @@ from uuid import uuid4
 from app.config import settings
 from app.database import engine, get_db
 from app.main import app
+from app.models.league_model import League
 from app.models.matches_model import Matches
+from app.repository import league_repository, user_repository
+from app.schemas.avatar_schemas import DEFAULT_AVATAR
+from app.security import hash_password
+from app.services.match_start_service import cancel_match
 
 
 @pytest.fixture
@@ -33,15 +38,23 @@ def match_accounts():
                         "email": f"{prefix}_{label}@example.com",
                         "password": "friendly-match-password",
                     }
-                    response = client.post("/auth/register", json={
-                        **credentials,
-                        "passwordConfirmation": credentials["password"],
-                        "clubName": f"{prefix} {label}",
-                        "avatar": "avatar-1",
-                    })
-                    assert response.status_code == 201, response.text
+                    user = user_repository.create_user(
+                        db, email=credentials["email"], password_hash=hash_password(credentials["password"]),
+                    )
+                    seeded_club = user_repository.create_club(
+                        db, user_id=user.id, name=f"{prefix} {label}", avatar=DEFAULT_AVATAR,
+                    )
+                    club_id = seeded_club.id
+                    db.commit()
                     assert client.post("/auth/login", json=credentials).status_code == 200
-                    accounts.append((client, response.json()["clubId"]))
+                    club = client.get("/club/me").json()
+                    availability = client.patch("/club/me", json={
+                        "name": club["name"],
+                        "avatar": club["avatar"],
+                        "friendlyAvailable": True,
+                    })
+                    assert availability.status_code == 200, availability.text
+                    accounts.append((client, club_id))
                 yield db, accounts
             finally:
                 for client in clients:
@@ -65,7 +78,7 @@ def test_creator_can_recover_match_but_cannot_join_it(match_accounts):
     assert own[0]["visitorClubName"] is None
     assert own[0]["status"] == "WAITING_OPPONENT"
     assert creator.get(f"/matches/{match_id}").status_code == 200
-    assert creator.get("/friendly-matches").json() == []
+    assert creator.get("/friendly-matches").json()["items"] == []
 
     rejected = creator.post("/friendly-matches/join", json={"idPartido": match_id})
     assert rejected.status_code == 409
@@ -84,7 +97,7 @@ def test_creator_can_recover_match_but_cannot_join_it(match_accounts):
     assert match.sequence == 0
 
     assert visitor.get("/friendly-matches/me").json() == []
-    assert visitor.get("/friendly-matches").json()[0]["matchId"] == match_id
+    assert visitor.get("/friendly-matches").json()["items"][0]["matchId"] == match_id
     assert visitor.post("/friendly-matches/join", json={"idPartido": match_id}).status_code == 200
     for client, is_creator in ((creator, True), (visitor, False)):
         own = client.get("/friendly-matches/me").json()
@@ -97,11 +110,11 @@ def test_creator_can_recover_match_but_cannot_join_it(match_accounts):
     assert outsider.get(f"/matches/{match_id}").status_code == 403
 
 
-def test_my_matches_keeps_all_states_and_excludes_other_clubs(match_accounts):
+def test_my_matches_keeps_all_friendly_states_and_excludes_other_match_types(match_accounts):
     db, accounts = match_accounts
-    (creator, creator_id), (_, visitor_id), (outsider, _) = accounts
+    (creator, creator_id), (_, visitor_id), (outsider, outsider_id) = accounts
     now = datetime.now(timezone.utc)
-    states = ("WAITING", "WAITING_OPPONENT", "SCHEDULED", "RUNNING", "FINISHED", "CANCELLED")
+    states = ("WAITING", "WAITING_OPPONENT", "SCHEDULED", "RUNNING", "FINISHED")
     for index, state in enumerate(states):
         db.add(Matches(
             creator_id=creator_id,
@@ -112,13 +125,35 @@ def test_my_matches_keeps_all_states_and_excludes_other_clubs(match_accounts):
             clock_ms=100 if state == "FINISHED" else 0,
             finished_at=now if state == "FINISHED" else None,
             snapshot={} if state == "FINISHED" else None,
-            cancellation_reason="NO_OPPONENT" if state == "CANCELLED" else None,
         ))
+
+    cancelled = Matches(creator_id=creator_id, init_date=now - timedelta(days=len(states)),
+                        status="WAITING_OPPONENT")
+    league = League(name=f"Liga {uuid4().hex}", min_teams=3, max_teams=3,
+                    creator_club_id=creator_id, start_datetime=now, round_interval="DAILY",
+                    status="running")
+    db.add_all([cancelled, league])
+    db.flush()
+    cancel_match(db, cancelled, "NO_OPPONENT", now)
+
+    round_ = league_repository.create_round(db, league.id, 1, now, outsider_id, schedule_confirmed=True)
+    league_repository.create_round_matches(db, round_, [(creator_id, visitor_id)])
+    db.add_all([
+        Matches(creator_id=creator_id, visitor_id=999, init_date=now, status="SCHEDULED"),
+        Matches(creator_id=999, visitor_id=creator_id, init_date=now, status="SCHEDULED"),
+        Matches(creator_id=visitor_id, visitor_id=outsider_id, init_date=now, status="SCHEDULED"),
+    ])
     db.commit()
 
     response = creator.get("/friendly-matches/me")
     assert response.status_code == 200
-    assert [item["status"] for item in response.json()] == list(states)
-    assert outsider.get("/friendly-matches/me").json() == []
+    items = response.json()
+    assert [item["status"] for item in items] == [*states, "CANCELLED"]
+    assert items[-1]["matchId"] == cancelled.match_id
+    assert items[-1]["visitorClubName"] is None
+    detail = creator.get(f"/matches/{cancelled.match_id}")
+    assert detail.status_code == 200
+    assert detail.json()["state"]["cancellationReason"] == "NO_OPPONENT"
+    assert [item["status"] for item in outsider.get("/friendly-matches/me").json()] == ["SCHEDULED"]
     creator.cookies.clear()
     assert creator.get("/friendly-matches/me").status_code == 401

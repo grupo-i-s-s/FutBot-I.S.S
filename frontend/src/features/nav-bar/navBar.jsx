@@ -1,69 +1,66 @@
-import {useEffect, useState} from 'react';
-import {Link, useLocation} from 'react-router';
+import {useState} from 'react';
+import {NavLink, useNavigate} from 'react-router';
 import ClubAvatar from '../my-club/components/ClubAvatar';
-import {getMyClub} from '../my-club/api';
-import '../home-page/homePage.css';
+import {useSession} from '../session/SessionProvider.jsx';
+import './navBar.css';
+import {routes} from '@/routes.js';
+
+function ClubNavigation({signOut}) {
+    const navigate = useNavigate();
+    const [signingOut, setSigningOut] = useState(false);
+    const [error, setError] = useState('');
+
+    async function handleSignOut() {
+        setSigningOut(true);
+        setError('');
+        try {
+            if (await signOut()) navigate(routes.root, {replace: true});
+        } catch (requestError) {
+            setError(requestError.message || 'No se pudo cerrar la sesión.');
+        } finally {
+            setSigningOut(false);
+        }
+    }
+
+    return <>
+        <nav className="app-nav-links" aria-label="Navegación principal">
+            <NavLink to={routes.home} className="app-nav-action">Inicio</NavLink>
+            <NavLink to={routes.myClub} className="app-nav-action">Mi club</NavLink>
+            <NavLink to={routes.friendlyMatches} className="app-nav-action">Amistosos</NavLink>
+            <NavLink to={routes.leagues} className="app-nav-action">Ligas</NavLink>
+            <NavLink to={routes.clubs} className="app-nav-action">Clubes</NavLink>
+            <NavLink to={routes.globalRanking} className="app-nav-action">Ranking global</NavLink>
+            <button type="button" className="app-nav-action" onClick={handleSignOut} disabled={signingOut}>
+                {signingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
+            </button>
+        </nav>
+        {error && <p className="app-nav-error" role="alert">{error}</p>}
+    </>;
+}
 
 export default function NavBar() {
-    const [club, setClub] = useState(null);
-    const {pathname} = useLocation();
-
-    useEffect(() => {
-        const controller = new AbortController();
-
-        getMyClub({signal: controller.signal})
-            .then((data) => {
-                if (!controller.signal.aborted) {
-                    setClub(data);
-                }
-            })
-            .catch(() => {
-                if (!controller.signal.aborted) {
-                    setClub(null);
-                }
-            });
-
-        return () => controller.abort();
-    }, [pathname]);
+    const {status, club, signOut} = useSession();
+    const authenticated = status === 'authenticated';
+    const showPublicLinks = status === 'anonymous' || status === 'error';
 
     return (
-        <header className="home-nav">
-            <Link
-                to="/home"
-                className="home-brand"
-                aria-label="FutBot, inicio"
-            >
-                <span className="home-brand-icon">
-                    {club && (
-                        <ClubAvatar
-                            avatar={club.avatar}
-                            clubName={club.name}
-                            size="md"
-                        />
-                    )}
-                </span>
+        <header className="app-nav">
+            <div className="app-nav-inner">
+                {authenticated && <>
+                    <div className="app-nav-club">
+                        <ClubAvatar avatar={club.avatar} clubName={club.name} size="md" />
+                        <span title={club.name}>{club.name}</span>
+                    </div>
+                    <ClubNavigation signOut={signOut} />
+                </>}
 
-                <div className="home-brand-text">
-                    <span>FUTBOT</span>
-                    {club && (
-                        <span className="home-brand-club">
-                            {club.name}
-                        </span>
-                    )}
-                </div>
-            </Link>
-
-            <nav className="home-nav-links" aria-label="Cuenta">
-                <Link to="/home" className="home-register">
-                    Inicio
-                </Link>
-                <Link to="/mi-club" className="home-register">
-                    Mi club
-                </Link>
-                <Link to="/partidos-disponibles" className="home-register">
-                    Amistosos Disponibles
-                </Link>
-            </nav>
+                {showPublicLinks && (
+                    <nav className="app-nav-links" aria-label="Cuenta">
+                        <NavLink to={routes.root} className="app-nav-action" end>Iniciar sesión</NavLink>
+                        <NavLink to={routes.register} className="app-nav-action">Registrarse</NavLink>
+                    </nav>
+                )}
+            </div>
         </header>
     );
 }

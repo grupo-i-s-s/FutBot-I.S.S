@@ -1,15 +1,23 @@
-import {useEffect, useState} from 'react';
-import {getDefaultTeam, getFormations, updateDefaultTeam} from '../api';
-import {Users} from 'lucide-react';
-import {Button} from '@/components/ui/button';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from '@/components/ui/card';
+import { useEffect, useId, useState } from 'react';
+import { getDefaultTeam, getFormations, updateDefaultTeam, getPlayersByIds } from '../api';
+import { Info, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from '@/components/ui/card';
+import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from '@/components/ui/combobox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { swapAssignedPlayer } from '@/lib/lineup';
+import TeamPlayerCombobox from './TeamPlayerCombobox';
 
 
 const SELECT_CLASSES =
     'w-full min-w-0 rounded-md border border-input bg-background px-2 py-2 text-sm';
+const LINEUP_GROUPS = [
+    {name: 'Titulares', firstSlot: 0},
+    {name: 'Suplentes', firstSlot: 3},
+];
 
 function loadTeam(response) {
-    const {lineUp} = response;
+    const { lineUp } = response;
 
     return {
         formation: String(lineUp.formationId),
@@ -22,28 +30,65 @@ function loadTeam(response) {
     };
 }
 
-export default function TeamSettings({clubId, players, behaviours}) {
+function TeamBehaviourCombobox({id, behaviour, behaviours, disabled, onSelect}) {
+    const [query, setQuery] = useState(null);
+
+    return (
+        <Combobox
+            items={behaviours}
+            value={behaviour}
+            inputValue={query ?? behaviour?.name ?? ''}
+            disabled={disabled}
+            itemToStringLabel={(item) => item.name}
+            autoHighlight
+            onInputValueChange={(text, {reason}) => {
+                if (reason === 'input-change') setQuery(text);
+            }}
+            onOpenChange={(open) => {
+                if (!open) setQuery(null);
+            }}
+            onValueChange={(item, details) => {
+                if (!item) {
+                    details.cancel();
+                    return;
+                }
+                onSelect(item);
+                setQuery(null);
+            }}
+        >
+            <ComboboxInput
+                id={id}
+                placeholder="Buscar comportamiento"
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.nativeEvent.isComposing) event.preventDefault();
+                }}
+            />
+            <ComboboxContent>
+                <ComboboxEmpty>No se encontraron comportamientos.</ComboboxEmpty>
+                <ComboboxList>
+                    {(item) => <ComboboxItem key={item.id} value={item}>{item.name}</ComboboxItem>}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
+    );
+}
+
+export default function TeamSettings({clubId, behaviours, onSaveSuccess}) {
+    const inputPrefix = useId();
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
     const [team, setTeam] = useState(null);
     const [formations, setFormations] = useState([]);
+    const [selectedPlayers, setSelectedPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
-    function clearFeedback() {
-        setError('');
-        setSuccess('');
-    }
-
     useEffect(() => {
         const controller = new AbortController();
-        const options = {signal: controller.signal};
+        const options = { signal: controller.signal };
 
         async function fetchTeam() {
             setLoading(true);
-            setTeam(null);
             setError('');
-            setSuccess('');
 
             try {
                 const [response, catalog] = await Promise.all([
@@ -54,12 +99,17 @@ export default function TeamSettings({clubId, players, behaviours}) {
                 if (controller.signal.aborted) return;
 
                 if (!response) {
-                    throw new Error(
-                        'No se encontró el equipo del club en la base de datos.'
-                    );
+                    throw new Error('No se encontró el equipo guardado del club.');
                 }
 
-                setTeam(loadTeam(response));
+                const loadedTeam = loadTeam(response);
+                const playerIds = loadedTeam.slots.map((slot) => Number(slot.playerId));
+                const savedPlayers = await getPlayersByIds(playerIds, options);
+
+                if (controller.signal.aborted) return;
+
+                setTeam(loadedTeam);
+                setSelectedPlayers(savedPlayers);
                 setFormations(catalog.items);
             } catch (err) {
                 if (!controller.signal.aborted) {
@@ -76,34 +126,44 @@ export default function TeamSettings({clubId, players, behaviours}) {
         return () => controller.abort();
     }, [clubId]);
 
-    function changeSlot(index, field, value) {
-        clearFeedback();
+    function changeBehaviour(index, behaviour) {
+        setError('');
 
         setTeam((current) => ({
             ...current,
-            slots: current.slots.map((slot, slotIndex) => {
-                if (slotIndex !== index) return slot;
-
-                if (field === 'playerId') {
-                    const player = players.find(
-                        (item) => String(item.id) === value
-                    );
-
-                    return {
-                        playerId: value,
-                        behaviourId: String(player?.behaviorId ?? ''),
-                    };
-                }
-
-                return {...slot, [field]: value};
-            }),
+            slots: current.slots.map((slot, slotIndex) =>
+                slotIndex === index
+                    ? { ...slot, behaviourId: String(behaviour.id) }
+                    : slot
+            ),
         }));
+    }
+
+    function selectPlayer(slotIndex, player) {
+        setError('');
+
+        const playerId = String(player.id);
+        setTeam((current) => {
+            if (current.slots[slotIndex].playerId === playerId) return current;
+
+            const swapped = swapAssignedPlayer(current.slots, slotIndex, playerId);
+            if (swapped) return {...current, slots: swapped};
+
+            const slots = [...current.slots];
+            slots[slotIndex] = {playerId, behaviourId: String(player.behaviorId ?? '')};
+            return {...current, slots};
+        });
+
+        setSelectedPlayers((current) => [
+            ...current.filter((item) => item.id !== player.id),
+            player,
+        ]);
     }
 
     async function handleSubmit(event) {
         event.preventDefault();
         if (isSaving || !team) return;
-        clearFeedback();
+        setError('');
 
         const playerIds = team.slots.map((slot) => slot.playerId);
 
@@ -148,7 +208,7 @@ export default function TeamSettings({clubId, players, behaviours}) {
             });
 
             setTeam(loadTeam(response));
-            setSuccess('Equipo guardado correctamente.');
+            onSaveSuccess('Equipo guardado correctamente.');
         } catch (err) {
             const fields = Object.values(err.fields ?? {}).join(' ');
             setError(
@@ -166,32 +226,60 @@ export default function TeamSettings({clubId, players, behaviours}) {
         return <p role="alert">{error}</p>;
     }
 
+    const slots = team.slots.map((slot, index) => ({slot, index}));
+    const selectedFormation = formations.find((formation) => String(formation.id) === team.formation);
+
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <Users className="size-5" aria-hidden="true"/>
+                    <Users className="size-5" aria-hidden="true" />
                     Mi equipo
                 </CardTitle>
                 <CardDescription>
-                    3 titulares y 3 suplentes.
+                    Elegí la formación, los 3 titulares y los 3 suplentes
+                    para tus próximos partidos. Si elegís un jugador que ya ocupa otro lugar,
+                    ambos intercambian sus puestos y conservan sus comportamientos.
                 </CardDescription>
             </CardHeader>
 
             <CardContent>
-                <form onSubmit={handleSubmit} noValidate className="space-y-4">
+                <form aria-label="Equipo para próximos partidos" onSubmit={handleSubmit} noValidate className="space-y-4">
                     <div className="space-y-1">
-                        <label htmlFor="team-formation" className="text-sm font-medium">
-                            Formación
-                        </label>
+                        <div className="flex items-center gap-1">
+                            <label htmlFor={`${inputPrefix}-formation`} className="text-sm font-medium">
+                                Formación
+                            </label>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger
+                                        render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" />}
+                                        type="button"
+                                        aria-label="Información sobre la formación"
+                                        aria-describedby={`${inputPrefix}-formation-help`}
+                                    >
+                                        <Info aria-hidden="true" />
+                                    </TooltipTrigger>
+                                    <TooltipContent id={`${inputPrefix}-formation-help`} role="tooltip" align="start">
+                                        <div className="space-y-2">
+                                            <p>La formación define la posición inicial de los tres titulares en la cancha.</p>
+                                            {selectedFormation?.description && (
+                                                <p><strong>{selectedFormation.name}</strong> · {selectedFormation.description}</p>
+                                            )}
+                                            <p>Los cambios se aplican a los próximos partidos. Los partidos ya iniciados conservan su formación.</p>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
 
                         <select
-                            id="team-formation"
+                            id={`${inputPrefix}-formation`}
                             disabled={isSaving}
                             className={SELECT_CLASSES}
                             value={team.formation}
                             onChange={(event) => {
-                                clearFeedback();
+                                setError('');
                                 setTeam((current) => ({
                                     ...current,
                                     formation: event.target.value,
@@ -206,79 +294,55 @@ export default function TeamSettings({clubId, players, behaviours}) {
                         </select>
                     </div>
 
-                    {team.slots.map((slot, index) => (
-                        <fieldset
-                            key={index}
-                            disabled={isSaving}
-                            className="min-w-0 space-y-2 rounded-md border p-2"
-                        >
-                            <legend className="px-1 text-sm font-semibold">
-                                {index < 3
-                                    ? `Titular ${index + 1}`
-                                    : `Suplente ${index - 2}`}
-                            </legend>
-
-                            <div>
-                                <label htmlFor={`team-player-${index}`} className="sr-only">
-                                    Jugador del lugar {index + 1}
-                                </label>
-
-                                <select
-                                    id={`team-player-${index}`}
-                                    className={SELECT_CLASSES}
-                                    value={slot.playerId}
-                                    onChange={(event) =>
-                                        changeSlot(index, 'playerId', event.target.value)
-                                    }
-                                >
-                                    <option value="">Elegir jugador</option>
-
-                                    {players.map((player) => (
-                                        <option
-                                            key={player.id}
-                                            value={player.id}
-                                            disabled={team.slots.some(
-                                                (other, otherIndex) =>
-                                                    otherIndex !== index &&
-                                                    other.playerId === String(player.id)
-                                            )}
+                    <div className="space-y-6">
+                        {LINEUP_GROUPS.map(({name, firstSlot}) => (
+                            <section key={name} className="space-y-3">
+                                <h3 className="text-sm font-semibold">{name}</h3>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {slots.slice(firstSlot, firstSlot + 3).map(({slot, index}) => (
+                                        <fieldset
+                                            key={index}
+                                            disabled={isSaving}
+                                            className="min-w-0 space-y-4 rounded-xl border bg-card p-5 shadow-xs"
                                         >
-                                            {player.name}
-                                        </option>
+                                            <legend className="rounded-md border bg-secondary px-3 py-1 text-sm font-semibold text-primary">
+                                                {index < 3
+                                                    ? `Titular ${index + 1}${selectedFormation?.slots?.[index]?.label
+                                                        ? ` — ${selectedFormation.slots[index].label}` : ''}`
+                                                    : `Suplente ${index - 2}`}
+                                            </legend>
+
+                                            <div>
+                                                <label htmlFor={`${inputPrefix}-player-${index}`} className="mb-1 block text-sm font-medium">
+                                                    Jugador{' '}<span className="sr-only">del lugar {index + 1}</span>
+                                                </label>
+                                                <TeamPlayerCombobox
+                                                    id={`${inputPrefix}-player-${index}`}
+                                                    player={selectedPlayers.find(player => String(player.id) === slot.playerId) ?? null}
+                                                    disabled={isSaving}
+                                                    onSelect={(player) => selectPlayer(index, player)}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label htmlFor={`${inputPrefix}-behaviour-${index}`} className="mb-1 block text-sm font-medium">
+                                                    Comportamiento{' '}<span className="sr-only">del lugar {index + 1}</span>
+                                                </label>
+
+                                                <TeamBehaviourCombobox
+                                                    id={`${inputPrefix}-behaviour-${index}`}
+                                                    behaviour={behaviours.find(item => String(item.id) === slot.behaviourId) ?? null}
+                                                    behaviours={behaviours}
+                                                    disabled={isSaving}
+                                                    onSelect={(behaviour) => changeBehaviour(index, behaviour)}
+                                                />
+                                            </div>
+                                        </fieldset>
                                     ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label htmlFor={`team-behaviour-${index}`} className="sr-only">
-                                    Comportamiento del lugar {index + 1}
-                                </label>
-
-                                <select
-                                    id={`team-behaviour-${index}`}
-                                    className={SELECT_CLASSES}
-                                    value={slot.behaviourId}
-                                    onChange={(event) =>
-                                        changeSlot(index, 'behaviourId', event.target.value)
-                                    }
-                                >
-                                    <option value="">Elegir comportamiento</option>
-
-                                    {behaviours.map((behaviour) => (
-                                        <option key={behaviour.id} value={behaviour.id}>
-                                            {behaviour.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </fieldset>
-                    ))}
-
-                    {players.length < 6 && (
-                        <p className="text-sm text-destructive">
-                            Necesitás al menos 6 jugadores para configurar el equipo.
-                        </p>
-                    )}
+                                </div>
+                            </section>
+                        ))}
+                    </div>
 
                     {behaviours.length === 0 && (
                         <p className="text-sm text-destructive">
@@ -289,7 +353,7 @@ export default function TeamSettings({clubId, players, behaviours}) {
                     <Button
                         type="submit"
                         className="w-full"
-                        disabled={isSaving || players.length < 6 || behaviours.length === 0 || formations.length === 0}
+                        disabled={isSaving || behaviours.length === 0 || formations.length === 0}
                     >
                         {isSaving ? 'Guardando...' : 'Guardar equipo'}
                     </Button>
@@ -297,12 +361,6 @@ export default function TeamSettings({clubId, players, behaviours}) {
                     {error && (
                         <p role="alert" className="text-sm text-destructive">
                             {error}
-                        </p>
-                    )}
-
-                    {success && (
-                        <p role="status" className="text-sm">
-                            {success}
                         </p>
                     )}
                 </form>

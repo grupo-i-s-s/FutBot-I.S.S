@@ -1,4 +1,5 @@
 """Contrato y programas Python predeterminados del motor de partidos."""
+import random
 
 from dataclasses import dataclass
 from enum import StrEnum
@@ -38,20 +39,16 @@ def _approach_ball(observation: Observation) -> tuple[float, float]:
     direction = _attack_direction(observation)
     field_width, field_height = observation.field_size
     return (
-        max(1.5, min(field_width - 1.5, observation.ball_position[0] - direction * 2)),
-        max(1.5, min(field_height - 1.5, observation.ball_position[1])),
+        max(1.5, min(field_width - 2.5, observation.ball_position[0] - direction * 2)),
+        max(1.5, min(field_height - 2.5, observation.ball_position[1])),
     )
 
 
 def _shot_target(observation: Observation) -> tuple[float, float] | None:
     if not observation.can_kick:
         return None
-    x, center_y = observation.opponent_goal
-    # Elegir un lateral del arco evita que todos los remates recorran el eje central.
-    lane = -1 if observation.home_position[1] < center_y else 1
-    if observation.home_position[1] == center_y:
-        lane = -_attack_direction(observation)
-    return x, center_y + lane * observation.goal_width * 4 / 15
+    x, center_y = observation.opponent_goal             #Siempre le apuntamos al arco
+    return x, center_y + random.uniform(-12,12)
 
 
 def balanced(observation: Observation) -> Action:
@@ -115,6 +112,17 @@ def resolve_behaviour(code: str, name: str) -> BehaviourMode:
     if source == LEGACY_CODE and name in DEFAULT_MODES:
         return DEFAULT_MODES[name]
     raise ValueError(f"El comportamiento {name!r} no tiene un programa compatible.")
+
+
+def default_behaviour_mode(name: str, code: str) -> BehaviourMode | None:
+    """Identifica los programas predeterminados que puede aplicar el DT."""
+    expected = DEFAULT_MODES.get(name)
+    if expected is None:
+        return None
+    try:
+        return expected if resolve_behaviour(code, name) == expected else None
+    except ValueError:
+        return None
 
 
 def decide(mode: BehaviourMode, observation: Observation) -> Action:

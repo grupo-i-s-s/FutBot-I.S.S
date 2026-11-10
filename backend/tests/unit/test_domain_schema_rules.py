@@ -9,7 +9,7 @@ from app.schemas.league_schemas import CreateLeagueRequest
 def registration():
     return {
         "email": "USER@EXAMPLE.COM", "password": "safe-password",
-        "passwordConfirmation": "safe-password", "clubName": "  MY CLUB  ", "avatar": "avatar-1",
+        "passwordConfirmation": "safe-password", "clubName": "  MY CLUB  ",
     }
 
 

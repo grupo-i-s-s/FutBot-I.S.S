@@ -113,6 +113,8 @@ export function useMatchConnection(matchId) {
                     if (disposed || isTerminal(latest)) return;
                     if (event.code === 1008) {
                         fail(new Error(event.reason || 'La sesión venció o ya no tenés acceso al partido.'));
+                        // El cierre también puede indicar falta de permiso. HTTP distingue una sesión vencida.
+                        void getMatchSnapshot(id, controller.signal).catch(() => {});
                     } else {
                         scheduleReconnect();
                     }

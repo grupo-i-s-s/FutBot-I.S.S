@@ -25,6 +25,12 @@
         @apply bg-background text-foreground;
     }
 
+    #root {
+        display: flex;
+        flex-direction: column;
+        min-height: 100svh;
+    }
+
     * {
         @apply border-border outline-ring/50;
     }

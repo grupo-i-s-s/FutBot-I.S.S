@@ -41,9 +41,20 @@ class DefaultTeamRead(BaseModel):
     line_up: Lineup = Field(serialization_alias="lineUp")
 
 
+class FormationSlotRead(BaseModel):
+    label: str
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+
+
 class FormationRead(BaseModel):
     id: int
     name: str
+    description: str
+    slots: list[FormationSlotRead] = Field(
+        min_length=3,
+        max_length=3,
+    )
 
 
 class FormationListResponse(BaseModel):
