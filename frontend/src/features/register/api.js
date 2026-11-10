@@ -7,10 +7,10 @@ export function register(email, clubName, password, passwordConfirmation) {
     });
 }
 
-export function verifyEmail(email, code) {
+export function verifyEmail(email, code, registration) {
     return request('/auth/verify-email', {
         method: 'POST',
-        body: { email, code },
+        body: { email, code, registration },
     });
 }
 

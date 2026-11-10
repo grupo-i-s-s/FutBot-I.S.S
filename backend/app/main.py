@@ -10,6 +10,7 @@ from app.controller import api_router
 from app.database import engine
 from app.dependencies import require_browser_write
 from app.errors import AppError
+from app.schemas.error_schemas import ApiErrorResponse, HttpErrorResponse
 from app.services.match_scheduler_service import run_match_scheduler
 
 
@@ -34,6 +35,16 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
     dependencies=[Depends(require_browser_write)],
+    responses={
+        400: {
+            "description": "Datos inválidos o solicitud rechazada",
+            "model": ApiErrorResponse | HttpErrorResponse,
+        },
+        "4XX": {
+            "description": "Error de sesión, permisos, recurso o estado",
+            "model": ApiErrorResponse | HttpErrorResponse,
+        },
+    },
 )
 
 app.include_router(api_router)
@@ -43,6 +54,9 @@ error_status = {
     "LEAGUE_ACCESS_RATE_LIMIT": 429,
     "LEAGUE_FULL": 409,
     "LEAGUE_CLOSED": 409,
+    "LEAGUE_SCHEDULE_CONFLICT": 409,
+    "LEAGUE_LINEUP_INVALID": 409,
+    "LEAGUE_LINEUP_CHANGED": 409,
     "ALREADY_REGISTERED": 409,
     "ACCOUNT_DUPLICATE": 400,
     "PASSWORD_INVALID": 400,
@@ -53,6 +67,7 @@ error_status = {
     "PLAYER_NOT_FOUND": 404,
     "ACCOUNT_INCOMPLETE": 409,
     "CLUB_NOT_AVAILABLE": 409,
+    "FRIENDLY_SCHEDULE_CONFLICT": 409,
     "MATCH_NOT_FOUND": 404,
     "MATCH_FORBIDDEN": 403,
     "MATCH_SELF_JOIN": 409,
@@ -64,7 +79,8 @@ error_status = {
     "MATCH_INVALID_BEHAVIOUR": 409,
     "MATCH_ALREADY_RUNNING": 409,
     "MATCH_STATE_INVALID": 409,
-    "NO_UPCOMING_PAUSE": 409,
+    "MATCH_DT_MODE_FIXED": 409,
+    "MATCH_DT_MANUAL_ACTION_FORBIDDEN": 409,
     "SUBSTITUTION_COMMAND_CONFLICT": 409,
     "SUBSTITUTION_INVALID_PLAYERS": 409,
     "SUBSTITUTION_QUOTA_USED": 409,

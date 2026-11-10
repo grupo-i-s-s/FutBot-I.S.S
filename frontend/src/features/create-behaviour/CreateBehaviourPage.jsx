@@ -1,11 +1,16 @@
-import {useRef, useState} from 'react';
-import {Link, useNavigate} from 'react-router';
+import {useId} from 'react';
+import {useNavigate} from 'react-router';
+import {CircleAlert, CircleCheck, LoaderCircle} from 'lucide-react';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import {Button} from '@/components/ui/button';
-import {createBehaviour, createDtBehaviour, validateBehaviour} from './api';
+import {Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
+import {Field, FieldLabel} from '@/components/ui/field';
+import {Input} from '@/components/ui/input';
+import {routes} from '@/routes.js';
 import BehaviourCodeEditor from '../behaviours/components/BehaviourCodeEditor';
 import {useUnsavedChanges} from '../behaviours/hooks/useUnsavedChanges';
-
-const PLAYER_TEMPLATE = 'def decide(observation):\n    return ir_a_pelota()\n';
+import {createDtBehaviour} from './api.js';
+import {useBehaviourCreation} from './useBehaviourCreation.js';
 
 const DT_TEMPLATE = [
     'from primitives.dt_behaviour import DtAction',
@@ -33,134 +38,86 @@ const dtApiFunctions = [
     {name: 'DtAction(cambios, sustituciones)', description: 'Devuelve las órdenes que evaluará el motor. La lista de sustituciones es opcional.'},
 ];
 
-export default function CreateBehaviourPage({kind = 'PLAYER'}) {
-    return <BehaviourCreationForm key={kind} kind={kind}/>;
-}
-
-function BehaviourCreationForm({kind}) {
-    const isDt = kind === 'DT';
-    const template = isDt ? DT_TEMPLATE : PLAYER_TEMPLATE;
-    const [name, setName] = useState('');
-    const [code, setCode] = useState(template);
-    const [error, setError] = useState('');
-    const [diagnostics, setDiagnostics] = useState([]);
-    const [isValid, setIsValid] = useState(false);
-    const [action, setAction] = useState('');
-    const pending = useRef(false);
+export default function CreateBehaviourPage() {
     const navigate = useNavigate();
-    const allowNavigation = useUnsavedChanges(name !== '' || code !== template);
+    const formId = useId();
+    const {
+        name, setName, code, changeCode, error, diagnostics, isValid, action, pending, dirty, handleValidate, handleSubmit,
+    } = useBehaviourCreation({
+        kind: 'COACH', template: DT_TEMPLATE, create: createDtBehaviour, onCreated: handleCreated,
+    });
+    const allowNavigation = useUnsavedChanges(dirty);
+    const busy = Boolean(action);
 
-    function clearFeedback() {
-        setError('');
-        setDiagnostics([]);
-        setIsValid(false);
-    }
-
-    async function handleValidate() {
-        if (pending.current || !code.trim()) return;
-        pending.current = true;
-        clearFeedback();
-        setAction('validate');
-
-        try {
-            const result = await validateBehaviour(isDt ? 'COACH' : 'PLAYER', code);
-            setIsValid(result.valid);
-            setDiagnostics(result.diagnostics ?? []);
-            if (!result.valid) setError('Revisá el código antes de guardarlo.');
-        } catch (err) {
-            setError(err.message || 'No se pudo validar el comportamiento.');
-            setDiagnostics(err.diagnostics ?? []);
-        } finally {
-            pending.current = false;
-            setAction('');
-        }
-    }
-
-    async function handleSubmit(event) {
-        event.preventDefault();
+    function handleClose() {
         if (pending.current) return;
-        clearFeedback();
+        navigate(routes.myClub, {replace: true, state: {tab: 'dt'}});
+    }
 
-        if (!name.trim() || !code.trim()) {
-            setError('Deben completarse todos los campos.');
-            return;
-        }
-
-        pending.current = true;
-        setAction('save');
-
-        try {
-            if (isDt) {
-                await createDtBehaviour(name.trim(), code);
-                allowNavigation();
-                navigate('/mi-club', {
-                    replace: true,
-                    state: {notice: 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.'},
-                });
-            } else {
-                await createBehaviour(name, code);
-                allowNavigation();
-                navigate('/behaviours', {
-                    replace: true,
-                    state: {notice: 'Comportamiento creado exitosamente.'},
-                });
-            }
-        } catch (err) {
-            const fields = Object.values(err.fields ?? {});
-            setError(fields.join(' ') || err.message || 'No se pudo crear el comportamiento.');
-            setDiagnostics(err.diagnostics ?? []);
-        } finally {
-            pending.current = false;
-            setAction('');
-        }
+    function handleCreated() {
+        allowNavigation();
+        navigate(routes.myClub, {
+            replace: true,
+            state: {tab: 'dt', notice: 'Comportamiento del DT creado. Ya podés seleccionarlo y guardar el DT.'},
+        });
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-6 flex flex-col">
-            {isDt && <Link to="/mi-club" className="mb-4 text-sm underline">Volver a Mi club</Link>}
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">
-                {isDt ? 'Crear comportamiento del DT' : 'Crear Comportamiento'}
-            </h2>
-            <form onSubmit={handleSubmit} className="w-full space-y-4">
-                <div>
-                    <label htmlFor="behaviour-name" className="sr-only">Nombre del comportamiento</label>
-                    <input
-                        id="behaviour-name"
-                        type="text"
-                        placeholder="Ingrese el nombre"
-                        maxLength={isDt ? 30 : 50}
-                        value={name}
-                        disabled={Boolean(action)}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-                        onChange={(event) => setName(event.target.value)}
+        <Dialog open onOpenChange={open => { if (!open) handleClose(); }}>
+            <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto sm:max-w-5xl" aria-busy={busy}>
+                <DialogHeader>
+                    <DialogTitle>Crear comportamiento del DT</DialogTitle>
+                    <DialogDescription>Elegí un nombre y escribí el código que dirigirá a tu equipo.</DialogDescription>
+                </DialogHeader>
+                <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+                    <Field>
+                        <FieldLabel htmlFor={`${formId}-name`}>Nombre del comportamiento</FieldLabel>
+                        <Input
+                            id={`${formId}-name`}
+                            placeholder="Ej. Presión alta"
+                            maxLength={30}
+                            value={name}
+                            disabled={busy}
+                            className="h-10 bg-background"
+                            onChange={(event) => setName(event.target.value)}
+                        />
+                    </Field>
+                    <BehaviourCodeEditor
+                        value={code}
+                        onChange={changeCode}
+                        diagnostics={diagnostics}
+                        documentId="new"
+                        kind="COACH"
+                        readOnly={busy}
+                        functions={dtApiFunctions}
+                        helpDescription="Escribí una función decide(obs) que devuelva DtAction con los cambios tácticos y las sustituciones del equipo."
                     />
-                </div>
-                <BehaviourCodeEditor
-                    value={code}
-                    onChange={(value) => {
-                        setCode(value);
-                        clearFeedback();
-                    }}
-                    diagnostics={diagnostics}
-                    documentId="new"
-                    kind={isDt ? 'COACH' : 'PLAYER'}
-                    readOnly={Boolean(action)}
-                    functions={isDt ? dtApiFunctions : undefined}
-                    helpDescription={isDt
-                        ? 'Escribí una función decide(obs) que devuelva DtAction con los cambios tácticos y las sustituciones del equipo.'
-                        : undefined}
-                />
-                <div className="flex flex-wrap justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={handleValidate} disabled={Boolean(action) || !code.trim()}>
+                    {error && (
+                        <Alert variant="destructive">
+                            <CircleAlert aria-hidden="true"/>
+                            <AlertTitle>Revisá el comportamiento</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
+                    {isValid && (
+                        <Alert role="status" className="border-primary/20 bg-primary/5">
+                            <CircleCheck aria-hidden="true"/>
+                            <AlertDescription>El código es válido.</AlertDescription>
+                        </Alert>
+                    )}
+                </form>
+                <DialogFooter>
+                    <DialogClose render={<Button type="button" variant="outline" disabled={busy}/>}>Cancelar</DialogClose>
+                    <Button type="button" variant="outline" onClick={handleValidate} disabled={busy || !code.trim()}>
+                        {action === 'validate' && <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden="true"/>}
                         {action === 'validate' ? 'Validando…' : 'Validar código'}
                     </Button>
-                    <Button type="submit" disabled={Boolean(action)}>
+                    <Button type="submit" form={formId} disabled={busy}>
+                        {action === 'save' && <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden="true"/>}
                         {action === 'save' ? 'Guardando…' : 'Guardar Comportamiento'}
                     </Button>
-                </div>
-                {error && <p role="alert" className="text-destructive">{error}</p>}
-                {isValid && <p role="status">El código es válido.</p>}
-            </form>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

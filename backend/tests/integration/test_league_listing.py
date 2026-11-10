@@ -1,7 +1,4 @@
 """Verifica creación, listado y lobby en PostgreSQL sin dejar datos de prueba."""
-import email
-from http import client
-
 import pytest
 from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
@@ -15,7 +12,7 @@ from app.main import app
 from app.models.auth_model import Club, User
 from app.models.league_model import League, LeagueRegistration
 from app.migrate_league_passwords import migrate_league_passwords
-from app.services import league_access_service
+from app.services import email_service, league_access_service
 
 
 @pytest.fixture
@@ -36,25 +33,31 @@ def league_database_client():
         transaction.rollback()
 
 
-def test_create_list_filter_and_read_lobby_with_authenticated_club(league_database_client, monkeypatch):
+@pytest.fixture
+def register_and_login(league_database_client, monkeypatch):
+    client, _ = league_database_client
+    codes = {}
+    monkeypatch.setattr(email_service, "send_verification_code", codes.__setitem__)
+
+    def register(email, club_name):
+        credentials = {"email": email, "password": "password-segura"}
+        response = client.post("/auth/register", json={
+            **credentials, "passwordConfirmation": credentials["password"], "clubName": club_name,
+        })
+        assert response.status_code == 202, response.text
+        response = client.post("/auth/verify-email", json={"email": email, "code": codes[email]})
+        assert response.status_code == 200, response.text
+        assert client.post("/auth/login", json=credentials).status_code == 200
+        return response.json()["clubId"]
+
+    return register
+
+
+def test_create_list_filter_and_read_lobby_with_authenticated_club(league_database_client, register_and_login):
     client, db = league_database_client
-    verification_codes = {}
-    monkeypatch.setattr("app.services.auth_service.email_service.send_verification_code",lambda email, code: verification_codes.__setitem__(email, code),)
     prefix = f"Merge {uuid4().hex[:10]}"
     email = f"{uuid4().hex}@example.com"
-    credentials = {"email": email, "password": "password-segura"}
-    response = client.post("/auth/register", json={
-        **credentials,
-        "passwordConfirmation": credentials["password"],
-        "clubName": f"Club {prefix}",
-    })
-    assert response.status_code == 202, response.text
-
-    verified = client.post("/auth/verify-email", json={"email": email, "code": verification_codes[email],})
-    assert verified.status_code == 200, verified.text
-
-    assert client.post("/auth/login", json=credentials).status_code == 200
-    club = db.scalar(select(Club).join(User).where(User.email == email))
+    club = db.get(Club, register_and_login(email, f"Club {prefix}"))
     payload = {
         "minTeams": 3,
         "maxTeams": 3,
@@ -70,10 +73,13 @@ def test_create_list_filter_and_read_lobby_with_authenticated_club(league_databa
         assert response.status_code == 201, response.text
         leagues[kind] = db.scalar(select(League).where(League.name == name))
 
-    # El listado incluye ligas cerradas y llenas, con su estado y cupo real.
-    # La búsqueda interpreta % y _ como caracteres literales.
+    # El listado general excluye estados no abiertos y ligas sin cupo, incluso
+    # para sus miembros. La búsqueda interpreta % y _ como caracteres literales.
     extra_leagues = {}
-    for label, state, count in (("closed", "closed", 1), ("full", "open", 3)):
+    for label, state, count in (
+        ("closed", "closed", 1), ("running", "running", 1), ("finished", "finished", 1),
+        ("cancelled", "cancelled", 1), ("full", "open", 3),
+    ):
         league = League(
             name=f"{prefix} {label}", min_teams=3, max_teams=3,
             start_datetime=datetime.now(timezone.utc) + timedelta(days=1),
@@ -95,22 +101,42 @@ def test_create_list_filter_and_read_lobby_with_authenticated_club(league_databa
     response = client.get("/leagues", params={"name": f"  {prefix.lower()}  "})
     assert response.status_code == 200, response.text
     items = response.json()["items"]
-    expected_leagues = [*leagues.values(), *extra_leagues.values()]
-    assert {item["id"] for item in items} == {league.id for league in expected_leagues}
+    expected_ids = sorted((league.id for league in leagues.values()), reverse=True)
+    assert [item["id"] for item in items] == expected_ids
     items_by_id = {item["id"]: item for item in items}
-    for league in expected_leagues:
+    for league in leagues.values():
         item = items_by_id[league.id]
-        expected_count = 3 if league is extra_leagues["full"] else 1
-        assert item["status"] == league.status
-        assert item["registeredCount"] == expected_count
-        assert item["availableSlots"] == 3 - expected_count
+        assert item["status"] == "open"
+        assert item["registeredCount"] == 1
+        assert item["availableSlots"] == 2
     assert all(item["isMember"] is True for item in items)
     assert all("password_hash" not in item and "password" not in item for item in items)
+
+    memberships = client.get("/club/me/leagues")
+    assert memberships.status_code == 200, memberships.text
+    memberships_by_id = {item["id"]: item["status"] for item in memberships.json()["items"]}
+    for league in (*leagues.values(), *extra_leagues.values()):
+        assert memberships_by_id[league.id] == league.status
+
+    for page in (1, 2, 3):
+        response = client.get("/leagues", params={"name": prefix, "page": page, "limit": 1})
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "items": items[page - 1:page], "total": 2, "page": page, "limit": 1, "totalPages": 2,
+        }
+        canonical = client.get("/leagues", params={"name": prefix, "page": page, "pageSize": 1})
+        assert canonical.status_code == 200, canonical.text
+        assert canonical.json() == {
+            "items": items[page - 1:page], "total": 2, "page": page, "pageSize": 1,
+            "totalPages": 2, "hasNext": page == 1,
+        }
 
     filtered = client.get("/leagues", params={"name": f"{prefix} private 100%_"})
     assert filtered.status_code == 200
     assert [item["id"] for item in filtered.json()["items"]] == [leagues["private"].id]
     assert client.get("/leagues", params={"name": f"{prefix} missing"}).json() == {"items": []}
+    empty_page = client.get("/leagues", params={"name": f"{prefix} missing", "page": 1})
+    assert empty_page.json() == {"items": [], "total": 0, "page": 1, "limit": 20, "totalPages": 1}
 
     for kind, league in leagues.items():
         response = client.get(f"/leagues/{league.id}/lobby")
@@ -121,6 +147,12 @@ def test_create_list_filter_and_read_lobby_with_authenticated_club(league_databa
         assert lobby["registeredTeams"] == 1
         assert lobby["remainingSlots"] == 2
         assert lobby["isRegistered"] is True
+
+    for state in ("running", "finished"):
+        league_id = extra_leagues[state].id
+        response = client.post(f"/leagues/{league_id}/leave")
+        assert response.status_code == 409, response.text
+        assert db.get(League, league_id).status == state
 
     public_id = leagues["public"].id
     response = client.post(f"/leagues/{public_id}/leave")
@@ -140,23 +172,14 @@ def test_listing_requires_session(league_database_client):
 
 
 @pytest.mark.parametrize("kind", ["public", "private", "legacy"])
-def test_join_updates_listing_and_lobby_for_newly_created_league(league_database_client, kind, monkeypatch):
+def test_join_updates_listing_and_lobby_for_newly_created_league(league_database_client, register_and_login, kind, monkeypatch):
     client, db = league_database_client
     clock = [100.0]
     monkeypatch.setattr(league_access_service, "monotonic", lambda: clock[0])
     prefix = uuid4().hex[:10]
 
-    def register_and_login(label):
-        credentials = {"email": f"{prefix}_{label}@example.com", "password": "password-segura"}
-        response = client.post("/auth/register", json={
-            **credentials, "passwordConfirmation": credentials["password"],
-            "clubName": f"{prefix} {label}",
-        })
-        assert response.status_code == 201, response.text
-        assert client.post("/auth/login", json=credentials).status_code == 200
-        return response.json()["clubId"]
-
-    creator_id = register_and_login("creator")
+    creator_id = register_and_login(f"{prefix}_creator@example.com", f"{prefix} creator")
+    creator_line_up = client.get("/team/default").json()["lineUp"]
     name = f"Merge Join {prefix}"
     response = client.post(f"/leagues/{'private' if kind == 'private' else 'public'}", json={
         "name": name, "minTeams": 3, "maxTeams": 3,
@@ -165,17 +188,15 @@ def test_join_updates_listing_and_lobby_for_newly_created_league(league_database
     })
     assert response.status_code == 201, response.text
     league = db.scalar(select(League).where(League.name == name))
-    assert league.registrations[0].line_up == []
+    assert league.registrations[0].line_up == creator_line_up
     if kind == "legacy":
         league.access_code = "clave-de-liga"
         db.commit()
         migrate_league_passwords(db)
         assert league.access_code is None
 
-    club_id = register_and_login("member")
-    players = client.get("/players").json()["items"]
-    line_up = [player["id"] for player in players]
-    assert len(line_up) == 6
+    club_id = register_and_login(f"{prefix}_member@example.com", f"{prefix} member")
+    line_up = client.get("/team/default").json()["lineUp"]
     payload = {"clubId": club_id, "lineUp": line_up}
     listed = client.get("/leagues", params={"name": name}).json()["items"][0]
     assert listed["isMember"] is False
@@ -210,10 +231,12 @@ def test_join_updates_listing_and_lobby_for_newly_created_league(league_database
     assert client.get("/leagues", params={"name": name}).json()["items"][0]["isMember"] is False
     league.status = "closed"
     db.commit()
+    assert client.get("/leagues", params={"name": name}).json() == {"items": []}
     assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 409
     league.status = "open"
     league.start_datetime = datetime.now(timezone.utc) - timedelta(days=1)
     db.commit()
+    assert client.get("/leagues", params={"name": name}).json()["items"][0]["id"] == league.id
     # Este flujo ya hizo cinco intentos; la nueva inscripción ocurre un minuto después.
     clock[0] += 60
     assert client.post(f"/leagues/{league.id}/join", json=payload).status_code == 201

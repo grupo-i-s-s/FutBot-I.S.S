@@ -1,15 +1,21 @@
 import asyncio
 from contextlib import suppress
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Response, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
 from app.database import SessionLocal
 from app.dependencies import CurrentClub, Database
 from app.errors import AppError
-from app.services import match_stream_services, behaviour_service
+from app.schemas.error_schemas import ApiErrorResponse
+from app.services import match_stream_services, behaviour_service, matches_service
 from app.services.match_snapshot_service import read_snapshot
-from app.schemas.matches_schemas import LiveRequests
+from app.schemas.matches_schemas import (
+    LiveRequests,
+    LiveRequestCreate,
+    LiveRequestResponse,
+    MatchDtUpdate,
+)
 from app.repository import matches_repository
 from app.services.match_request_handler import enqueue_request
 from primitives.behaviour_api.runtime import resolve_program
@@ -19,7 +25,8 @@ SESSION_CHECK_SECONDS = 15
 
 
 @match_stream_router.get("/{match_id}")
-def get_match_snapshot(match_id: int, db: Database, club: CurrentClub):
+def get_match_snapshot(match_id: int, db: Database, club: CurrentClub, response: Response):
+    response.headers["Cache-Control"] = "private, no-store"
     return read_snapshot(db, match_id, club.id)
 
 
@@ -88,7 +95,20 @@ async def stream_match(websocket: WebSocket, match_id: int) -> None:
         with suppress(asyncio.CancelledError, WebSocketDisconnect):
             await incoming
 
-@match_stream_router.post("/{match_id}/live_request")
+
+@match_stream_router.post(
+    "/{match_id}/dt", deprecated=True, status_code=409, response_model=ApiErrorResponse,
+)
+def update_match_dt(match_id: int, data: MatchDtUpdate, db: Database, club: CurrentClub):
+    matches_service.reject_match_dt_change(db, match_id, club.id)
+
+
+@match_stream_router.post("/{match_id}/live-requests", response_model=LiveRequestResponse)
+def create_live_request(match_id: int, data: LiveRequestCreate, db: Database, club: CurrentClub):
+    return update_behaviour(match_id, data, db, club)
+
+
+@match_stream_router.post("/{match_id}/live_request", include_in_schema=False)
 def update_behaviour(
     match_id: int,
     data: LiveRequests,
@@ -130,6 +150,7 @@ def update_behaviour(
         ),
         None,
     )
+    matches_service.require_manual_match_control(own_team)
 
     if own_team is None or not any(
         player["id"] == data.player_id

@@ -17,8 +17,7 @@ export function createFriendlyMatch(startDateTime) {
 }
 
 export function joinFriendlyMatch(matchId) {
-    return request('/friendly-matches/join', {
+    return request(`/friendly-matches/${encodeURIComponent(matchId)}/join`, {
         method: 'POST',
-        body: {idPartido: matchId},
     });
 }

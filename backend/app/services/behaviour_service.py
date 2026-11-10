@@ -6,7 +6,7 @@ from app.models.behaviour_model import Behavior
 from app.repository import behaviour_repository
 from app.schemas.behaviour_schemas import BehaviourCreate, BehaviourReadDetail, BehaviourUpdate
 from primitives.behaviour_api.validation import validate_program
-from app.models.league_model import LeagueRegistration
+from primitives.behaviours import default_behaviour_mode
 from app.models.matches_model import Matches
 
 def list_behaviours(db: Session, club_id: int, kind: str|None=None) -> list[Behavior]:
@@ -126,41 +126,62 @@ def _lineup_uses_behaviour( lineup: object, behaviour_id: int, assigned_player_i
         )
     return False
 
-def _match_uses_behaviour( match: Matches, club_id: int, behaviour_id: int) -> bool:
+def _match_uses_behaviour(match: Matches, club_id: int, behaviour_id: int) -> bool:
     # Checkpoint privado: cada equipo contiene sus perfiles de jugadores.
-    runtime = match.runtime_state or {}
-
-    for key in ("local_team", "visitor_team"):
-        team = runtime.get(key, {})
-        if team.get("club_id") != club_id:
-            continue
-        if _contains_id(team, BEHAVIOUR_KEYS, behaviour_id) or any(
-            isinstance(entry, (list, tuple)) and entry and entry[0] == behaviour_id
-            for entry in team.get("dt_default_behaviours", {}).values()
-        ):
-            return True
+    runtime = match.runtime_state
+    if isinstance(runtime, dict):
+        for key in ("local_team", "visitor_team"):
+            team = runtime.get(key)
+            if not isinstance(team, dict) or team.get("club_id") != club_id:
+                continue
+            if _contains_id(team, BEHAVIOUR_KEYS, behaviour_id):
+                return True
+            defaults = team.get("dt_default_behaviours")
+            if isinstance(defaults, dict) and any(
+                isinstance(entry, (list, tuple))
+                and entry
+                and type(entry[0]) is int
+                and entry[0] == behaviour_id
+                for entry in defaults.values()
+            ):
+                return True
 
     # Snapshot público: revisar únicamente los datos del propio club.
-    state = (match.snapshot or {}).get("state", {})
+    snapshot = match.snapshot
+    state = snapshot.get("state") if isinstance(snapshot, dict) else None
+    if not isinstance(state, dict):
+        return False
 
-    own_players = [
-        player
-        for player in state.get("players", [])
-        if player.get("teamId") == club_id
-    ]
-    own_teams = [
-        team
-        for team in state.get("teams", [])
-        if team.get("id") == club_id
-    ]
+    for entries, club_key in ((state.get("players"), "teamId"), (state.get("teams"), "id")):
+        if not isinstance(entries, list):
+            continue
+        if any(
+            isinstance(entry, dict)
+            and entry.get(club_key) == club_id
+            and _contains_id(entry, BEHAVIOUR_KEYS, behaviour_id)
+            for entry in entries
+        ):
+            return True
+    return False
 
-    return _contains_id(
-        own_players + own_teams,
-        BEHAVIOUR_KEYS,
-        behaviour_id,
-    )
 
-def _get_behaviour_references( db: Session, club_id: int, behaviour_id: int) -> dict[str, str]:
+def _dt_preset_references(behaviour: Behavior) -> dict[str, str]:
+    if behaviour.kind == "PLAYER" and default_behaviour_mode(behaviour.name, behaviour.code) is not None:
+        return {"dtPreset": "Comportamiento predeterminado del DT"}
+    return {}
+
+
+def _require_custom_behaviour(behaviour: Behavior) -> None:
+    references = _dt_preset_references(behaviour)
+    if references:
+        raise AppError(
+            "BEHAVIOUR_IN_USE",
+            "El DT necesita este comportamiento predeterminado. Creá uno personalizado si querés usar otro código.",
+            fields=references,
+        )
+
+
+def _get_behaviour_references(db: Session, club_id: int, behaviour_id: int) -> dict[str, str]:
     players = behaviour_repository.get_players_using_behaviour(db, club_id, behaviour_id)
     assigned_player_ids = {player.id for player in players}
 
@@ -172,13 +193,11 @@ def _get_behaviour_references( db: Session, club_id: int, behaviour_id: int) -> 
 
     default_team = behaviour_repository.get_default_team(db, club_id)
 
-    if default_team and _lineup_uses_behaviour( default_team.line_up, behaviour_id, assigned_player_ids):
+    if default_team and _lineup_uses_behaviour(default_team.line_up, behaviour_id, assigned_player_ids):
         references["defaultTeam"] = "Equipo predeterminado"
 
-    for registration in behaviour_repository.get_league_lineups(
-        db, club_id
-    ):
-        if _lineup_uses_behaviour( registration.line_up, behaviour_id, assigned_player_ids):
+    for registration in behaviour_repository.get_active_league_lineups(db, club_id):
+        if _lineup_uses_behaviour(registration.line_up, behaviour_id, assigned_player_ids):
             references[f"leagues.{registration.league_id}"] = (
                 f"Alineación de liga #{registration.league_id}"
             )
@@ -203,8 +222,9 @@ def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
                 "BEHAVIOUR_NOT_FOUND",
                 "No se encontró el comportamiento."
             )
+        _require_custom_behaviour(behaviour)
 
-        references = _get_behaviour_references( db, club_id, behaviour_id)
+        references = _get_behaviour_references(db, club_id, behaviour_id)
 
         if references:
             raise AppError(
@@ -221,18 +241,33 @@ def delete_behaviour(db: Session, club_id: int, behaviour_id: int) -> None:
         db.rollback()
         raise
 
-def update_behaviour( db: Session, club_id: int, behaviour_id: int, data: BehaviourUpdate) -> BehaviourReadDetail:
+def update_behaviour(db: Session, club_id: int, behaviour_id: int, data: BehaviourUpdate) -> BehaviourReadDetail:
     try:
+        original = behaviour_repository.get_behaviour_by_id(db, club_id, behaviour_id)
+        if original is None:
+            raise AppError("BEHAVIOUR_NOT_FOUND", "No se encontró el comportamiento.")
+        _require_custom_behaviour(original)
+
+        # El sandbox puede tardar. La comprobación de uso y versión se hace al adquirir el bloqueo.
+        diagnostics = validate_program(data.code, kind=original.kind)
+        if diagnostics:
+            raise AppError(
+                "BEHAVIOUR_INVALID",
+                "El programa del comportamiento es inválido.",
+                diagnostics=diagnostics,
+            )
+
         behaviour_repository.lock_club(db, club_id)
 
-        behaviour = behaviour_repository.get_behaviour_by_id( db, club_id, behaviour_id)
+        behaviour = behaviour_repository.get_behaviour_by_id(db, club_id, behaviour_id)
         if behaviour is None:
             raise AppError(
                 "BEHAVIOUR_NOT_FOUND",
                 "No se encontró el comportamiento.",
             )
+        _require_custom_behaviour(behaviour)
 
-        references = _get_behaviour_references( db, club_id, behaviour_id)
+        references = _get_behaviour_references(db, club_id, behaviour_id)
         if references:
             raise AppError(
                 "BEHAVIOUR_IN_USE",
@@ -248,15 +283,7 @@ def update_behaviour( db: Session, club_id: int, behaviour_id: int, data: Behavi
                 "Recargalo antes de guardar.",
             )
 
-        diagnostics = validate_program( data.code, kind=behaviour.kind)
-        if diagnostics:
-            raise AppError(
-                "BEHAVIOUR_INVALID",
-                "El programa del comportamiento es inválido.",
-                diagnostics=diagnostics,
-            )
-
-        updated = behaviour_repository.update_behaviour( db, behaviour, name=data.name, code=data.code)
+        updated = behaviour_repository.update_behaviour(db, behaviour, name=data.name, code=data.code)
 
         result = BehaviourReadDetail.model_validate(updated)
         db.commit()
@@ -302,9 +329,8 @@ def get_behaviour_usage(
             "No se encontró el comportamiento.",
         )
 
-    references = _get_behaviour_references(
-        db, club_id, behaviour_id
-    )
+    references = _get_behaviour_references(db, club_id, behaviour_id)
+    references.update(_dt_preset_references(behaviour))
 
     return {
         "inUse": bool(references),

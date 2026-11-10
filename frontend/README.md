@@ -19,7 +19,8 @@ no desde `frontend/`.
 | `index.html` | Es la página de entrada de Vite; contiene el elemento donde React se monta. | Mantener aquí los metadatos generales de la página. |
 | `vite.config.js` | Configura los plugins de React y Tailwind, el servidor, la detección de cambios y el proxy hacia FastAPI. | La configuración del entorno va aquí; la lógica de negocio, en `src/`. |
 | `src/main.jsx` | Monta React en `#root` y carga los estilos globales. | Mantenerlo pequeño; agregar aquí los proveedores globales cuando existan. |
-| `src/App.jsx` | Componente raíz. Actualmente muestra el estado de conexión. | Componer las pantallas; evitar concentrar aquí toda la aplicación. |
+| `src/App.jsx` | Registra las pantallas y aplica los controles de sesión. | Definir la pantalla de cada ruta y los enlaces antiguos que deben redirigir. |
+| `src/routes.js` | Reúne las rutas de navegación y construye enlaces con parámetros. | Compartir las rutas entre pantallas, enlaces y redirecciones. |
 | `src/styles.css` | Importa Tailwind y define los colores del tema y estilos base. | Reservarlo para reglas generales y variables de diseño compartidas. |
 | `node_modules/` | Paquetes instalados por npm. | Generado, no se versiona. Compose lo guarda en un volumen separado. |
 | `dist/` | Archivos generados por la compilación para distribución. | Generado, no editar ni versionar. |
@@ -65,8 +66,29 @@ de los imports: un nombre incorrecto puede funcionar en macOS y fallar en Linux.
 
 Un componente principal por archivo. Usar exportación `default` para el componente
 principal y exportaciones nombradas para hooks, funciones de API y utilidades.
-Ordenar imports: bibliotecas externas, módulos propios y estilos. Mantener rutas
-relativas mientras no exista un alias configurado; `@/` todavía no está disponible.
+Ordenar los imports de bibliotecas externas, módulos propios y estilos. El alias
+`@/` apunta a `src/`.
+
+### Rutas de navegación
+
+Los segmentos de navegación usan español, minúsculas y `kebab-case`. Usar
+`routes` para enlaces estáticos y `routePath` para completar los parámetros de
+los enlaces dinámicos desde `src/routes.js`.
+
+| Enlace anterior | Ruta canónica |
+| --- | --- |
+| `/login` | `/iniciar-sesion` |
+| `/home` | `/inicio` |
+| `/comportamientos`, `/comportamientos/:behaviourId`, `/crear-comportamiento`, `/behaviours`, `/behaviours/:behaviourId` | `/mi-club?tab=behaviours` |
+| `/club/:clubId` | `/clubes/:clubId` |
+| `/leagues/:id/join`, `/inscripcion-liga?leagueId=:id` | `/ligas/:id/inscripcion` |
+| `/leagues/:id/lobby` | `/ligas/:id/sala-de-espera` |
+| `/leagues/:id/lineup` | `/ligas/:id/plantel` |
+
+Las redirecciones de compatibilidad conservan los parámetros de consulta,
+el fragmento y el estado de navegación, salvo los enlaces de comportamientos,
+que abren directamente la pestaña del club. Las rutas privadas requieren sesión
+y llevan a `/` cuando la sesión es anónima.
 
 ## 3. Estructura al agregar funcionalidades
 
@@ -190,9 +212,9 @@ dependencias cuando se agreguen otros componentes, y versionar el lockfile de np
 
 ## 5. Contrato con el backend
 
-Consultar el [contrato de Sprint 2](../docs/api_sprint_2.md) antes de implementar
-una pantalla. Ese documento está marcado como **propuesta**; los cambios de contrato
-se coordinan entre FE y BE y se reflejan allí. No demuestra que los endpoints ya existan.
+Consultar el [contrato vigente de la API](../docs/api_endpoints.md) antes de
+implementar una pantalla. Coordinar los cambios de contrato entre frontend y
+backend y reflejarlos en esa referencia.
 
 El navegador usa rutas relativas con `/api`: `/api/players` se traduce a `/players`
 de FastAPI. No escribir `http://backend:8000` en un componente ni fijar `localhost:8000`.
@@ -200,7 +222,7 @@ El proxy está configurado en Vite para desarrollo; una publicación de `dist/` 
 su propia configuración de servidor.
 
 Conservar los campos JSON del contrato, como `clubId`, `behaviourId` o `startDateTime`.
-No renombrarlos unilateralmente. Las listas propuestas usan `{ "items": [...] }`.
+Las colecciones paginadas usan `page` y `pageSize` y devuelven sus resultados en `items`.
 La validación del formulario ayuda al usuario; el backend sigue siendo responsable
 de validar reglas, permisos y propiedad de los recursos.
 
@@ -211,8 +233,8 @@ según el contrato. No decidir el comportamiento comparando mensajes en español
 
 Enviar fechas con zona horaria y convertirlas para mostrarlas en la zona local.
 Un valor de un control `datetime-local` requiere conversión antes de enviarlo.
-Coordinar autenticación y manejo de `401` en el cliente HTTP; todavía no existe una
-implementación de login en esta base.
+El cliente HTTP invalida la sesión al recibir `401 SESSION_INVALID`. Las pantallas
+privadas redirigen al inicio de sesión cuando la sesión es anónima.
 
 `API_PROXY_TARGET` y `VITE_USE_POLLING` son leídas por la configuración actual.
 Las variables `VITE_*` pueden quedar expuestas al navegador: no colocar contraseñas

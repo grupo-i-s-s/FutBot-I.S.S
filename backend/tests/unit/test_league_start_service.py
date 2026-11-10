@@ -23,7 +23,9 @@ def league(monkeypatch, now, freeze_time):
     repository = Mock()
     repository.get_league_by_id.return_value = row
     monkeypatch.setattr(service, "league_repository", repository)
-    monkeypatch.setattr(service.player_repository, "get_players_by_club", Mock(
+    club_locks = Mock()
+    monkeypatch.setattr(service.matches_repository, "get_clubs_for_update", club_locks)
+    monkeypatch.setattr(lineups.player_repository, "get_players_by_club", Mock(
         side_effect=lambda db, id_: [SimpleNamespace(id=i) for i in range(id_ * 10, id_ * 10 + 6)],
     ))
     def saved_team(db, club_id):
@@ -35,7 +37,7 @@ def league(monkeypatch, now, freeze_time):
                                 kind="PLAYER", version=1, validation_status="VALID")
     monkeypatch.setattr(lineups.behaviour_repository, "get_all_behaviours", Mock(return_value=[behaviour]))
     monkeypatch.setattr(service, "generate_league_rounds", Mock(wraps=service.generate_league_rounds))
-    return SimpleNamespace(row=row, repo=repository)
+    return SimpleNamespace(row=row, repo=repository, club_locks=club_locks)
 
 
 @pytest.mark.parametrize("frequency, interval", [
@@ -51,6 +53,7 @@ def test_start_creates_fixture_and_standings_before_single_commit(db, league, no
     assert league.row.status == "running"
     assert isinstance(league.row.draw_seed, int)
     league.repo.get_league_by_id.assert_called_once_with(db, 42)
+    league.club_locks.assert_called_once_with(db, (1, 2, 3))
     assert league.repo.create_round.call_count == 3
     assert league.repo.create_round_matches.call_count == 3
     for index, call in enumerate(league.repo.create_round.call_args_list):
@@ -69,6 +72,16 @@ def test_repeated_start_returns_same_league_without_generating_again(db, league)
     assert league.row.draw_seed == seed
     service.generate_league_rounds.assert_called_once()
     league.repo.create_standings.assert_called_once()
+
+
+def test_start_locks_all_registered_clubs_in_order_even_with_complete_lineups(db, league):
+    for registration in league.row.registrations:
+        registration.line_up = lineups.team_repository.get_by_club(db, registration.club_id).line_up
+    league.row.registrations.reverse()
+
+    service.start_league(db, 42, 1)
+
+    league.club_locks.assert_called_once_with(db, (1, 2, 3))
 
 
 @pytest.mark.parametrize("case, expected_status", [

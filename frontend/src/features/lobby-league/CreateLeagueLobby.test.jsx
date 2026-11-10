@@ -1,7 +1,14 @@
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import {act, cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router';
+import MatchPage from '../friendly-matches/MatchPage.jsx';
+import {useMatchConnection} from '../friendly-matches/hooks/useMatchConnection.js';
 import {LeagueLobby} from './CreateLeagueLobby.jsx';
+
+vi.mock('../friendly-matches/hooks/useMatchConnection.js', () => ({
+    useMatchConnection: vi.fn(() => ({connectionStatus: 'loading'})),
+}));
+vi.mock('../session/SessionProvider.jsx', () => ({useSession: () => ({club: null})}));
 
 let lobby;
 let fixture;
@@ -10,6 +17,7 @@ let start;
 let fetchMock;
 
 beforeEach(() => {
+    useMatchConnection.mockClear();
     clubId = 1;
     lobby = {
         id: 42, name: 'Liga de prueba', status: 'open', isPrivate: false,
@@ -39,8 +47,9 @@ beforeEach(() => {
     fetchMock = vi.fn(async (url, options) => {
         let data;
         if (url === '/api/auth/me') data = {clubId};
+        else if (url === '/api/behaviours') data = {items: []};
         else if (url.endsWith('/lobby')) data = lobby;
-        else if (url === '/api/leagues/42/ranking') data = [{id: 1, nombre: 'Club del ranking', puntos: 0}];
+        else if (url === '/api/leagues/42/ranking') data = [{id: 1, nombre: 'Club del ranking', avatar: 'avatar-08.png', puntos: 0}];
         else if (url.endsWith('/fixture')) data = fixture;
         else if (url.endsWith('/start')) data = await start();
         else throw new Error(`Petición inesperada: ${url}`);
@@ -57,8 +66,11 @@ afterEach(() => {
 });
 
 function openLobby() {
-    render(<MemoryRouter initialEntries={['/leagues/42/lobby']}>
-        <Routes><Route path="/leagues/:id/lobby" element={<LeagueLobby/>}/></Routes>
+    render(<MemoryRouter initialEntries={['/ligas/42/sala-de-espera']}>
+        <Routes>
+            <Route path="/ligas/:id/sala-de-espera" element={<LeagueLobby/>}/>
+            <Route path="/partidos/:matchId" element={<MatchPage/>}/>
+        </Routes>
     </MemoryRouter>);
 }
 
@@ -68,8 +80,9 @@ it('permite iniciar sólo al creador y muestra fixture, posiciones y estado actu
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('cierran las inscripciones'));
     expect(await screen.findByText('En curso')).toBeInTheDocument();
     expect(await screen.findByRole('heading', {name: 'Tu próximo partido'})).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', {name: 'Ranking'}));
+    fireEvent.click(screen.getByRole('tab', {name: 'Ranking'}));
     expect(await screen.findByText('Club del ranking')).toBeInTheDocument();
+    expect(screen.getByRole('img', {name: 'Escudo de Club del ranking'})).toBeInTheDocument();
     expect(screen.queryByRole('button', {name: 'Iniciar liga'})).not.toBeInTheDocument();
     const [, options] = fetchMock.mock.calls.find(([url]) => url.endsWith('/start'));
     expect(options.method).toBe('POST');
@@ -140,6 +153,7 @@ it('muestra rival, fecha local, estados y resultados por ronda', async () => {
     expect(times[0]).toHaveTextContent(new Date('2030-01-01T15:00:00Z').toLocaleString('es-AR'));
     fireEvent.change(select, {target: {value: '2'}});
     expect(screen.getByText(/Horario previsto/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: 'Ver partido'})).not.toBeInTheDocument();
     expect(screen.getByText('Descansa: Mi club.')).toBeInTheDocument();
 });
 
@@ -226,4 +240,20 @@ it('detecta el inicio de otro participante y limpia la consulta al salir', async
     expect(screen.getByRole('combobox', {name: 'Ronda'})).toBeInTheDocument();
     cleanup();
     expect(clear).toHaveBeenCalled();
+});
+
+it.each([1, 2])('abre el partido del club %i desde el fixture y permite volver a la liga', async (participantId) => {
+    clubId = participantId;
+    lobby.status = 'running';
+    fixture.rounds[0].matches[0].status = 'RUNNING';
+    openLobby();
+
+    const viewMatch = await screen.findByRole('link', {name: 'Ver partido'});
+    expect(useMatchConnection).not.toHaveBeenCalled();
+    fireEvent.click(viewMatch);
+
+    const backToLeague = await screen.findByRole('link', {name: 'Volver a la liga'});
+    expect(useMatchConnection).toHaveBeenLastCalledWith('10');
+    fireEvent.click(backToLeague);
+    expect(await screen.findByRole('link', {name: 'Ver partido'})).toBeInTheDocument();
 });

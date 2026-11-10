@@ -1,5 +1,5 @@
 .register-page {
-    min-height: 100vh;
+    flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -53,6 +53,11 @@
     font-size: 16px;
 }
 
+.formulary-box input::placeholder {
+    color: #9ca3af;
+    font-style: italic;
+}
+
 .register-button {
     display: block;
     width: 200px;
@@ -65,4 +70,15 @@
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
+}
+
+.registration-pending {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.registration-pending a {
+    color: #164b35;
+    text-decoration: underline;
 }

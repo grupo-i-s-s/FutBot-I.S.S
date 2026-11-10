@@ -1,9 +1,11 @@
 import {useEffect, useRef, useState} from 'react';
-import {useSearchParams} from 'react-router';
+import {useLocation, useNavigate} from 'react-router';
 import {listFriendlyMatches} from '../api.js';
 
-export function useFriendlyMatches(refresh = 0) {
-    const [params, setParams] = useSearchParams();
+export function useFriendlyMatches() {
+    const {pathname, search, hash, state} = useLocation();
+    const navigate = useNavigate();
+    const params = new URLSearchParams(search);
     const creatorName = params.get('creatorName') ?? '';
     const requestedPage = Number(params.get('page') ?? 1);
     const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -31,21 +33,19 @@ export function useFriendlyMatches(refresh = 0) {
             .catch(cause => { if (!controller.signal.aborted) setError(cause.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [creatorName, page, refresh, version]);
+    }, [creatorName, page, version]);
 
     function update(nextName, nextPage) {
         clearTimeout(timer.current);
         request.current?.abort();
         setLoading(true);
         setError('');
-        setParams(previous => {
-            const next = new URLSearchParams(previous);
-            if (nextName) next.set('creatorName', nextName);
-            else next.delete('creatorName');
-            if (nextPage === 1) next.delete('page');
-            else next.set('page', String(nextPage));
-            return next;
-        }, {replace: true});
+        const next = new URLSearchParams(search);
+        if (nextName) next.set('creatorName', nextName);
+        else next.delete('creatorName');
+        if (nextPage === 1) next.delete('page');
+        else next.set('page', String(nextPage));
+        navigate({pathname, search: next.toString(), hash}, {replace: true, state});
         if (nextName === creatorName && nextPage === page) setVersion(value => value + 1);
     }
 

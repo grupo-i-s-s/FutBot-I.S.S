@@ -5,12 +5,13 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { listDtBehaviours, updateDtSettings } from '../api';
+import {routes} from '@/routes.js';
 
 function errorMessage(error, fallback) {
     return Object.values(error.fields ?? {}).join(' ') || error.message || fallback;
 }
 
-export default function DtSettings({ dt }) {
+export default function DtSettings({ dt, onSaveSuccess }) {
     const formId = useId();
     const [behaviours, setBehaviours] = useState([]);
     const [isActive, setIsActive] = useState(dt?.isActive ?? false);
@@ -20,7 +21,6 @@ export default function DtSettings({ dt }) {
     const [loadError, setLoadError] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    const [notice, setNotice] = useState('');
 
     useEffect(() => {
         const controller = new AbortController();
@@ -43,7 +43,6 @@ export default function DtSettings({ dt }) {
         if (loading || loadError || saving || (isActive && !selected)) return;
         setSaving(true);
         setError('');
-        setNotice('');
         try {
             const updated = await updateDtSettings({
                 isActive,
@@ -51,7 +50,7 @@ export default function DtSettings({ dt }) {
             });
             setIsActive(updated.isActive);
             setSelectedId(String(updated.activeBehaviourId ?? ''));
-            setNotice('Configuración del DT guardada.');
+            onSaveSuccess?.('Configuración del DT guardada.');
         } catch (cause) {
             setError(errorMessage(cause, 'No se pudo guardar el DT.'));
         } finally {
@@ -69,6 +68,7 @@ export default function DtSettings({ dt }) {
                 <CardDescription>
                     Cuando lo activás, el DT dirige a tu equipo desde el inicio de cada partido.
                     Puede cambiar a comportamientos predeterminados y hacer sustituciones durante las pausas.
+                    Los cambios de configuración se aplican a los próximos partidos.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -111,10 +111,9 @@ export default function DtSettings({ dt }) {
                             </fieldset>
                         </form>
                         {error && <p role="alert" className="text-destructive">{error}</p>}
-                        {notice && <p role="status">{notice}</p>}
                     </>
                 )}
-                <Link to="/crear-comportamiento-dt" className={buttonVariants({ variant: 'outline' })}>
+                <Link to={routes.createDtBehaviour} className={buttonVariants({ variant: 'outline' })}>
                     <Plus className="size-4" aria-hidden="true" />
                     Crear comportamiento del DT
                 </Link>

@@ -24,45 +24,25 @@ import {Switch} from '@/components/ui/switch';
 import {ToggleGroup, ToggleGroupItem} from '@/components/ui/toggle-group';
 import {AVATAR_OPTIONS, DEFAULT_AVATAR, findAvatar} from '../avatars';
 import ClubAvatar from './ClubAvatar';
-import TeamSettings from './TeamSettings';
 
 const MAX_NAME_LENGTH = 50;
 
 export default function ClubSettingsDialog({
-    club, players, behaviours, isOpen, onOpenChange, onSave, isSaving, saveError,
+    club, isOpen, onOpenChange, onSave, isSaving, saveError,
 }) {
-    const [isTeamSaving, setIsTeamSaving] = useState(false);
-    const busy = isSaving || isTeamSaving;
-
     return (
-        <Dialog
-            open={isOpen}
-            onOpenChange={(open) => {
-                if (!busy) onOpenChange(open);
-            }}
-        >
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
                 className="max-h-[85vh] overflow-y-auto sm:max-w-lg"
-                showCloseButton={!busy}
+                showCloseButton={!isSaving}
             >
                 {isOpen && (
-                    <div className="space-y-8">
-                        <ClubSettingsForm
-                            club={club}
-                            onSave={onSave}
-                            isSaving={busy}
-                            saveError={saveError}
-                        />
-
-                        <TeamSettings
-                            key={club.id}
-                            clubId={club.id}
-                            players={players}
-                            behaviours={behaviours}
-                            disabled={isSaving}
-                            onSavingChange={setIsTeamSaving}
-                        />
-                    </div>
+                    <ClubSettingsForm
+                        club={club}
+                        onSave={onSave}
+                        isSaving={isSaving}
+                        saveError={saveError}
+                    />
                 )}
             </DialogContent>
         </Dialog>
@@ -100,7 +80,8 @@ function ClubSettingsForm({club, onSave, isSaving, saveError}) {
             <DialogHeader>
                 <DialogTitle className="text-lg font-bold">Configurar club</DialogTitle>
                 <DialogDescription>
-                    Cambiá los datos del club y configurá tu equipo para los próximos partidos.
+                    Cambiá el nombre, el avatar y la disponibilidad para amistosos.
+                    Podés editar la formación y el plantel en Mi equipo.
                 </DialogDescription>
             </DialogHeader>
 

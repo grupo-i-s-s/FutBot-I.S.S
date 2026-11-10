@@ -16,6 +16,8 @@ def available_clubs(monkeypatch):
         SimpleNamespace(id=club_id, friendly_available=True) for club_id in ids
     ])
     monkeypatch.setattr(matches_repository, "get_clubs_for_update", lookup)
+    monkeypatch.setattr(matches_repository, "get_confirmed_league_slots", Mock(return_value=[]))
+    monkeypatch.setattr(matches_repository, "get_confirmed_friendly_slots", Mock(return_value=[]))
     return lookup
 
 
@@ -89,7 +91,7 @@ def test_join_sets_visitor_once(monkeypatch, available_clubs):
     db = Mock()
     match = SimpleNamespace(
         match_id=3, creator_id=1, visitor_id=None,
-        sequence=0,
+        sequence=0, duration_ms=300_000,
         status="WAITING",
         init_date=datetime.now(timezone.utc) + timedelta(hours=1),
     )
@@ -183,7 +185,7 @@ def test_successful_join_schedules_match_and_cannot_be_repeated(
 ):
     freeze_time(matches_service)
     row = SimpleNamespace(match_id=42, creator_id=1, visitor_id=None, sequence=8,
-                          status=status, init_date=now + timedelta(seconds=1))
+                          status=status, init_date=now + timedelta(seconds=1), duration_ms=300_000)
     monkeypatch.setattr(matches_repository, "get_by_id_for_update", Mock(return_value=row))
     matches_service.join_match(db, 42, 7)
     assert (row.visitor_id, row.status, row.sequence) == (7, "SCHEDULED", 9)

@@ -1,4 +1,19 @@
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+const SESSION_INVALIDATED = 'futbot:session-invalidated';
+let sessionRevision = 0;
+
+export function getSessionRevision() {
+    return sessionRevision;
+}
+
+export function advanceSessionRevision() {
+    sessionRevision += 1;
+}
+
+export function subscribeToSessionInvalidation(listener) {
+    window.addEventListener(SESSION_INVALIDATED, listener);
+    return () => window.removeEventListener(SESSION_INVALIDATED, listener);
+}
 
 export class ApiError extends Error {
     constructor({ status, code, message, fields = {}, diagnostics = [], retryAfter}) {
@@ -15,6 +30,7 @@ export class ApiError extends Error {
 // Cliente HTTP común: usa rutas relativas con /api (proxy de Vite),
 // distingue errores de red de errores funcionales y contempla respuestas 204.
 export async function request(path, {method = 'GET', body, signal} = {}) {
+    const revision = getSessionRevision();
     const headers = {Accept: 'application/json'};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (WRITE_METHODS.includes(method)) headers['X-FutBot-Request'] = '1';
@@ -43,6 +59,11 @@ export async function request(path, {method = 'GET', body, signal} = {}) {
 
     if (!response.ok) {
         const error = data?.error;
+        // Una respuesta anterior al último cambio de sesión puede llegar tarde.
+        if (response.status === 401 && error?.code === 'SESSION_INVALID'
+            && revision === getSessionRevision() && !signal?.aborted) {
+            window.dispatchEvent(new Event(SESSION_INVALIDATED));
+        }
         throw new ApiError({
             status: response.status,
             code: error?.code ?? 'HTTP_ERROR',

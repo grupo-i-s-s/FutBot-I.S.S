@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.dependencies import CurrentClub, Database
 from app.schemas.league_schemas import (
@@ -7,6 +7,7 @@ from app.schemas.league_schemas import (
     CreatePrivateLeagueRequest,
     LeagueListResponse,
     LeagueLobbyRead,
+    LeagueRead,
     LeaveLeagueResponse,
     LeagueJoinRequest,
     StartLeagueResponse,
@@ -14,6 +15,7 @@ from app.schemas.league_schemas import (
     LeagueLineupRead,
     LeagueLineupUpdate,
 )
+from app.schemas.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page, validate_page_offset
 from app.services import league_fixture_service, league_service, league_lineup_service
 
 league_router = APIRouter(prefix="/leagues", tags=["leagues"])
@@ -112,10 +114,22 @@ def create_private_league(
     )
 
 
-@league_router.get("", response_model=LeagueListResponse)
-def get_leagues(club: CurrentClub, db: Database, name: str | None = None):
-    leagues = league_service.list_leagues(db=db, club_id=club.id, name=name)
-    return {"items": leagues}
+@league_router.get("", response_model=Page[LeagueRead] | LeagueListResponse, response_model_exclude_none=True)
+def get_leagues(
+        club: CurrentClub,
+        db: Database,
+        name: str | None = None,
+        page: int | None = Query(None, ge=1),
+        page_size: int | None = Query(None, alias="pageSize", ge=1, le=MAX_PAGE_SIZE),
+        limit: int | None = Query(None, ge=1, le=MAX_PAGE_SIZE, deprecated=True),
+):
+    size = page_size if page_size is not None else limit
+    if page is not None:
+        validate_page_offset(page, size if size is not None else DEFAULT_PAGE_SIZE)
+    result = league_service.list_leagues(db=db, club_id=club.id, name=name, page=page, limit=size)
+    if page_size is None:
+        return result
+    return Page[LeagueRead](items=result.items, page=result.page, page_size=page_size, total=result.total)
 
 @league_router.get("/{id}/ranking", status_code = status.HTTP_200_OK)
 def get_league_ranking(id:int, club: CurrentClub, db:Database):

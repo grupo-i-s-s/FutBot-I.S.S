@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import DtSettings from './DtSettings';
@@ -11,22 +11,23 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-function renderSettings(dt) {
-    return render(<MemoryRouter><DtSettings dt={dt} /></MemoryRouter>);
+function renderSettings(dt, onSaveSuccess) {
+    return render(<MemoryRouter><DtSettings dt={dt} onSaveSuccess={onSaveSuccess} /></MemoryRouter>);
 }
 
 it('recupera y guarda la activación y la estrategia en el endpoint del DT', async () => {
     let saved = {id: 1, isActive: false, activeBehaviourId: 10};
     const fetchMock = vi.fn(async (url, options) => {
-        if (url === '/api/dt/behaviours') return reply({items: strategies});
-        expect(url).toBe('/api/dt');
+        if (url === '/api/clubs/me/dt/behaviours') return reply({items: strategies});
+        expect(url).toBe('/api/clubs/me/dt');
         expect(options.method).toBe('PATCH');
         expect(options.headers['X-FutBot-Request']).toBe('1');
         saved = {...saved, ...JSON.parse(options.body)};
         return reply(saved);
     });
     vi.stubGlobal('fetch', fetchMock);
-    const view = renderSettings(saved);
+    const onSaveSuccess = vi.fn();
+    const view = renderSettings(saved, onSaveSuccess);
     const select = await screen.findByLabelText('Comportamiento del DT');
     const activation = screen.getByRole('switch', {name: 'Activar DT para próximos partidos'});
     expect(select).toHaveValue('10');
@@ -35,7 +36,7 @@ it('recupera y guarda la activación y la estrategia en el endpoint del DT', asy
     fireEvent.change(select, {target: {value: '11'}});
     fireEvent.click(activation);
     fireEvent.click(screen.getByRole('button', {name: 'Guardar DT'}));
-    expect(await screen.findByText('Configuración del DT guardada.')).toBeInTheDocument();
+    await waitFor(() => expect(onSaveSuccess).toHaveBeenCalledWith('Configuración del DT guardada.'));
     expect(saved).toEqual({id: 1, isActive: true, activeBehaviourId: 11});
     expect(screen.getByRole('link', {name: 'Crear comportamiento del DT'})).toHaveAttribute('href', '/crear-comportamiento-dt');
 
@@ -46,7 +47,7 @@ it('recupera y guarda la activación y la estrategia en el endpoint del DT', asy
 });
 
 it('exige una estrategia para activar el DT y conserva la selección si falla el guardado', async () => {
-    const fetchMock = vi.fn(async (url) => url === '/api/dt/behaviours'
+    const fetchMock = vi.fn(async (url) => url === '/api/clubs/me/dt/behaviours'
         ? reply({items: strategies})
         : reply({error: {message: 'No se pudo guardar el cambio.'}}, 409));
     vi.stubGlobal('fetch', fetchMock);

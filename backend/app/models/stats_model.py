@@ -16,4 +16,3 @@ class Stats(Base):
     gA:     Mapped[int] = mapped_column(default = 0, server_default = "0", nullable = False)
 
     club: Mapped["Club"] = relationship(back_populates = "stats")
-

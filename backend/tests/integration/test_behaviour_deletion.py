@@ -3,13 +3,14 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from queue import Queue
+from threading import Event
 from time import monotonic, sleep
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateSchema, DropSchema
 
@@ -20,12 +21,13 @@ from app.errors import AppError
 from app.main import app
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
-from app.models.league_model import League, LeagueRegistration
+from app.models.league_model import League, LeagueRegistration, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
+from app.schemas.behaviour_schemas import BehaviourUpdate
 from app.services import behaviour_service, player_service
-from primitives.behaviours import DEFAULT_CODES
+from primitives.behaviours import DEFAULT_CODES, LEGACY_CODE
 
 
 @pytest.fixture
@@ -154,22 +156,24 @@ def api(database):
             app.dependency_overrides.clear()
 
 
-def add_league(db, lineup, club_id=1):
+def add_league(db, lineup, club_id=1, *, league_id=7, status="open"):
     db.add(League(
-        id=7,
-        name="Liga de prueba",
+        id=league_id,
+        name=f"Liga de prueba {league_id}",
         min_teams=3,
         max_teams=8,
         start_datetime=datetime.now(timezone.utc) + timedelta(days=1),
         round_interval="DAILY",
-        status="open",
+        status=status,
     ))
     db.flush()
-    db.add(LeagueRegistration(
-        league_id=7,
+    registration = LeagueRegistration(
+        league_id=league_id,
         club_id=club_id,
         line_up=lineup,
-    ))
+    )
+    db.add(registration)
+    return registration
 
 
 def match_row(status="RUNNING", reference_club=1):
@@ -311,6 +315,84 @@ def test_legacy_league_lineup_keeps_indirect_reference(api):
     db.commit()
 
     assert_conflict(client.delete("/behaviours/20"), "leagues.7")
+
+
+@pytest.mark.parametrize("status", ["finished", "cancelled", "canceled"])
+def test_historical_league_allows_editing_and_deletion_without_changing_its_history(api, status):
+    client, db = api
+    lineup = deepcopy(db.get(DefaultTeam, 1).line_up)
+    lineup["starters"][0]["behaviourId"] = 20
+    registration = add_league(db, lineup, status=status)
+    registration.lineup_version = 4
+    db.add(LeagueRegistration(league_id=7, club_id=2, line_up=[]))
+    league_round = LeagueRound(
+        league_id=7, number=1, scheduled_at=datetime.now(timezone.utc), schedule_confirmed=True,
+    )
+    db.add(league_round)
+    db.flush()
+    registration_id = registration.id
+
+    match = match_row("FINISHED")
+    match.league_round_id = league_round.id
+    match.lineup_snapshot = {"leagueId": 7, "teams": {"1": {"lineUp": lineup, "lineupVersion": 4}}}
+    db.add(match)
+    db.commit()
+
+    def public_history():
+        fixture = client.get("/leagues/7/fixture")
+        ranking = client.get("/leagues/7/ranking")
+        saved_lineup = client.get("/leagues/7/lineup")
+        assert fixture.status_code == ranking.status_code == saved_lineup.status_code == 200
+        return fixture.json(), ranking.json(), saved_lineup.json()
+
+    match_query = select(Matches.__table__).where(Matches.match_id == 42)
+    saved_match = db.execute(match_query).mappings().one()
+    history = public_history()
+    fixture, ranking, saved_lineup = history
+    published_match, = fixture["rounds"][0]["matches"]
+    assert (published_match["status"], published_match["localScore"], published_match["visitorScore"]) == (
+        "FINISHED", 2, 1,
+    )
+    assert [(club["id"], club["puntos"]) for club in ranking] == [(1, 3), (2, 0)]
+    assert saved_lineup["editable"] is False and saved_lineup["lineUp"] == lineup
+
+    usage = client.get("/behaviours/20/usage")
+    assert usage.status_code == 200, usage.text
+    assert usage.json() == {"inUse": False, "references": {}}
+
+    edited = client.put("/behaviours/20", json=edit_payload())
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["version"] == 4
+
+    response = client.delete("/behaviours/20")
+    assert response.status_code == 204, response.text
+    assert client.get("/behaviours/20").status_code == 404
+
+    db.expire_all()
+    assert db.get(Behavior, 20).is_deleted is True
+    assert db.get(League, 7).status == status
+    registration = db.get(LeagueRegistration, registration_id)
+    assert registration.line_up == lineup and registration.lineup_version == 4
+    assert db.execute(match_query).mappings().one() == saved_match
+    assert public_history() == history
+
+
+@pytest.mark.parametrize("active_status", ["open", "running"])
+def test_active_references_still_block_when_a_finished_league_uses_the_same_behaviour(api, active_status):
+    client, db = api
+    lineup = {"starters": [{"playerId": 101, "behaviourId": 20}]}
+    add_league(db, lineup, status="finished")
+    add_league(db, lineup, league_id=8, status=active_status)
+    db.get(Player, 101).behavior_id = 20
+    db.get(DefaultTeam, 1).line_up = lineup
+    db.commit()
+
+    response = client.delete("/behaviours/20")
+    assert_conflict(response, "leagues.8")
+    assert set(response.json()["error"]["fields"]) == {"defaultTeam", "players.101", "leagues.8"}
+
+    db.expire_all()
+    assert db.get(Behavior, 20).is_deleted is False
 
 
 def test_explicit_lineup_override_does_not_use_old_assignment(api):
@@ -495,7 +577,7 @@ def test_assignment_and_deletion_are_serialized(
             20 if first_operation == "assign" else 10
         )
 
-#Editar comportamiento 
+
 def edit_payload(**changes):
     return {
         "name": "Comportamiento editado",
@@ -520,6 +602,50 @@ def test_free_behaviour_can_be_edited(api):
     assert saved.name == edit_payload()["name"]
     assert saved.code == edit_payload()["code"]
     assert saved.is_deleted is False
+
+
+@pytest.mark.parametrize("source", [DEFAULT_CODES["Ofensivo"], LEGACY_CODE])
+def test_dt_preset_is_reserved_even_without_active_assignments(api, source):
+    client, db = api
+    db.add(Behavior(
+        id=40, club_id=1, name="Ofensivo", description="Preset", code=source,
+        kind="PLAYER", version=1, validation_status="VALID",
+    ))
+    db.commit()
+
+    usage = client.get("/behaviours/40/usage")
+    assert usage.status_code == 200
+    assert usage.json()["inUse"] is True
+    assert "dtPreset" in usage.json()["references"]
+
+    assert_conflict(
+        client.put("/behaviours/40", json=edit_payload(code=source, expectedVersion=1)),
+        "dtPreset",
+    )
+    assert_conflict(client.put("/behaviours/40", json=edit_payload(expectedVersion=1)), "dtPreset")
+    assert_conflict(client.delete("/behaviours/40"), "dtPreset")
+    db.expire_all()
+    saved = db.get(Behavior, 40)
+    assert (saved.name, saved.code, saved.version, saved.is_deleted) == ("Ofensivo", source, 1, False)
+
+
+@pytest.mark.parametrize("runtime,snapshot,in_use", [
+    (["legacy"], {"state": {"players": [None, {"teamId": 1, "behaviourId": 20}]}}, True),
+    ({"local_team": {"club_id": 1, "dt_default_behaviours": []}}, {"state": []}, False),
+    ({"local_team": {"club_id": 1, "dt_default_behaviours": {"offensive": [20, 1]}}}, ["legacy"], True),
+])
+def test_usage_handles_malformed_active_match_documents(api, runtime, snapshot, in_use):
+    client, db = api
+    row = match_row()
+    row.runtime_state = runtime
+    row.snapshot = snapshot
+    db.add(row)
+    db.commit()
+
+    response = client.get("/behaviours/20/usage")
+    assert response.status_code == 200, response.text
+    assert response.json()["inUse"] is in_use
+    assert ("matches.42" in response.json()["references"]) is in_use
 
 
 @pytest.mark.parametrize(
@@ -629,8 +755,6 @@ def test_assignment_before_edit_blocks_edit(
     database,
     monkeypatch,
 ):
-    from app.schemas.behaviour_schemas import BehaviourUpdate
-
     pids = Queue()
 
     def edit_in_second_session():
@@ -667,6 +791,39 @@ def test_assignment_before_edit_blocks_edit(
                 real_commit()
 
             assert future.result(timeout=15) == "BEHAVIOUR_IN_USE"
+
+    with Session(database) as db:
+        assert db.get(Player, 101).behavior_id == 20
+        assert db.get(Behavior, 20).version == 3
+
+
+def test_assignment_during_validation_is_rechecked_after_validation(database, monkeypatch):
+    validating = Event()
+    resume = Event()
+
+    def slow_validation(code, kind):
+        validating.set()
+        assert resume.wait(timeout=5)
+        return []
+
+    monkeypatch.setattr(behaviour_service, "validate_program", slow_validation)
+
+    def edit():
+        with Session(database) as db:
+            with pytest.raises(AppError) as error:
+                behaviour_service.update_behaviour(db, 1, 20, BehaviourUpdate(**edit_payload()))
+            return error.value.code
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(edit)
+        try:
+            assert validating.wait(timeout=5)
+            with Session(database) as db:
+                db.execute(text("SET LOCAL lock_timeout = '500ms'"))
+                player_service.assign_behaviour(db, 1, 101, 20)
+        finally:
+            resume.set()
+        assert future.result(timeout=5) == "BEHAVIOUR_IN_USE"
 
     with Session(database) as db:
         assert db.get(Player, 101).behavior_id == 20

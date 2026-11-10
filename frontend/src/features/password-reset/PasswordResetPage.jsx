@@ -1,9 +1,12 @@
 import {useEffect, useState} from 'react';
 import {Link} from 'react-router';
+import {routes} from '@/routes.js';
+import {useSession} from '../session/SessionProvider.jsx';
 import {requestPasswordReset, confirmPasswordReset} from './api.js';
 import '../login/LoginPage.css';
 
 export default function PasswordResetPage() {
+    const {clearSession} = useSession();
     const [email, setEmail] = useState('');
     const [code, setCode] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -66,6 +69,7 @@ export default function PasswordResetPage() {
             await confirmPasswordReset(
                 email.trim(), code, newPassword, confirmation,
             );
+            clearSession();
             setCode('');
             setNewPassword('');
             setConfirmation('');
@@ -203,7 +207,7 @@ export default function PasswordResetPage() {
                     </form>
                 )}
 
-                <Link to="/login" className="Registro">
+                <Link to={routes.signIn} className="Registro">
                     Volver al login
                 </Link>
             </section>

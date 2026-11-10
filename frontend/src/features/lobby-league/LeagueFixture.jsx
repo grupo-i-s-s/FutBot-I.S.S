@@ -1,4 +1,8 @@
 import {useEffect, useState} from 'react';
+import {Link} from 'react-router';
+import {Button, buttonVariants} from '@/components/ui/button';
+import {Card} from '@/components/ui/card';
+import {routePath, routes} from '@/routes.js';
 import {obtenerFixture} from './api.js';
 
 const states = {
@@ -32,11 +36,11 @@ export default function LeagueFixture({id, clubId, clubs, leagueStatus, isRegist
         return () => controller.abort();
     }, [id, refresh]);
 
-    if (!fixture) return <section className="lobby-card" aria-label="Fixture">
-        <h2>Fixture</h2>
-        {error ? <><p role="alert">{error.message}</p><button type="button" onClick={onRefresh}>Reintentar fixture</button></>
+    if (!fixture) return <Card className="gap-4 p-6 [&_p]:text-sm [&_p]:text-muted-foreground" aria-label="Fixture">
+        <h2 className="text-lg font-bold">Fixture</h2>
+        {error ? <><p role="alert">{error.message}</p><Button type="button" variant="outline" onClick={onRefresh}>Reintentar fixture</Button></>
             : <p role="status">Cargando fixture…</p>}
-    </section>;
+    </Card>;
 
     const round = fixture.rounds.find(round => round.number === selectedRound);
     const next = fixture.nextMatch;
@@ -45,21 +49,21 @@ export default function LeagueFixture({id, clubId, clubs, leagueStatus, isRegist
     const playing = fixture.rounds.some(round => round.matches.some(match =>
         match.status === 'RUNNING' && [match.creatorClubId, match.visitorClubId].includes(clubId)));
 
-    return <section className="lobby-card" aria-label="Fixture">
-        <h2>Fixture</h2>
+    return <Card className="gap-4 p-6 [&_p]:text-sm [&_p]:text-muted-foreground" aria-label="Fixture">
+        <h2 className="text-lg font-bold">Fixture</h2>
         {error && <p role="alert">{error.message}</p>}
         {leagueStatus === 'finished' ? <p>La liga finalizó.</p> : <>
             {activeRound?.byeClubId === clubId && <p>Tu club descansa en la ronda {activeRound.number}.</p>}
-            {next ? <div className="league-next-match">
-                <h3>Tu próximo partido</h3>
+            {next ? <div className="space-y-2 rounded-lg border border-primary/20 bg-secondary/50 p-4">
+                <h3 className="font-semibold text-primary">Tu próximo partido</h3>
                 <p>Ronda {next.roundNumber}: contra {next.creatorClubId === clubId ? next.visitorClubName : next.creatorClubName}.</p>
                 <MatchDate round={next}/>
             </div> : <p>{!isRegistered ? 'Tu club no participa en esta liga.'
                 : playing ? 'Tu club está jugando.' : 'Tu club ya no tiene partidos pendientes.'}</p>}
         </>}
         {fixture.rounds.length === 0 ? <p>El fixture todavía no está disponible.</p> : <>
-            <label htmlFor="fixture-round">Ronda</label>{' '}
-            <select id="fixture-round" value={selectedRound ?? ''}
+            <label htmlFor="fixture-round" className="text-sm font-medium">Ronda</label>{' '}
+            <select className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-48" id="fixture-round" value={selectedRound ?? ''}
                     onChange={event => setSelectedRound(Number(event.target.value))}>
                 {fixture.rounds.map(round => <option key={round.number} value={round.number}>Ronda {round.number}</option>)}
             </select>
@@ -68,14 +72,23 @@ export default function LeagueFixture({id, clubId, clubs, leagueStatus, isRegist
                 {round.byeClubId != null && <p>
                     Descansa: {clubs.find(club => club.id === round.byeClubId)?.name}.
                 </p>}
-                <ul className="league-fixture-matches">{round.matches.map(match => (
-                    <li key={match.matchId} className={next?.matchId === match.matchId ? 'league-next-match' : ''}>
-                        <strong>{match.creatorClubName} vs {match.visitorClubName}</strong>
-                        <span>{states[match.status]}</span>
+                <ul className="grid list-none gap-3 p-0">{round.matches.map(match => (
+                    <li key={match.matchId} className={`flex flex-wrap items-center gap-3 rounded-lg border p-4 text-sm ${next?.matchId === match.matchId ? 'border-primary/20 bg-secondary/50' : ''}`}>
+                        <strong className="min-w-0 flex-1 basis-full wrap-anywhere sm:basis-0">{match.creatorClubName} vs {match.visitorClubName}</strong>
+                        <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium">{states[match.status]}</span>
                         {['RUNNING', 'FINISHED'].includes(match.status) && <span>{match.localScore} - {match.visitorScore}</span>}
+                        {clubId != null && [match.creatorClubId, match.visitorClubId].includes(clubId) && (
+                            <Link
+                                to={routePath(routes.match, {matchId: match.matchId})}
+                                state={{leagueId: id}}
+                                className={buttonVariants({size: 'sm', variant: 'outline'})}
+                            >
+                                Ver partido
+                            </Link>
+                        )}
                     </li>
                 ))}</ul>
             </>}
         </>}
-    </section>;
+    </Card>;
 }

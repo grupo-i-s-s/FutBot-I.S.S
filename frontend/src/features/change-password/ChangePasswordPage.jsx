@@ -1,10 +1,10 @@
 import {useState} from 'react';
-import {useNavigate} from 'react-router';
 import {changePassword} from './api';
+import {useSession} from '../session/SessionProvider.jsx';
 import '../login/LoginPage.css';
 
 export default function ChangePasswordPage() {
-    const navigate = useNavigate();
+    const {clearSession} = useSession();
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmation, setConfirmation] = useState('');
@@ -23,7 +23,7 @@ export default function ChangePasswordPage() {
         setLoading(true);
         try {
             await changePassword(oldPassword, newPassword);
-            navigate('/login', {replace: true});
+            clearSession();
         } catch (requestError) {
             setError(requestError.message);
         } finally {

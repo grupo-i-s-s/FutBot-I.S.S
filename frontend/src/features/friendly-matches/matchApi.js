@@ -29,20 +29,9 @@ export function matchStreamUrl(matchId) {
 
 export function changeBehaviour(matchId, playerId, behaviourId) {
     const id = validateMatchId(matchId);
-    
-    return request(`/matches/${id}/live_request`, {
-        method: 'POST',
-        body:{
-            player_id: playerId,
-            behaviour_id: behaviourId
-        }
-    });
-}
 
-export function activateMatchDt(matchId, active) {
-    const id = validateMatchId(matchId);
-    return request(`/friendly-matches/${id}/dt`, {
+    return request(`/matches/${id}/live-requests`, {
         method: 'POST',
-        body: { dt_active: active }
+        body: {playerId, behaviourId},
     });
 }

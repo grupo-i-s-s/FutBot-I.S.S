@@ -2,9 +2,10 @@ import {Trophy} from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty';
-import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle} from '@/components/ui/item';
+import {Item, ItemActions, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemTitle} from '@/components/ui/item';
 import {Link} from 'react-router';
 import {buttonVariants} from '@/components/ui/button';
+import {routePath, routes} from '@/routes.js';
 
 const LEAGUE_TYPE_LABELS = {
     PUBLIC: 'Pública',
@@ -22,7 +23,7 @@ export default function LeagueList({leagues}) {
                 <CardDescription>Ligas en las que participa tu club.</CardDescription>
                 <CardAction>
                     <Link
-                        to="/ligas-disponibles"
+                        to={routes.leagues}
                         className={buttonVariants({size: 'sm'})}
                     >
                         Unirme a liga
@@ -53,6 +54,15 @@ export default function LeagueList({leagues}) {
                                 <ItemActions>
                                     <Badge variant="secondary">{league.status}</Badge>
                                 </ItemActions>
+                                <ItemFooter>
+                                    <Link
+                                        to={routePath(routes.leagueLobby, {id: league.id})}
+                                        className={buttonVariants({variant: 'outline', size: 'sm'})}
+                                        aria-label={`Ver lobby de ${league.name}`}
+                                    >
+                                        Ver lobby
+                                    </Link>
+                                </ItemFooter>
                             </Item>
                         ))}
                     </ItemGroup>

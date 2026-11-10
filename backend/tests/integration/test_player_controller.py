@@ -160,11 +160,11 @@ def test_assign_behaviour_rejects_invalid_input():
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-def get_players():
+def get_players(params=None):
     app.dependency_overrides[get_current_club] = mock_get_current_club
     try:
         with TestClient(app) as client:
-            return client.get("/players", headers=BROWSER_HEADERS)
+            return client.get("/players", params=params, headers=BROWSER_HEADERS)
     finally:
         app.dependency_overrides.clear()
 
@@ -187,7 +187,7 @@ def test_get_players_returns_players_from_service(monkeypatch):
     monkeypatch.setattr(
         player_service,
         "get_players",
-        lambda db, club_id, page, limit, search: (players, len(players)),
+        lambda db, club_id, **_: (players, len(players)),
     )
 
     response = get_players()
@@ -210,18 +210,28 @@ def test_get_players_returns_empty_list_when_club_has_no_players(monkeypatch):
     monkeypatch.setattr(
         player_service,
         "get_players",
-        lambda db, club_id, page, limit, search: ([], 0),
+        lambda db, club_id, **_: ([], 0),
     )
 
     response = get_players()
 
     assert response.status_code == 200
-    assert response.json() == {
-        "items": [],
-        "total": 0,
-        "page": 1,
-        "limit": 9,
-        "totalPages": 1,
+    assert response.json() == {"items": [], "page": 1, "limit": 9, "total": 0, "totalPages": 1}
+
+
+def test_get_players_supports_page_size_and_keeps_limit_response(monkeypatch):
+    def fake_get_players(db, club_id, *, page, limit, search):
+        assert (club_id, page, limit, search) == (1, 2, 3, "Pérez")
+        return [], 7
+
+    monkeypatch.setattr(player_service, "get_players", fake_get_players)
+    legacy = get_players({"page": 2, "limit": 3, "search": "Pérez"})
+    canonical = get_players({"page": 2, "pageSize": 3, "search": "Pérez"})
+
+    assert legacy.status_code == canonical.status_code == 200
+    assert legacy.json() == {"items": [], "page": 2, "limit": 3, "total": 7, "totalPages": 3}
+    assert canonical.json() == {
+        "items": [], "page": 2, "pageSize": 3, "total": 7, "totalPages": 3, "hasNext": True,
     }
 
 
@@ -250,7 +260,7 @@ def test_get_players_only_returns_players_from_current_club(monkeypatch):
         )
     ]
 
-    def fake_get_players(db, club_id, page, limit, search):
+    def fake_get_players(db, club_id, *, page, limit, search):
         assert club_id == 1
         assert page == 1
         assert limit == 9
@@ -289,7 +299,7 @@ def test_get_players_includes_created_player(monkeypatch):
     monkeypatch.setattr(
         player_service,
         "get_players",
-        lambda db, club_id, page, limit, search: ([created_player], 1),
+        lambda db, club_id, **_: ([created_player], 1),
     )
 
     create_response = post_player({

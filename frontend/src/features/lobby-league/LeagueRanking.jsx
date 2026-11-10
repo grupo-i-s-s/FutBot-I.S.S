@@ -1,55 +1,64 @@
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import { getLeagueRanking } from './api.js';
-import './LeagueRanking.css';
+import {Alert, AlertDescription} from '@/components/ui/alert';
+import {Card, CardContent, CardHeader} from '@/components/ui/card';
+import ClubAvatar from '../my-club/components/ClubAvatar';
 import {Link} from 'react-router';
+import {routePath, routes} from '@/routes.js';
 
 export default function LeagueRanking({leagueId}) {
     const[rankData, setRankData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        async function rank() {
-            const rank = await getLeagueRanking(leagueId);
-            setRankData(rank);
-        }
-        rank();
+        const controller = new AbortController();
+        setLoading(true);
+        setError(null);
+        getLeagueRanking(leagueId, controller.signal)
+            .then(rank => { if (!controller.signal.aborted) setRankData(rank); })
+            .catch(err => { if (!controller.signal.aborted) setError(err); })
+            .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+        return () => controller.abort();
     }, [leagueId]);
 
     return (
-        <div className="lobby-card">
-            <h2>Ranking de la Liga</h2>
-
-            {/* 2. Estructura de la tabla */}
-            <div className="ranking-table">
-                {/* Encabezados */}
-                <div className="ranking-header">
-                    <span className="col-pos">#</span>
-                    <span className="col-club">Club</span>
-                    <span className="col-stat">Pts</span>
-                    <span className="col-stat">PJ</span>
-                    <span className="col-stat">PG</span>
-                    <span className="col-stat">PE</span>
-                    <span className="col-stat">PP</span>
-                    <span className="col-stat">DG</span>
-                </div>
-
-                {/* 3. Filas de datos (Iteración) */}
-                <div className="ranking-body">
-                    {rankData.map((club, index) => (
-                        <div className="ranking-row" key={club.id}>
-                            <span className="col-pos">{index + 1}</span>
-                            <Link to={`/club/${club.id}`} className="col-club">
-                                {club.nombre}
-                            </Link>
-                            <span className="col-stat font-bold">{club.puntos}</span>
-                            <span className="col-stat">{club.pj}</span>
-                            <span className="col-stat">{club.pg}</span>
-                            <span className="col-stat">{club.pe}</span>
-                            <span className="col-stat">{club.pp}</span>
-                            <span className="col-stat">{club.dg}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
+        <Card>
+            <CardHeader><h2 className="text-lg font-bold">Ranking de la Liga</h2></CardHeader>
+            <CardContent aria-busy={loading}>
+                {loading && <p role="status" className="py-6 text-center text-sm text-muted-foreground">Cargando ranking…</p>}
+                {error && <Alert variant="destructive"><AlertDescription>{error.message}</AlertDescription></Alert>}
+                {!loading && !error && (rankData.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">Todavía no hay posiciones disponibles.</p>
+                ) : (
+                    <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full text-center text-sm">
+                            <thead className="bg-muted text-muted-foreground">
+                                <tr>
+                                    <th scope="col" className="p-3">#</th>
+                                    <th scope="col" className="min-w-40 p-3 text-left">Club</th>
+                                    {['Pts', 'PJ', 'PG', 'PE', 'PP', 'DG'].map(label => <th key={label} scope="col" className="p-3">{label}</th>)}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {rankData.map((club, index) => (
+                                    <tr key={club.id} className="hover:bg-muted/50">
+                                        <td className="p-3 text-muted-foreground">{index + 1}</td>
+                                        <th scope="row" className="p-3 text-left font-medium">
+                                            <Link to={routePath(routes.clubProfile, {clubId: club.id})} className="inline-flex items-center gap-3 hover:underline">
+                                                <ClubAvatar avatar={club.avatar} clubName={club.nombre} size="md"/>
+                                                <span>{club.nombre}</span>
+                                            </Link>
+                                        </th>
+                                        <td className="p-3 font-bold text-primary">{club.puntos}</td>
+                                        {[club.pj, club.pg, club.pe, club.pp, club.dg].map((value, stat) => <td key={stat} className="p-3">{value}</td>)}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
     );
 }

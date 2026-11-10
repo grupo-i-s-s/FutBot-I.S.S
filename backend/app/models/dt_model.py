@@ -8,7 +8,7 @@ class DtBehaviour(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(30))
-    code: Mapped[str] = mapped_column(String)  
+    code: Mapped[str] = mapped_column(String)
 
 class Dt(Base):
     __tablename__ = "dt"

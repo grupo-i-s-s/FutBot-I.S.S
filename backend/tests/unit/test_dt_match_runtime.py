@@ -85,19 +85,18 @@ def test_dt_halftime_changes_share_pause_rules_and_resume(make_match):
     assert restored.snapshot(2, "now") == match.snapshot(2, "now")
 
 
-def test_dt_respects_manual_substitution_and_can_be_toggled(make_match):
-    match = make_match()
-    match.set_dt_active(1, False)
+def test_manual_substitution_and_rival_dt_can_act_in_the_same_pause(make_match):
+    match = make_match(None, visitor_code=DEFAULT_DT_CODES["Remontada"])
     match.run_match(2.1)
-    assert all(player.behaviour_mode == BehaviourMode.BALANCED for player in match.local_team.players)
 
     match.substitute(1, 11, 14)
-    match.set_dt_active(1, True)
     assert match.run_dt_pause()
-    assert match.substitution_events == []
-    assert match.substitution_pauses == {(1, 2)}
+    event, = match.substitution_events
+    assert event["source"] == "DT" and event["clubId"] == 2
+    assert match.substitution_pauses == {(1, 2), (2, 2)}
     assert [player.id for player in match.local_team.players] == [14, 12, 13]
-    assert {player.behaviour_id for player in match.local_team.players} == {102}
+    assert {player.behaviour_id for player in match.local_team.players} == {101}
+    assert [player.behaviour_id for player in match.visitor_team.players] == [202, 202, 201]
 
 
 def test_custom_dt_uses_real_worker_to_substitute_at_hydration_break(make_match):
@@ -128,4 +127,6 @@ def test_invalid_dt_is_disabled_without_interrupting_the_match(make_match):
     assert match.time == pytest.approx(1 / 30)
     assert match.visitor_team.players[0].behaviour_id == 202
     restored = Match.from_checkpoint(json.loads(json.dumps(match.checkpoint())))
-    assert restored.snapshot(1, "now")["state"]["teams"][0]["dtError"]
+    team = restored.snapshot(1, "now")["state"]["teams"][0]
+    assert team["dtActive"] is True
+    assert team["dtError"] == match.dt_errors[1]

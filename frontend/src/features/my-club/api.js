@@ -1,14 +1,13 @@
-import { request } from '../../api/http';
+import {getSessionRevision, request} from '../../api/http';
 import { notifyClubUpdated } from './clubEvents';
 
 
-// Endpoints según docs/api_endpoints.md.
 export function getMyClub(options) {
-    return request('/club/me', options);
+    return request('/clubs/me', options);
 }
 
-export function listPlayers({ page = 1, limit = 9, search, ...options } = {}) {
-    const params = new URLSearchParams({ page, limit });
+export function listPlayers({ page = 1, pageSize = 9, search, ...options } = {}) {
+    const params = new URLSearchParams({ page, pageSize });
     if (search?.trim()) params.set('search', search.trim());
     return request(`/players?${params.toString()}`, options);
 }
@@ -24,36 +23,30 @@ export function listBehaviours(options) {
 }
 
 export function listDtBehaviours(options) {
-    return request('/dt/behaviours', options);
+    return request('/clubs/me/dt/behaviours', options);
 }
 
 export function updateDtSettings(body) {
-    return request('/dt', { method: 'PATCH', body });
-}
-
-export function assignPlayerBehaviour(playerId, behaviourId) {
-    return request(`/players/${playerId}/behaviour`, {
-        method: 'PATCH',
-        body: { behaviourId },
-    });
+    return request('/clubs/me/dt', { method: 'PATCH', body });
 }
 
 export async function updateMyClub(changes) {
-    const updatedClub = await request('/club/me', {
+    const revision = getSessionRevision();
+    const updatedClub = await request('/clubs/me', {
         method: 'PATCH',
         body: changes,
     });
-    notifyClubUpdated(updatedClub);
+    if (revision === getSessionRevision()) notifyClubUpdated(updatedClub);
     return updatedClub;
 }
 
 export function listMyLeagues(options) {
-    return request('/club/me/leagues', options);
+    return request('/clubs/me/leagues', options);
 }
 
 export async function getDefaultTeam(options) {
     try {
-        return await request('/team/default', options);
+        return await request('/clubs/me/default-team', options);
     } catch (error) {
         if (
             error.status === 409 &&
@@ -71,7 +64,7 @@ export function getFormations(options) {
 }
 
 export function updateDefaultTeam(lineUp) {
-    return request('/team/default', {
+    return request('/clubs/me/default-team', {
         method: 'PUT',
         body: lineUp,
     });

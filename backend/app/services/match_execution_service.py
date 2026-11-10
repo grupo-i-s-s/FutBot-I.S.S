@@ -4,12 +4,13 @@ from threading import Event
 from time import monotonic, sleep
 
 from app.errors import AppError
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE
 from app.repository import behaviour_repository, matches_repository
 from app.services.league_fixture_service import update_fixture_schedule
 from app.services.match_builder_service import default_behaviours_for_dt
+from app.services.match_snapshot_service import empty_match_snapshot
 from app.services.match_start_service import prepare_match_start
 from app.services.planned_substitution_service import with_pending_substitutions
-from app.services.stats_service import process_match_for_global_ranking
 from app.services.substitution_execution_service import apply_planned_substitutions
 from primitives.match_simulation import Match
 from app.services.match_request_handler import live_request
@@ -30,11 +31,26 @@ def _persist(db: Session, row, simulation: Match) -> dict:
     snapshot = simulation.snapshot(row.sequence + 1, now.isoformat())
     snapshot = with_pending_substitutions(db, row.match_id, snapshot)
     matches_repository.save_progress(db, row, simulation, snapshot, now)
-    if simulation.finished:
-        process_match_for_global_ranking(db, row)
-        if row.league_round_id is not None:
-            update_fixture_schedule(db, row.league_round_id)
+    if simulation.finished and row.league_round_id is not None:
+        update_fixture_schedule(db, row.league_round_id)
     db.commit()
+    return snapshot
+
+
+def _close_unrecoverable_match(db: Session, row, error: Exception) -> dict:
+    now = datetime.now(timezone.utc)
+    row.status = "CANCELLED"
+    row.cancellation_reason = CHECKPOINT_UNRECOVERABLE
+    row.finished_at = now
+    row.sequence += 1
+    snapshot = empty_match_snapshot(db, row, now, status="CANCELLED")
+    row.snapshot = snapshot
+    matches_repository.expire_pending_substitutions(db, row.match_id)
+    if row.league_round_id is not None:
+        update_fixture_schedule(db, row.league_round_id)
+    db.commit()
+    clear_requests(row.match_id)
+    logger.warning("Partido %s cancelado por checkpoint irrecuperable: %s", row.match_id, error)
     return snapshot
 
 
@@ -60,34 +76,44 @@ def _execute(
             return snapshot
 
         if row.status == "RUNNING":
-            if row.runtime_state is None:
-                raise AppError(
-                    "MATCH_STATE_INVALID",
-                    "Falta el estado para reanudar el partido.",
-                )
-
             try:
-                state = row.runtime_state.copy()
-                for key in ("local_team", "visitor_team"):
+                state = row.runtime_state
+                if not isinstance(state, dict):
+                    raise ValueError("Falta un estado válido para reanudar el partido.")
+
+                for key, club_id in (("local_team", row.creator_id), ("visitor_team", row.visitor_id)):
                     team = state.get(key, {})
-                    if team.get("dt_code") and "dt_default_behaviours" not in team:
-                        behaviours = behaviour_repository.get_all_behaviours(db, team["club_id"])
-                        state[key] = {**team, "dt_default_behaviours": default_behaviours_for_dt(behaviours)}
+                    if (
+                        team.get("club_id") == club_id
+                        and team.get("dt_code")
+                        and "dt_default_behaviours" not in team
+                    ):
+                        behaviours = behaviour_repository.get_all_behaviours(db, club_id)
+                        defaults = default_behaviours_for_dt(behaviours)
+                        state = {**state, key: {**team, "dt_default_behaviours": defaults}}
+
                 simulation = Match.from_checkpoint(state)
-
-            except (ValueError, TypeError, KeyError) as error:
-                raise AppError(
-                    "MATCH_STATE_INVALID",
-                    "El estado guardado del partido es inválido.",
-                ) from error
-
-            resources.callback(simulation.close_runtime)
+                resources.callback(simulation.close_runtime)
+                if (
+                    simulation.match_id != row.match_id
+                    or simulation.duration_ms != row.duration_ms
+                    or simulation.local_team.club_id != row.creator_id
+                    or simulation.visitor_team.club_id != row.visitor_id
+                ):
+                    raise ValueError("El checkpoint no corresponde al partido guardado.")
+            except (ValueError, TypeError, KeyError, AttributeError, OverflowError) as error:
+                return _close_unrecoverable_match(db, row, error)
 
             if duration_ms is not None and duration_ms != simulation.duration_ms:
                 raise AppError(
                     "MATCH_INVALID_DURATION",
                     "No se puede cambiar la duración de un partido iniciado.",
                 )
+
+            if simulation.finished:
+                snapshot = _persist(db, row, simulation)
+                clear_requests(match_id)
+                return snapshot
 
             snapshot = row.snapshot
             db.rollback()
@@ -118,6 +144,8 @@ def _execute(
 
             snapshot = _persist(db, row, simulation)
 
+        dt_clubs = {team.club_id for team in (simulation.local_team, simulation.visitor_team) if team.dt_active}
+
         def apply_pause_changes():
             planned = apply_planned_substitutions(db, match_id, simulation)
             automatic = simulation.run_dt_pause()
@@ -130,7 +158,8 @@ def _execute(
             return apply_pause_changes()
 
         simulation.on_pause = on_pause
-        if simulation.pause_index:
+        # Al reanudar, descartar órdenes de clubes con DT aunque falte para la pausa.
+        if simulation.pause_index or dt_clubs:
             if on_pause():
                 snapshot = _persist(db, row, simulation)
             else:
@@ -160,10 +189,6 @@ def _execute(
                 db.rollback()
                 clear_requests(match_id)
                 return snapshot
-            for key in ("local_team", "visitor_team"):
-                team = (row.runtime_state or {}).get(key, {})
-                if "dt_active" in team:
-                    simulation.set_dt_active(team["club_id"], team["dt_active"])
             if simulation.paused:
                 apply_pause_changes()
 
@@ -174,6 +199,8 @@ def _execute(
                     continue
 
                 try:
+                    if request["club_id"] in dt_clubs:
+                        continue
                     simulation.change_behaviour(
                         request["player_id"],
                         club_id=request["club_id"],

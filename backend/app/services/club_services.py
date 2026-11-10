@@ -7,12 +7,21 @@ from app.repository import club_repository, player_repository
 from app.schemas.club_schemas import ClubUpdate, ClubPublicRead, ClubListResponse, ClubProfileRead
 
 
+def _duplicate_club_name() -> AppError:
+    message = "Ya existe un club con ese nombre."
+    return AppError("CLUB_NAME_DUPLICATE", message, {"name": message})
+
+
 def update_club(
         db: Session,
         club: Club,
         data: ClubUpdate,
 ) -> Club:
     try:
+        if data.name != club.name and club_repository.get_by_name(
+            db, data.name, exclude_club_id=club.id, lock=True,
+        ):
+            raise _duplicate_club_name()
         updated = club_repository.update_club(
             db,
             club,
@@ -30,12 +39,7 @@ def update_club(
         )
 
         if constraint == "clubs_name_key":
-            message = "Ya existe un club con ese nombre."
-            raise AppError(
-                "CLUB_NAME_DUPLICATE",
-                message,
-                {"name": message},
-            ) from exc
+            raise _duplicate_club_name() from exc
 
         raise
 

@@ -4,12 +4,21 @@ import {MemoryRouter} from 'react-router';
 import App from '../../App.jsx';
 
 let fetchMock;
+let sessionResponse;
 
 beforeEach(() => {
     fetchMock = vi.fn().mockResolvedValue(
         new Response('{}', {status: 202}),
     );
-    vi.stubGlobal('fetch', fetchMock);
+    sessionResponse = new Response(JSON.stringify({
+        error: {code: 'SESSION_INVALID', message: 'La sesión venció.'},
+    }), {status: 401});
+    vi.stubGlobal('fetch', (url, options) => {
+        if (url === '/api/clubs/me') {
+            return Promise.resolve(sessionResponse.clone());
+        }
+        return fetchMock(url, options);
+    });
 });
 
 afterEach(() => {
@@ -50,9 +59,9 @@ async function advanceSeconds(seconds) {
     }
 }
 
-it('permite entrar desde login y volver', () => {
+it('permite entrar desde login y volver', async () => {
     openPage('/login');
-    fireEvent.click(screen.getByRole('link', {name: 'Olvidé mi contraseña'}));
+    fireEvent.click(await screen.findByRole('link', {name: 'Olvidé mi contraseña'}));
     expect(screen.getByText('Recuperar contraseña')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('link', {name: 'Volver al login'}));
@@ -60,8 +69,8 @@ it('permite entrar desde login y volver', () => {
     expect(fetchMock).not.toHaveBeenCalled();
 });
 
-it('no envía un email inválido', () => {
-    openPage();
+it('no envía un email inválido', async () => {
+    await act(async () => openPage());
     fill('Email', 'correo-invalido');
     submit();
 
@@ -75,7 +84,7 @@ it('evita duplicados y después del 202 conserva el email y muestra mensaje gen�
         finish = resolve;
     }));
 
-    openPage();
+    await act(async () => openPage());
     fill('Email', 'user@example.com');
     submit();
     submit();
@@ -127,7 +136,7 @@ it('respeta Retry-After cuando el servidor responde 429', async () => {
     fill('Email', 'user@example.com');
     await act(async () => submit());
     expect(screen.getByRole('alert')).toHaveTextContent('Esperá');
-    
+
     const button = screen.getByRole('button', {name: 'Solicitar código'});
     expect(button).toBeDisabled();
 
@@ -190,8 +199,12 @@ it('rechaza un código incorrecto sin mostrar éxito y mantiene el reenvío', as
     expect(screen.getByRole('button', {name: 'Reenviar código'})).toBeInTheDocument();
 });
 
-it('conserva el cero del código y tras el 204 limpia el formulario y ofrece login', async () => {
+it.each([false, true])('conserva el cero del código y tras el 204 limpia el formulario y ofrece login (sesión activa: %s)', async (authenticated) => {
+    if (authenticated) {
+        sessionResponse = new Response(JSON.stringify({id: 8, name: 'Club de pruebas', avatar: 'avatar-01.png'}));
+    }
     await requestCode();
+    if (authenticated) await screen.findByRole('button', {name: 'Cerrar sesión'});
     fetchMock.mockResolvedValueOnce(new Response(null, {status: 204}));
 
     fillConfirmation();
@@ -210,6 +223,7 @@ it('conserva el cero del código y tras el 204 limpia el formulario y ofrece log
     });
     expect(document.querySelector('input')).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('button', {name: 'Cerrar sesión'})).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('link', {name: 'Volver al login'}));
     fireEvent.click(screen.getByRole('link', {name: 'Olvidé mi contraseña'}));

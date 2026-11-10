@@ -42,6 +42,10 @@ DEFAULT_DURATION_MS = 300_000
 logger = logging.getLogger(__name__)
 
 
+def _finite_number(value: object) -> bool:
+    return type(value) in (int, float) and isfinite(value)
+
+
 @dataclass(frozen=True)
 class PlayerProfile:
     id: int
@@ -404,32 +408,34 @@ class Match:
         }
 
     @classmethod
-    def from_checkpoint(cls, data: dict) -> "Match":
+    def from_checkpoint(cls, data: object) -> "Match":
+        if not isinstance(data, dict):
+            raise ValueError("El checkpoint debe ser un objeto.")
         version = data.get("version")
 
-        if version not in (1, 2, 3, 4, 5, 6):
+        if type(version) is not int or version not in (1, 2, 3, 4, 5, 6):
             raise ValueError("Versión de checkpoint incompatible.")
+
+        def player_from_data(player: dict) -> PlayerProfile:
+            profile = PlayerProfile(**{**player, "behaviour_mode": BehaviourMode(player["behaviour_mode"])})
+            attributes = (profile.speed, profile.power, profile.agility, profile.strength, profile.control)
+            if (
+                not all(map(_finite_number, attributes))
+                or profile.agility <= 0
+                or not 0 < profile.real_strength < float("inf")
+            ):
+                raise ValueError("Atributos inválidos en el checkpoint del jugador.")
+            return profile
 
         def team_from_data(team: dict) -> Team:
             return Team(
                 club_id=team["club_id"],
                 name=team["name"],
-                players=tuple(
-                    PlayerProfile(
-                        **{
-                            **player,
-                            "behaviour_mode": BehaviourMode(player["behaviour_mode"]),
-                        }
-                    )
-                    for player in team["players"]
-                ),
+                players=tuple(player_from_data(player) for player in team["players"]),
                 formation_id=team.get("formation_id", 1),
                 formation_positions=team.get("formation_positions"),
                 avatar=team.get("avatar"),
-                substitutes=tuple(
-                    PlayerProfile(**{**player, "behaviour_mode": BehaviourMode(player["behaviour_mode"])})
-                    for player in team.get("substitutes", [])
-                ),
+                substitutes=tuple(player_from_data(player) for player in team.get("substitutes", [])),
                 dt_active=team.get("dt_active", False),
                 dt_code=team.get("dt_code"),
                 dt_default_behaviours=team.get("dt_default_behaviours", {}),
@@ -454,8 +460,16 @@ class Match:
         else:
             raise ValueError("Falta el estado de pausas del partido.")
 
-        match.time = data["time"]
-        match.scorer = dict(data["scorer"])
+        elapsed = data["time"]
+        if not _finite_number(elapsed) or not 0 <= elapsed <= match.duration_ms / 1000:
+            raise ValueError("Reloj inválido en el checkpoint.")
+        scores = dict(data["scorer"])
+        if scores.keys() != match.scorer.keys() or any(
+            type(score) is not int or score < 0 for score in scores.values()
+        ):
+            raise ValueError("Marcador inválido en el checkpoint.")
+        match.time = elapsed
+        match.scorer = scores
         swapped = data.get("sides_swapped", False)
         if type(swapped) is not bool:
             raise ValueError("Estado de cambio de arco inválido.")
@@ -469,13 +483,25 @@ class Match:
         match.next_kick_at = {
             int(key): value for key, value in data["next_kick_at"].items()
         }
+        if any(not _finite_number(value) or value < 0 for value in match.next_kick_at.values()):
+            raise ValueError("Tiempo de próximo remate inválido en el checkpoint.")
         for body, state in zip(
             (*match.world.players, match.world.ball), data["bodies"], strict=True
         ):
-            body.position = state["position"]
-            body.velocity = state["velocity"]
-            body.angle = state["angle"]
-            body.angular_velocity = state["angular_velocity"]
+            position, velocity = state["position"], state["velocity"]
+            angle, angular_velocity = state["angle"], state["angular_velocity"]
+            for vector in (position, velocity):
+                if (
+                    not isinstance(vector, (list, tuple)) or len(vector) != 2
+                    or not all(map(_finite_number, vector))
+                ):
+                    raise ValueError("Posición o velocidad inválida en el checkpoint.")
+            if not _finite_number(angle) or not _finite_number(angular_velocity):
+                raise ValueError("Rotación inválida en el checkpoint.")
+            body.position = position
+            body.velocity = velocity
+            body.angle = angle
+            body.angular_velocity = angular_velocity
 
         match.world.space.reindex_shapes_for_body(match.world.ball)
 
@@ -551,6 +577,11 @@ class Match:
                 "id": profile.id,
                 "teamId": profile.club_id,
                 "name": profile.name,
+                "power": profile.power,
+                "agility": profile.agility,
+                "control": profile.control,
+                "speed": profile.speed,
+                "strength": profile.strength,
                 "behaviourId": profile.behaviour_id,
                 "behaviourMode": "CUSTOM" if profile.behaviour_code is not None else profile.behaviour_mode,
                 "behaviourVersion": profile.behaviour_version,
@@ -657,23 +688,6 @@ class Match:
             player.velocity = (0, 0)
             logger.exception("Falló el comportamiento del jugador %s", profile.id)
             return None
-        
-    def set_dt_active(self, club_id: int, active: bool) -> None:
-        if club_id == self.local_team.club_id:
-            team_attr = "local_team"
-        elif club_id == self.visitor_team.club_id:
-            team_attr = "visitor_team"
-        else:
-            raise ValueError("El club no participa del partido.")
-
-        team = getattr(self, team_attr)
-        if team.dt_active == active:
-            return
-        if active and not team.dt_code:
-            raise ValueError("El DT no tiene un comportamiento asignado.")
-
-        setattr(self, team_attr, replace(team, dt_active=active))
-        self.dt_errors.pop(club_id, None)
 
     def run_dt_pause(self) -> bool:
         if not self.paused:
@@ -725,11 +739,11 @@ class Match:
         for change in action.tactical_changes:
             target = players.get(change["player_id"])
             mode = BehaviourMode(change["mode"])
-            default = team.dt_default_behaviours.get(mode)
-            if target is None or target.behaviour_code is not None or default is None:
+            if target is None or target.behaviour_code is not None:
                 continue
 
-            behaviour_id, version = default
+            # Un club anterior puede haber perdido el preset sin perder el modo del motor.
+            behaviour_id, version = team.dt_default_behaviours.get(mode, (None, 1))
             if (target.behaviour_id, target.behaviour_version, target.behaviour_mode) != (behaviour_id, version, mode):
                 self.change_behaviour(
                     target.id,
@@ -767,7 +781,7 @@ class Match:
             player_id: int,
             *,
             club_id: int,
-            behaviour_id: int,
+            behaviour_id: int | None,
             behaviour_mode: BehaviourMode,
             behaviour_code: str | None,
             behaviour_version: int,

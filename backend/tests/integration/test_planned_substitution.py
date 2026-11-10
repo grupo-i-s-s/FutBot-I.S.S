@@ -59,8 +59,11 @@ def api(database, league_data, running_match):
         yield SimpleNamespace(client=client, club=club, url=f"/matches/{running_match}/planned-substitution")
 
 
-def body(data, command="change-1", club=0):
-    return {"outPlayerId": data.lineups[club][0], "inPlayerId": data.lineups[club][3], "commandId": command}
+def body(data, match_id, command="change-1", club=0, pause=1):
+    return {
+        "outPlayerId": data.lineups[club][0], "inPlayerId": data.lineups[club][3],
+        "commandId": command, "pauseId": f"{match_id}:{pause}",
+    }
 
 
 def plans(db):
@@ -71,10 +74,10 @@ def test_plan_is_persisted_without_changing_match(api, database, league_data, ru
     with Session(database) as db:
         row = db.get(Matches, running_match)
         before = deepcopy((row.runtime_state, row.snapshot, row.sequence))
-    response = api.client.put(api.url, json=body(league_data))
+    payload = body(league_data, running_match)
+    response = api.client.put(api.url, json=payload)
     assert response.status_code == 200, response.text
-    assert response.json() == {**body(league_data), "pauseId": f"{running_match}:1", "status": "PENDING",
-                               "sequence": before[2] + 1}
+    assert response.json() == {**payload, "status": "PENDING", "sequence": before[2] + 1}
     with Session(database) as db:
         row = db.get(Matches, running_match)
         assert row.runtime_state == before[0]
@@ -87,16 +90,17 @@ def test_plan_is_persisted_without_changing_match(api, database, league_data, ru
         assert plans(db)[0].club_id == league_data.clubs[0]
 
 
-def test_replacement_and_retries_never_restore_an_old_plan(api, database, league_data):
-    first = body(league_data)
-    second = {**body(league_data, "change-2"), "inPlayerId": league_data.lineups[0][4]}
+def test_replacement_and_retries_never_restore_an_old_plan(api, database, league_data, running_match):
+    first = body(league_data, running_match)
+    second = {**body(league_data, running_match, "change-2"), "inPlayerId": league_data.lineups[0][4]}
     assert api.client.put(api.url, json=first).status_code == 200
     confirmed = api.client.put(api.url, json=second).json()
     assert api.client.put(api.url, json=second).json() == confirmed
     assert api.client.put(api.url, json=first).json()["status"] == "REPLACED"
-    conflict = api.client.put(api.url, json={**second, "inPlayerId": league_data.lineups[0][5]})
-    assert conflict.status_code == 409
-    assert conflict.json()["error"]["code"] == "SUBSTITUTION_COMMAND_CONFLICT"
+    for change in ({"inPlayerId": league_data.lineups[0][5]}, {"pauseId": f"{running_match}:2"}):
+        conflict = api.client.put(api.url, json={**second, **change})
+        assert conflict.status_code == 409
+        assert conflict.json()["error"]["code"] == "SUBSTITUTION_COMMAND_CONFLICT"
     with Session(database) as db:
         saved = plans(db)
         assert [row.status for row in saved] == ["REPLACED", "PENDING"]
@@ -106,8 +110,10 @@ def test_replacement_and_retries_never_restore_an_old_plan(api, database, league
 @pytest.mark.parametrize("out_club,out_index,in_club,in_index", [
     (1, 0, 0, 3), (0, 0, 1, 3), (0, 3, 0, 4), (0, 0, 0, 1),
 ])
-def test_rejects_foreign_players_and_wrong_roles(api, database, league_data, out_club, out_index, in_club, in_index):
-    payload = {**body(league_data), "outPlayerId": league_data.lineups[out_club][out_index],
+def test_rejects_foreign_players_and_wrong_roles(
+    api, database, league_data, running_match, out_club, out_index, in_club, in_index,
+):
+    payload = {**body(league_data, running_match), "outPlayerId": league_data.lineups[out_club][out_index],
                "inPlayerId": league_data.lineups[in_club][in_index]}
     response = api.client.put(api.url, json=payload)
     assert response.status_code == 409
@@ -116,20 +122,20 @@ def test_rejects_foreign_players_and_wrong_roles(api, database, league_data, out
         assert plans(db) == []
 
 
-def test_each_participant_can_plan_independently_but_outsider_cannot(api, database, league_data):
-    assert api.client.put(api.url, json=body(league_data)).status_code == 200
+def test_each_participant_can_plan_independently_but_outsider_cannot(api, database, league_data, running_match):
+    assert api.client.put(api.url, json=body(league_data, running_match)).status_code == 200
     api.club[0] = league_data.clubs[1]
-    assert api.client.put(api.url, json=body(league_data, club=1)).status_code == 200
+    assert api.client.put(api.url, json=body(league_data, running_match, club=1)).status_code == 200
     with Session(database) as db:
         assert {plan.club_id for plan in plans(db)} == set(league_data.clubs[:2])
     api.club[0] = league_data.clubs[2]
-    assert api.client.put(api.url, json=body(league_data, club=2)).status_code == 403
-    assert api.client.put("/matches/999999/planned-substitution", json=body(league_data)).status_code == 404
+    assert api.client.put(api.url, json=body(league_data, running_match, club=2)).status_code == 403
+    assert api.client.put("/matches/999999/planned-substitution", json=body(league_data, 999999)).status_code == 404
 
 
-def test_invalid_replacement_preserves_confirmed_plan(api, database, league_data):
-    assert api.client.put(api.url, json=body(league_data)).status_code == 200
-    payload = {**body(league_data, "invalid-change"), "inPlayerId": league_data.lineups[1][3]}
+def test_invalid_replacement_preserves_confirmed_plan(api, database, league_data, running_match):
+    assert api.client.put(api.url, json=body(league_data, running_match)).status_code == 200
+    payload = {**body(league_data, running_match, "invalid-change"), "inPlayerId": league_data.lineups[1][3]}
     assert api.client.put(api.url, json=payload).status_code == 409
     with Session(database) as db:
         saved = plans(db)
@@ -139,7 +145,7 @@ def test_invalid_replacement_preserves_confirmed_plan(api, database, league_data
 
 
 def test_pending_plan_survives_the_next_snapshot_and_can_be_recovered(api, database, league_data, running_match):
-    receipt = api.client.put(api.url, json=body(league_data)).json()
+    receipt = api.client.put(api.url, json=body(league_data, running_match)).json()
     with Session(database) as db:
         row = db.get(Matches, running_match)
         simulation = Match.from_checkpoint(row.runtime_state)
@@ -167,19 +173,45 @@ def test_rejects_matches_outside_running_state(api, database, league_data, runni
         if status == "CANCELLED":
             row.cancellation_reason = "NO_OPPONENT"
         db.commit()
-    response = api.client.put(api.url, json=body(league_data))
+    response = api.client.put(api.url, json=body(league_data, running_match))
     assert response.status_code == 409
     with Session(database) as db:
         assert plans(db) == []
 
 
-@pytest.mark.parametrize("next_index,remaining,hydration,half,expected", [
-    (0, 0, 15000, 30000, 1), (1, 0, 15000, 30000, 2), (2, 0, 15000, 30000, 3),
-    (0, 0, 0, 30000, 2), (3, 0, 15000, 30000, "NO_UPCOMING_PAUSE"),
-    (0, 0, 0, 0, "NO_UPCOMING_PAUSE"), (1, 1, 15000, 30000, "MATCH_STATE_INVALID"),
+def test_retry_closes_a_pending_plan_from_a_legacy_cancelled_match(api, database, league_data, running_match):
+    payload = body(league_data, running_match)
+    accepted = api.client.put(api.url, json=payload)
+    assert accepted.status_code == 200 and accepted.json()["status"] == "PENDING"
+
+    with Session(database) as db:
+        row = db.get(Matches, running_match)
+        row.status = "CANCELLED"
+        row.cancellation_reason = "REPLACED_BY_NEW_TEST_MATCH"
+        row.snapshot = {**row.snapshot, "state": {**row.snapshot["state"], "status": "CANCELLED"}}
+        db.commit()
+        saved = read_snapshot(db, running_match, league_data.clubs[0])
+        assert saved["state"]["nextPause"] is None
+        assert saved["state"]["lineups"][0]["pendingSubstitution"] is None
+        assert row.snapshot["state"]["lineups"][0]["pendingSubstitution"]["status"] == "PENDING"
+
+    replay = api.client.put(api.url, json=payload)
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == {**accepted.json(), "status": "EXPIRED"}
+    with Session(database) as db:
+        saved, = plans(db)
+        assert saved.status == "EXPIRED"
+        assert db.get(Matches, running_match).sequence == accepted.json()["sequence"]
+
+
+@pytest.mark.parametrize("next_index,remaining,hydration,half,target,status", [
+    (0, 0, 15000, 30000, 1, 200), (1, 0, 15000, 30000, 2, 200), (2, 0, 15000, 30000, 3, 200),
+    (0, 0, 0, 30000, 2, 200), (0, 0, 0, 30000, 1, 409), (3, 0, 15000, 30000, 3, 409),
+    (0, 0, 0, 0, 1, 409), (1, 1, 15000, 30000, 2, 409), (0, 0, 15000, 30000, 2, 409),
 ])
-def test_target_pause_comes_from_server_state(api, database, league_data, running_match,
-                                           next_index, remaining, hydration, half, expected):
+def test_target_pause_must_match_the_next_pause_while_playing(
+    api, database, league_data, running_match, next_index, remaining, hydration, half, target, status,
+):
     with Session(database) as db:
         row = db.get(Matches, running_match)
         state = deepcopy(row.runtime_state)
@@ -187,13 +219,13 @@ def test_target_pause_comes_from_server_state(api, database, league_data, runnin
                            "hydration_ms": hydration, "half_ms": half}
         row.runtime_state = state
         db.commit()
-    response = api.client.put(api.url, json=body(league_data))
-    if isinstance(expected, int):
-        assert response.status_code == 200
-        assert response.json()["pauseId"] == f"{running_match}:{expected}"
+    payload = body(league_data, running_match, pause=target)
+    response = api.client.put(api.url, json=payload)
+    assert response.status_code == status, response.text
+    if status == 200:
+        assert response.json()["pauseId"] == payload["pauseId"]
     else:
-        assert response.status_code == 409
-        assert response.json()["error"]["code"] == expected
+        assert response.json()["error"]["code"] == "PAUSE_CLOSED"
 
 
 def test_bank_is_frozen_and_survives_checkpoint_recovery(api, database, league_data, running_match):
@@ -207,7 +239,7 @@ def test_bank_is_frozen_and_survives_checkpoint_recovery(api, database, league_d
         lineup["starters"], lineup["substitutes"] = lineup["substitutes"], lineup["starters"]
         team.line_up = lineup
         db.commit()
-    assert api.client.put(api.url, json=body(league_data)).status_code == 200
+    assert api.client.put(api.url, json=body(league_data, running_match)).status_code == 200
 
 
 def test_old_checkpoint_without_bank_does_not_guess_substitutes(api, database, league_data, running_match):
@@ -220,7 +252,7 @@ def test_old_checkpoint_without_bank_does_not_guess_substitutes(api, database, l
         assert Match.from_checkpoint(state).local_team.substitutes == ()
         row.runtime_state = state
         db.commit()
-    response = api.client.put(api.url, json=body(league_data))
+    response = api.client.put(api.url, json=body(league_data, running_match))
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "MATCH_STATE_INVALID"
 
@@ -235,7 +267,7 @@ def test_concurrent_commands_keep_one_pending_plan(database, league_data, runnin
         with Session(database) as db:
             barrier.wait(timeout=10)
             return plan_substitution(db, running_match, league_data.clubs[0],
-                                     PlannedSubstitutionRequest.model_validate(body(league_data, command)))
+                                     PlannedSubstitutionRequest.model_validate(body(league_data, running_match, command)))
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(submit, range(2)))

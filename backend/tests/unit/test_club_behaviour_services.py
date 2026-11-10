@@ -10,6 +10,7 @@ from app.services import behaviour_service, club_services
 @pytest.fixture
 def club_repo(monkeypatch):
     repo = Mock()
+    repo.get_by_name.return_value = None
     monkeypatch.setattr(club_services, "club_repository", repo)
     return repo
 
@@ -19,7 +20,7 @@ def changes():
 
 
 def test_club_update_passes_only_validated_fields_and_confirms(db, club_repo):
-    club = SimpleNamespace(id=7)
+    club = SimpleNamespace(id=7, name="Previous name")
     club_repo.update_club.return_value = club
     assert club_services.update_club(db, club, changes()) is club
     club_repo.update_club.assert_called_once_with(
@@ -31,7 +32,7 @@ def test_club_update_passes_only_validated_fields_and_confirms(db, club_repo):
 def test_duplicate_club_name_is_readable_and_rolls_back(db, club_repo, integrity_error):
     club_repo.update_club.side_effect = integrity_error("clubs_name_key")
     with pytest.raises(AppError) as error:
-        club_services.update_club(db, SimpleNamespace(id=7), changes())
+        club_services.update_club(db, SimpleNamespace(id=7, name="Previous name"), changes())
     assert error.value.code == "CLUB_NAME_DUPLICATE"
     assert "name" in error.value.fields
     db.rollback.assert_called_once()
@@ -44,7 +45,7 @@ def test_club_update_propagates_unrecognized_failure(db, club_repo, integrity_er
     target = db.commit if source == "commit" else club_repo.update_club
     target.side_effect = failure
     with pytest.raises(type(failure)) as error:
-        club_services.update_club(db, SimpleNamespace(id=7), changes())
+        club_services.update_club(db, SimpleNamespace(id=7, name="Previous name"), changes())
     assert error.value is failure
     db.rollback.assert_called_once()
 

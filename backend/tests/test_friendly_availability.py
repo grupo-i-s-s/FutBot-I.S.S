@@ -22,11 +22,15 @@ from app.errors import AppError
 from app.main import app_error_handler, validation_error_handler
 from app.models.auth_model import AuthSession, Club, User
 from app.models.behaviour_model import Behavior
+from app.models.dt_model import Dt, DtBehaviour
 from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.team_model import DefaultTeam
+from app.repository import user_repository
+from app.schemas.avatar_schemas import DEFAULT_AVATAR
 from app.schemas.matches_schemas import CreateFriendlyMatchRequest
+from app.security import hash_password
 from app.services import matches_service
 
 
@@ -53,7 +57,7 @@ def context(sqlite_match_dates):
 
     Base.metadata.create_all(engine, tables=[
         model.__table__
-        for model in (User, Club, AuthSession, Behavior, Player, DefaultTeam, League, LeagueRound, Matches)
+        for model in (User, Club, AuthSession, Behavior, Player, DefaultTeam, League, LeagueRound, Matches, DtBehaviour, Dt)
     ])
     application = FastAPI(dependencies=[Depends(require_browser_write)])
     for router in (auth_router, club_router, matches_router):
@@ -75,17 +79,19 @@ def context(sqlite_match_dates):
                     "Origin": next(iter(settings.allowed_origins)), "X-FutBot-Request": "1",
                 })
                 credentials = {"email": f"availability_{label}@example.com", "password": "availability-password"}
-                response = client.post("/auth/register", json={
-                    **credentials, "passwordConfirmation": credentials["password"],
-                    "clubName": f"Availability {label}",
-                })
-                assert response.status_code == 201, response.text
-                club_id = response.json()["clubId"]
+                with Session(engine, expire_on_commit=False) as db:
+                    user = user_repository.create_user(
+                        db, email=credentials["email"], password_hash=hash_password(credentials["password"]),
+                    )
+                    club = user_repository.create_club(
+                        db, user_id=user.id, name=f"Availability {label}", avatar=DEFAULT_AVATAR,
+                    )
+                    db.commit()
                 response = client.post("/auth/login", json=credentials)
                 assert response.status_code == 200, response.text
                 if available:
                     set_availability(client, True)
-                return SimpleNamespace(client=client, id=club_id)
+                return SimpleNamespace(client=client, id=club.id)
 
             yield SimpleNamespace(engine=engine, account=account)
     finally:

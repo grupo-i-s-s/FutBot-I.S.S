@@ -1,7 +1,7 @@
-import math
 from fastapi import APIRouter, status, Query
 
 from app.dependencies import CurrentClub, Database
+from app.schemas.pagination import MAX_PAGE_SIZE, Page, validate_page_offset
 from app.schemas.player import (
     PlayerBehaviourUpdate,
     PlayerCreate,
@@ -13,25 +13,24 @@ from app.services import player_service
 player_router = APIRouter(prefix="/players", tags=["players"])
 
 
-@player_router.get("", response_model=PlayerListResponse, status_code=status.HTTP_200_OK)
+@player_router.get("", response_model=Page[PlayerRead] | PlayerListResponse)
 def list_players(
     club: CurrentClub,
     db: Database,
     page: int = Query(1, ge=1, description="Número de página"),
-    limit: int = Query(9, ge=1, description="Cantidad de elementos por página"),
-    search: str | None = Query(None, min_length=1)
+    page_size: int | None = Query(None, alias="pageSize", ge=1, le=MAX_PAGE_SIZE),
+    limit: int = Query(9, ge=1, le=MAX_PAGE_SIZE, deprecated=True),
+    search: str | None = Query(None, min_length=1),
 ):
-    
-    players, total_count = player_service.get_players(db=db, club_id=club.id, page=page, limit=limit, search = search)
-    total_pages = max(1, math.ceil(total_count / limit))
-
-    return {
-        "items": players,
-        "total": total_count,
-        "page": page,
-        "limit": limit,
-        "total_pages": total_pages,
-    }
+    size = page_size if page_size is not None else limit
+    validate_page_offset(page, size)
+    players, total = player_service.get_players(db=db, club_id=club.id, page=page, limit=size, search=search)
+    result = Page[PlayerRead](items=players, page=page, page_size=size, total=total)
+    if page_size is not None:
+        return result
+    return PlayerListResponse(
+        items=result.items, page=page, limit=limit, total=total, total_pages=result.total_pages,
+    )
 
 @player_router.get("/by-ids", response_model=list[PlayerRead])
 def get_players_by_ids(

@@ -62,6 +62,20 @@ def test_goal_is_awarded_to_correct_side_and_resets_positions(monkeypatch):
     assert tuple(match.world.ball.position) == match.init_ball_pos
 
 
+def test_snapshot_includes_player_pacss():
+    visitor = team(2)
+    player = replace(visitor.players[0], power=20, agility=40, control=60, speed=80, strength=100)
+    visitor = replace(visitor, players=(player, *visitor.players[1:]))
+    match = match_simulation.Match(team(1), visitor)
+
+    snapshot = match.snapshot(sequence=1, sent_at="2026-11-09T12:00:00Z")
+    opponent = next(item for item in snapshot["state"]["players"] if item["id"] == player.id)
+
+    assert {field: opponent[field] for field in ("power", "agility", "control", "speed", "strength")} == {
+        "power": 20, "agility": 40, "control": 60, "speed": 80, "strength": 100,
+    }
+
+
 def test_match_rejects_player_from_another_club():
     wrong_profile = replace(team(2).players[0], id=99, name="Ajeno")
     local = team(1)
@@ -247,6 +261,25 @@ def test_checkpoint_restores_roster_physics_clock_score_and_cooldown():
     ]
     restored.run_match(1 / 30)
     assert restored.time == pytest.approx(2 / 30)
+
+
+@pytest.mark.parametrize("field, value, message", [
+    ("time", "2", "Reloj"),
+    ("scorer", {"LEFT": 2, "RIGHT": 1}, "Marcador"),
+    ("next_kick_at", {"10": "pronto"}, "próximo remate"),
+])
+def test_checkpoint_rejects_corrupt_state_before_resuming(field, value, message):
+    checkpoint = match_simulation.Match(team(1), team(2)).checkpoint()
+    checkpoint[field] = value
+    with pytest.raises(ValueError, match=message):
+        match_simulation.Match.from_checkpoint(checkpoint)
+
+
+def test_checkpoint_rejects_malformed_vectors_before_setting_physics():
+    checkpoint = match_simulation.Match(team(1), team(2)).checkpoint()
+    checkpoint["bodies"][0]["position"] = [1]
+    with pytest.raises(ValueError, match="Posición"):
+        match_simulation.Match.from_checkpoint(checkpoint)
 
 
 def test_default_roster_finishes_and_scores_with_real_physics():

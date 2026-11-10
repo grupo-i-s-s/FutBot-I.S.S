@@ -4,6 +4,7 @@ import {
     fireEvent,
     render,
     screen,
+    within,
 } from '@testing-library/react';
 import {Link, MemoryRouter} from 'react-router';
 import {
@@ -20,6 +21,11 @@ import {request} from '../../api/http.js';
 vi.mock('../../api/http.js', async (importOriginal) => ({
     ...await importOriginal(),
     request: vi.fn(),
+}));
+
+vi.mock('../my-club/api.js', async (importOriginal) => ({
+    ...await importOriginal(),
+    getMyClub: async () => ({id: 8, name: 'Mi club', avatar: 'avatar-01.png'}),
 }));
 
 vi.mock('../nav-bar/navBar.jsx', () => ({
@@ -77,7 +83,7 @@ async function open(path = '/clubes') {
     await act(async () => {
         render(
             <MemoryRouter initialEntries={[path]}>
-                <Link to="/club/2">Otro club</Link>
+                <Link to="/clubes/2">Otro club</Link>
                 <App/>
             </MemoryRouter>,
         );
@@ -174,14 +180,38 @@ it('reinicia la página al filtrar y restaura el listado al limpiar', async () =
         'No se encontraron clubes con el nombre "inexistente".',
     )).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('searchbox'), {
-        target: {value: ''},
-    });
-    await advance();
+    await click('Limpiar');
 
+    expect(screen.getByRole('searchbox')).toHaveValue('');
     expect(lastQuery().get('name')).toBeNull();
     expect(lastQuery().get('page')).toBe('1');
     expect(screen.getByText('Club página 1')).toBeInTheDocument();
+});
+
+it('muestra el último error de búsqueda en el toast y permite reintentar', async () => {
+    request.mockResolvedValueOnce(listing([]));
+    request.mockRejectedValueOnce(new Error('No se pudo conectar con el servidor.'));
+    request.mockRejectedValueOnce(new Error('La búsqueda volvió a fallar.'));
+    request.mockResolvedValueOnce(listing([club(1, 'River')]));
+
+    await open();
+    fireEvent.change(screen.getByRole('searchbox'), {target: {value: 'River'}});
+    await click('Buscar');
+    await advance(50);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo conectar con el servidor.');
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(notifications.getByText('No se pudieron cargar los clubes')).toBeVisible();
+
+    await click('Reintentar');
+    await advance(50);
+    await advance(250);
+    expect(notifications.getByText('La búsqueda volvió a fallar.')).toBeVisible();
+    expect(notifications.queryByText('No se pudo conectar con el servidor.')).not.toBeInTheDocument();
+
+    await click('Reintentar');
+    expect(lastQuery().get('name')).toBe('River');
+    expect(screen.getByRole('button', {name: 'Ver perfil de River'})).toBeVisible();
 });
 
 it('ignora una respuesta vieja de la búsqueda', async () => {
@@ -223,7 +253,7 @@ it('ignora una respuesta vieja de la búsqueda', async () => {
 
 it('abre el perfil elegido desde el listado', async () => {
     request.mockImplementation(async (path) => {
-        if (path.startsWith('/club?')) {
+        if (path.startsWith('/clubs?')) {
             return listing([club(1, 'River')]);
         }
 
@@ -233,13 +263,13 @@ it('abre el perfil elegido desde el listado', async () => {
     await open();
 
     await act(async () => {
-        fireEvent.click(screen.getByRole('link', {
+        fireEvent.click(screen.getByRole('button', {
             name: 'Ver perfil de River',
         }));
     });
 
     expect(request).toHaveBeenLastCalledWith(
-        '/club/1',
+        '/clubs/1',
         expect.objectContaining({signal: expect.anything()}),
     );
     expect(screen.getByRole('heading', {
@@ -247,12 +277,18 @@ it('abre el perfil elegido desde el listado', async () => {
         name: 'River',
     })).toBeInTheDocument();
     expect(screen.getByText('Jugador de River')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog', {name: 'Perfil de River'});
+    await act(async () => fireEvent.click(within(dialog).getByRole('button', {name: 'Close'})));
+    await advance(200);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('searchbox')).toBeVisible();
+    expect(screen.getByRole('button', {name: 'Ver perfil de River'})).toBeVisible();
 });
 
 it('muestra ceros y ranking inicial sin controles de edición', async () => {
     request.mockResolvedValue(profile(1, 'Club nuevo'));
 
-    await open('/club/1');
+    await open('/clubes/1');
 
     for (const label of [
         'Partidos jugados',
@@ -280,7 +316,7 @@ it('limpia el perfil anterior mientras carga otro club', async () => {
         .mockResolvedValueOnce(profile(1, 'Primero'))
         .mockReturnValueOnce(second.promise);
 
-    await open('/club/1');
+    await open('/clubes/1');
 
     await act(async () => {
         fireEvent.click(screen.getByRole('link', {name: 'Otro club'}));
@@ -304,12 +340,12 @@ it('ignora un perfil anterior que termina de cargar más tarde', async () => {
     const first = deferred();
 
     request.mockImplementation((path) => (
-        path === '/club/1'
+        path === '/clubs/1'
             ? first.promise
             : Promise.resolve(profile(2, 'Segundo'))
     ));
 
-    await open('/club/1');
+    await open('/clubes/1');
 
     await act(async () => {
         fireEvent.click(screen.getByRole('link', {name: 'Otro club'}));
@@ -335,7 +371,7 @@ it.each([
 ])('distingue el error de perfil con estado %s', async (status, message) => {
     request.mockRejectedValue({status});
 
-    await open('/club/1');
+    await open('/clubes/1');
 
     expect(screen.getByRole('alert')).toHaveTextContent(message);
 
@@ -348,16 +384,24 @@ it.each([
     if (status === 401) {
         expect(screen.getByRole('link', {
             name: 'Iniciar sesión',
-        })).toHaveAttribute('href', '/login');
+        })).toHaveAttribute('href', '/iniciar-sesion');
     }
 });
 
-it('permite reintentar la carga del perfil', async () => {
+it('avisa si falla el reintento del perfil y permite volver a cargarlo', async () => {
     request
+        .mockRejectedValueOnce({status: 0})
         .mockRejectedValueOnce({status: 0})
         .mockResolvedValueOnce(profile(1, 'Recuperado'));
 
-    await open('/club/1');
+    await open('/clubes/1');
+    await click('Reintentar');
+    await advance(50);
+
+    const notifications = within(screen.getByRole('region', {name: /^Notificaciones/}));
+    expect(notifications.getByText('No se pudo cargar el club')).toBeVisible();
+    expect(notifications.getByText('No se pudo conectar con el servidor.')).toBeVisible();
+
     await click('Reintentar');
 
     expect(screen.getByRole('heading', {

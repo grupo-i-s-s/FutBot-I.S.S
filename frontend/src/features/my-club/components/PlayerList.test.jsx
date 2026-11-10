@@ -1,35 +1,27 @@
 import {render, screen} from '@testing-library/react';
-import {describe, expect, it, vi} from 'vitest';
 import {MemoryRouter} from 'react-router';
+import {describe, expect, it} from 'vitest';
 
 import PlayerList from './PlayerList';
 
-vi.mock('./BehaviorSelector', () => ({
-    BehaviorSelector: () => <div data-testid="behavior-selector"/>,
-}));
-
 describe('PlayerList', () => {
-    it('muestra los atributos PACSS y el comportamiento del jugador', () => {
+    it('muestra los atributos PACSS y el comportamiento del jugador como información', () => {
         render(
-            <MemoryRouter>
-                <PlayerList
-                    players={[
-                        {
-                            id: 1,
-                            name: 'Marta',
-                            power: 80,
-                            agility: 75,
-                            control: 90,
-                            speed: 85,
-                            strength: 78,
-                            behaviourName: 'Ofensivo',
-                        },
-                    ]}
-                    behaviours={[]}
-                    onBehaviourAssigned={vi.fn()}
-                />
-            </MemoryRouter>
-            
+            <PlayerList
+                players={[
+                    {
+                        id: 1,
+                        name: 'Marta',
+                        power: 80,
+                        agility: 75,
+                        control: 90,
+                        speed: 85,
+                        strength: 78,
+                        behaviourName: 'Ofensivo',
+                    },
+                ]}
+            />,
+            {wrapper: MemoryRouter},
         );
 
         expect(screen.getByText('Marta')).toBeInTheDocument();
@@ -41,17 +33,13 @@ describe('PlayerList', () => {
                 .toHaveTextContent(`${attribute}: ${value}`);
         }
         expect(screen.getByText('Ofensivo')).toBeInTheDocument();
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     });
 
     it('muestra un estado vacío cuando no hay jugadores', () => {
         render(
-            <MemoryRouter>
-                <PlayerList
-                    players={[]}
-                    behaviours={[]}
-                    onBehaviourAssigned={vi.fn()}
-                />
-            </MemoryRouter>
+            <PlayerList players={[]}/>,
+            {wrapper: MemoryRouter},
         );
 
         expect(screen.getByText('Sin jugadores')).toBeInTheDocument();

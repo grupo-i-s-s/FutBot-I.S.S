@@ -3,7 +3,7 @@
     --home-muted: #718176;
     --home-border: #dde6dd;
 
-    min-height: 100vh;
+    flex: 1;
     padding: 0 32px;
     color: #19362b;
     background: radial-gradient(ellipse at 50% 40%, #dfeedd 0%, transparent 55%),
@@ -26,63 +26,6 @@
 .futbot-home a:focus-visible {
     outline: 3px solid #80b688;
     outline-offset: 5px;
-}
-
-/* Barra superior */
-
-.home-nav {
-    width: 100%;
-    max-width: 1440px;
-    min-height: 88px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    border-bottom: 1px solid var(--home-border);
-}
-
-.home-brand {
-    display: flex;
-    gap: 10px;
-    color: var(--home-green);
-    font-size: 18px;
-    font-weight: 850;
-    letter-spacing: 2px;
-}
-
-.home-brand-icon {
-    width: 40px;
-    height: 40px;
-    display: grid;
-    place-items: center;
-    color: white;
-    border-radius: 12px;
-    background: transparent;
-}
-
-.home-nav-links {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.home-login {
-    color: var(--home-green);
-}
-
-.home-register {
-    padding: 11px 18px;
-    color: var(--home-green);
-    border: 1px solid #b9cdbd;
-    border-radius: 12px;
-    transition: background 180ms ease;
-}
-
-.home-register:hover {
-    background: #e5eee2;
 }
 
 /* Tres columnas: los costados iguales mantienen el centro */
@@ -355,6 +298,7 @@
 
 .home-matches .home-list {
     max-height: 280px;
+    margin-top: 12px;
     overflow-y: auto;
 }
 
@@ -409,7 +353,7 @@
 /* Tablet: bienvenida arriba y paneles abajo */
 
 @media (max-width: 1100px) {
-    .home-grid {
+    .home-layout {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         grid-template-areas:
             "bienvenida bienvenida"
@@ -423,14 +367,14 @@
     }
 }
 
-.home-brand-text {
-    display: flex;
-    flex-direction: column;
-}
+@media (max-width: 640px) {
+    .futbot-home {
+        padding-inline: 16px;
+    }
 
-.home-brand-club {
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0;
-    color: var(--home-muted);
+    .home-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "bienvenida" "ligas" "amistosos";
+        padding-block: 24px;
+    }
 }

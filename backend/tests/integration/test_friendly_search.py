@@ -110,6 +110,7 @@ def test_pagination_filters_before_counting_and_keeps_stable_order(search_contex
         assert response.status_code == 200, response.text
         result = response.json()
         assert (result["total"], result["page"], result["pageSize"]) == (total, page, 1)
+        assert (result["totalPages"], result["hasNext"]) == (total, page < total)
         assert len(result["items"]) == 1
         collected.append(result["items"][0]["matchId"])
     assert collected == (search_context.ordered[1:] if name else search_context.ordered)
@@ -121,7 +122,9 @@ def test_empty_pages_keep_the_filtered_total(search_context, name, page, total):
         "creatorName": name, "page": page, "pageSize": 1,
     })
     assert response.status_code == 200, response.text
-    assert response.json() == {"items": [], "total": total, "page": page, "pageSize": 1}
+    assert response.json() == {
+        "items": [], "total": total, "page": page, "pageSize": 1, "totalPages": max(1, total), "hasNext": False,
+    }
 
 
 @pytest.mark.parametrize("field,value", [

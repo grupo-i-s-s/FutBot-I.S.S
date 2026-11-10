@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
 
 class InputSchema(BaseModel):
@@ -15,6 +15,7 @@ class PlannedSubstitutionRequest(InputSchema):
     out_player_id: StrictInt = Field(alias="outPlayerId", gt=0)
     in_player_id: StrictInt = Field(alias="inPlayerId", gt=0)
     command_id: str = Field(alias="commandId", min_length=1, pattern=r"\S")
+    pause_id: str = Field(alias="pauseId", min_length=1, pattern=r"\S")
 
     @model_validator(mode="after")
     def validate_different_players(self) -> "PlannedSubstitutionRequest":
@@ -24,7 +25,7 @@ class PlannedSubstitutionRequest(InputSchema):
 
 
 class SubstitutionRequest(PlannedSubstitutionRequest):
-    pause_id: str = Field(alias="pauseId", min_length=1, pattern=r"\S")
+    pass
 
 
 class CreateFriendlyMatchRequest(InputSchema):
@@ -41,13 +42,6 @@ class FriendlyMatchResponse(BaseModel):
     match_id: int = Field(serialization_alias="matchId")
     creator_club_name: str = Field(serialization_alias="creatorClubName")
     start_datetime: datetime = Field(serialization_alias="startDateTime")
-
-
-class FriendlyMatchListResponse(BaseModel):
-    items: list[FriendlyMatchResponse]
-    total: int
-    page: int
-    page_size: int = Field(serialization_alias="pageSize")
 
 
 class ClubFriendlyMatchResponse(FriendlyMatchResponse):
@@ -71,3 +65,19 @@ class MatchStateResponse(BaseModel):
 class LiveRequests(BaseModel):
     player_id: int
     behaviour_id: int
+
+
+class LiveRequestCreate(LiveRequests):
+    model_config = ConfigDict(extra="forbid")
+
+    player_id: int = Field(alias="playerId", gt=0)
+    behaviour_id: int = Field(alias="behaviourId", gt=0)
+
+
+class LiveRequestResponse(BaseModel):
+    queued: bool
+    request_id: str = Field(alias="requestId")
+
+
+class MatchDtUpdate(InputSchema):
+    dt_active: StrictBool = Field(alias="dtActive")

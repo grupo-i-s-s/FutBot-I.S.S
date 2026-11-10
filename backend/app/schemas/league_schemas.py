@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import Enum
-from pydantic import ( AliasChoices, BaseModel, ConfigDict, Field, StrictInt, model_validator)
 from typing import Optional
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from app.schemas.team_schemas import Lineup
 
@@ -112,7 +113,7 @@ class LeagueJoinRequest(BaseModel):
         validation_alias="clubId",
         serialization_alias="clubId",
     )
-    line_up: list = Field(
+    line_up: Lineup | list[StrictInt] = Field(
         validation_alias="lineUp",
         serialization_alias="lineUp",
     )
@@ -141,6 +142,10 @@ class LeagueRead(BaseModel):
 
 class LeagueListResponse(BaseModel):
     items: list[LeagueRead]
+    total: int | None = None
+    page: int | None = None
+    limit: int | None = None
+    total_pages: int | None = Field(None, serialization_alias="totalPages")
 
 
 class LeagueFixtureMatchRead(BaseModel):
@@ -173,8 +178,9 @@ class LeagueFixtureRead(BaseModel):
     rounds: list[LeagueFixtureRoundRead]
     next_match: LeagueNextMatchRead | None = Field(serialization_alias="nextMatch")
 
+
 class LeagueLineupUpdate(Lineup):
-    expected_version: StrictInt = Field( alias="expectedVersion", ge=0)
+    expected_version: StrictInt = Field(alias="expectedVersion", ge=0)
 
 
 class LeagueLineupRead(BaseModel):

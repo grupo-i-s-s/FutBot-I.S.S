@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
@@ -36,7 +37,13 @@ def get_default_team(db: Session, club_id: int) -> DefaultTeamRead:
             "El club todavía no tiene su equipo default guardado.",
         )
 
-    return DefaultTeamRead.model_validate(team)
+    try:
+        return DefaultTeamRead.model_validate(team)
+    except ValidationError as exc:
+        raise AppError(
+            "ACCOUNT_INCOMPLETE",
+            "El equipo guardado es inválido. Volvé a configurarlo desde Mi club.",
+        ) from exc
 
 
 def update_default_team(db: Session, club_id: int, data: Lineup) -> DefaultTeamRead:

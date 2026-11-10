@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.repository import league_repository
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE, Matches
+from app.repository import league_repository, matches_repository
 
 ROUND_INTERVALS = {
     "CONTINUOUS": timedelta(seconds=360),
@@ -11,6 +12,13 @@ ROUND_INTERVALS = {
     "WEEKLY": timedelta(days=7),
 }
 PENDING_STATUSES = {"WAITING", "WAITING_OPPONENT", "SCHEDULED"}
+
+
+def is_resolved_league_match(match: Matches) -> bool:
+    return match.finished_at is not None and (
+        match.status == "FINISHED"
+        or (match.status == "CANCELLED" and match.cancellation_reason == CHECKPOINT_UNRECOVERABLE)
+    )
 
 
 def _utc(value: datetime) -> datetime:
@@ -71,14 +79,14 @@ def get_league_fixture(db: Session, league_id: int, club_id: int) -> dict:
 
 
 def update_fixture_schedule(db: Session, round_id: int) -> None:
-    """Se llama al finalizar un partido, dentro de la misma transacción."""
+    """Se llama al cerrar un partido, dentro de la misma transacción."""
     league = league_repository.get_league_for_round(db, round_id)
     if league is None or league.status != "running":
         return
 
     rounds = league_repository.get_fixture_rounds(db, league.id)
     matches = league_repository.get_fixture_matches(db, league.id)
-    if matches and all(match.status == "FINISHED" for match in matches):
+    if matches and all(is_resolved_league_match(match) for match in matches):
         league.status = "finished"
         return
     matches_by_round = {round_.id: [] for round_ in rounds}
@@ -86,25 +94,36 @@ def update_fixture_schedule(db: Session, round_id: int) -> None:
         matches_by_round[match.league_round_id].append(match)
 
     interval = ROUND_INTERVALS[league.round_interval]
+    updates = []
+    confirming_club_ids = set()
+    previous_at = None
     for previous, current in zip(rounds, rounds[1:]):
         current_matches = matches_by_round[current.id]
+        current_at = _utc(current.scheduled_at)
         # Conservar horarios ya confirmados y partidos que ya comenzaron.
         if current.schedule_confirmed or any(
             match.status not in PENDING_STATUSES for match in current_matches
         ):
+            previous_at = current_at
             continue
 
         previous_matches = matches_by_round[previous.id]
-        confirmed = bool(previous_matches) and all(
-            match.status == "FINISHED" and match.finished_at is not None
-            for match in previous_matches
-        )
+        confirmed = bool(previous_matches) and all(is_resolved_league_match(match) for match in previous_matches)
         if confirmed:
             scheduled_at = max(_utc(match.finished_at) for match in previous_matches) + interval
-        else:
-            scheduled_at = _utc(previous.scheduled_at) + interval
-
-        if scheduled_at != _utc(current.scheduled_at) or confirmed != current.schedule_confirmed:
-            league_repository.update_round_schedule(
-                db, current, current_matches, scheduled_at, confirmed,
+            confirming_club_ids.update(
+                club_id for match in current_matches for club_id in (match.creator_id, match.visitor_id)
             )
+        else:
+            scheduled_at = (previous_at or _utc(previous.scheduled_at)) + interval
+
+        if scheduled_at != current_at or confirmed:
+            updates.append((current, current_matches, scheduled_at, confirmed))
+        previous_at = scheduled_at
+
+    # La misma reserva que consulta el amistoso al bloquear a sus clubes.
+    # Bloquearlos juntos conserva el orden incluso si se reparan varias rondas.
+    if confirming_club_ids:
+        matches_repository.get_clubs_for_update(db, tuple(sorted(confirming_club_ids)))
+    for current, current_matches, scheduled_at, confirmed in updates:
+        league_repository.update_round_schedule(db, current, current_matches, scheduled_at, confirmed)

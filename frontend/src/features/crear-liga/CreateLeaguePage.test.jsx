@@ -1,7 +1,7 @@
 import {afterEach, expect, it, vi} from 'vitest';
 import {cleanup, fireEvent, render, screen} from '@testing-library/react';
-import CreateLeaguePage from './CreateLeaguePage.jsx';
 import {MemoryRouter, Route, Routes} from 'react-router';
+import CreateLeaguePage from './CreateLeaguePage.jsx';
 
 afterEach(() => {
     cleanup();
@@ -12,21 +12,15 @@ function submitLeague() {
     render(
         <MemoryRouter initialEntries={['/crear-liga']}>
             <Routes>
-                <Route
-                    path="/crear-liga"
-                    element={<CreateLeaguePage/>}
-                />
-                <Route
-                    path="/leagues/42/lobby"
-                    element={<h1>Lobby de la liga creada</h1>}
-                />
+                <Route path="/crear-liga" element={<CreateLeaguePage/>}/>
+                <Route path="/ligas/42/sala-de-espera" element={<h1>Sala de espera de la liga</h1>}/>
             </Routes>
-        </MemoryRouter>
+        </MemoryRouter>,
     );
     fireEvent.change(screen.getByLabelText('Nombre de la liga'), {
         target: {value: 'Liga de prueba'},
     });
-    fireEvent.change(screen.getByLabelText('Maximo de clubes'), {
+    fireEvent.change(screen.getByLabelText('Máximo de clubes'), {
         target: {value: '8'},
     });
     fireEvent.change(screen.getByLabelText('Fecha y hora de inicio'), {
@@ -35,7 +29,7 @@ function submitLeague() {
     fireEvent.submit(screen.getByRole('button', {name: 'Crear liga'}).closest('form'));
 }
 
-it('creates a public league with the API field names and displays success', async () => {
+it('creates a public league and opens its Spanish lobby route', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         status: 201,
@@ -44,7 +38,7 @@ it('creates a public league with the API field names and displays success', asyn
     vi.stubGlobal('fetch', fetchMock);
     submitLeague();
 
-    expect(await screen.findByRole('heading', {name: 'Lobby de la liga creada'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading', {name: 'Sala de espera de la liga'})).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe('/api/leagues/public');

@@ -1,12 +1,20 @@
-import { useEffect, useState } from 'react';
-import { getDefaultTeam, getFormations, updateDefaultTeam, listPlayers, getPlayersByIds } from '../api';
-import { Users } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { getDefaultTeam, getFormations, updateDefaultTeam, getPlayersByIds } from '../api';
+import { Info, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, } from '@/components/ui/card';
+import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from '@/components/ui/combobox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { swapAssignedPlayer } from '@/lib/lineup';
+import TeamPlayerCombobox from './TeamPlayerCombobox';
 
 
 const SELECT_CLASSES =
     'w-full min-w-0 rounded-md border border-input bg-background px-2 py-2 text-sm';
+const LINEUP_GROUPS = [
+    {name: 'Titulares', firstSlot: 0},
+    {name: 'Suplentes', firstSlot: 3},
+];
 
 function loadTeam(response) {
     const { lineUp } = response;
@@ -22,25 +30,57 @@ function loadTeam(response) {
     };
 }
 
-export default function TeamSettings({
-    clubId, players, behaviours, disabled = false, onSavingChange,
-}) {
+function TeamBehaviourCombobox({id, behaviour, behaviours, disabled, onSelect}) {
+    const [query, setQuery] = useState(null);
+
+    return (
+        <Combobox
+            items={behaviours}
+            value={behaviour}
+            inputValue={query ?? behaviour?.name ?? ''}
+            disabled={disabled}
+            itemToStringLabel={(item) => item.name}
+            autoHighlight
+            onInputValueChange={(text, {reason}) => {
+                if (reason === 'input-change') setQuery(text);
+            }}
+            onOpenChange={(open) => {
+                if (!open) setQuery(null);
+            }}
+            onValueChange={(item, details) => {
+                if (!item) {
+                    details.cancel();
+                    return;
+                }
+                onSelect(item);
+                setQuery(null);
+            }}
+        >
+            <ComboboxInput
+                id={id}
+                placeholder="Buscar comportamiento"
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.nativeEvent.isComposing) event.preventDefault();
+                }}
+            />
+            <ComboboxContent>
+                <ComboboxEmpty>No se encontraron comportamientos.</ComboboxEmpty>
+                <ComboboxList>
+                    {(item) => <ComboboxItem key={item.id} value={item}>{item.name}</ComboboxItem>}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
+    );
+}
+
+export default function TeamSettings({clubId, behaviours, onSaveSuccess}) {
+    const inputPrefix = useId();
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
     const [team, setTeam] = useState(null);
     const [formations, setFormations] = useState([]);
     const [selectedPlayers, setSelectedPlayers] = useState([]);
-    const [slotSearch, setSlotSearch] = useState({});
-    const [slotResults, setSlotResults] = useState({});
-    const [slotSearchErrors, setSlotSearchErrors] = useState({});
-    const [activeGroup, setActiveGroup] = useState('starters');
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-
-    function clearFeedback() {
-        setError('');
-        setSuccess('');
-    }
 
     useEffect(() => {
         const controller = new AbortController();
@@ -86,104 +126,44 @@ export default function TeamSettings({
         return () => controller.abort();
     }, [clubId]);
 
-    useEffect(() => {
-        const controllers = [];
-        const timeoutIds = [];
-
-        Object.entries(slotSearch).forEach(([slotIndex, text]) => {
-            const search = text.trim();
-            if (!search) return;
-
-            const controller = new AbortController();
-            controllers.push(controller);
-
-            const timeoutId = setTimeout(async () => {
-                setSlotSearchErrors((current) => ({
-                    ...current,
-                    [slotIndex]: '',
-                }));
-
-                try {
-                    const response = await listPlayers({
-                        search,
-                        page: 1,
-                        limit: 10,
-                        signal: controller.signal,
-                    });
-
-                    if (!controller.signal.aborted) {
-                        setSlotResults((current) => ({
-                            ...current,
-                            [slotIndex]: response.items,
-                        }));
-                    }
-                } catch (err) {
-                    if (!controller.signal.aborted && err.name !== 'AbortError') {
-                        setSlotSearchErrors((current) => ({
-                            ...current,
-                            [slotIndex]: err.message || 'No se pudieron buscar jugadores.',
-                        }));
-                    }
-                }
-            }, 250);
-
-            timeoutIds.push(timeoutId);
-        });
-
-        return () => {
-            timeoutIds.forEach(clearTimeout);
-            controllers.forEach((controller) => controller.abort());
-        };
-    }, [slotSearch]);
-
-    function changeSlot(index, field, value) {
-        clearFeedback();
+    function changeBehaviour(index, behaviour) {
+        setError('');
 
         setTeam((current) => ({
             ...current,
             slots: current.slots.map((slot, slotIndex) =>
                 slotIndex === index
-                    ? { ...slot, [field]: value }
+                    ? { ...slot, behaviourId: String(behaviour.id) }
                     : slot
             ),
         }));
     }
 
     function selectPlayer(slotIndex, player) {
-        clearFeedback();
+        setError('');
 
-        setTeam((current) => ({
-            ...current,
-            slots: current.slots.map((slot, index) =>
-                index === slotIndex
-                    ? {
-                        playerId: String(player.id),
-                        behaviourId: String(player.behaviorId),
-                    }
-                    : slot
-            ),
-        }));
+        const playerId = String(player.id);
+        setTeam((current) => {
+            if (current.slots[slotIndex].playerId === playerId) return current;
+
+            const swapped = swapAssignedPlayer(current.slots, slotIndex, playerId);
+            if (swapped) return {...current, slots: swapped};
+
+            const slots = [...current.slots];
+            slots[slotIndex] = {playerId, behaviourId: String(player.behaviorId ?? '')};
+            return {...current, slots};
+        });
 
         setSelectedPlayers((current) => [
             ...current.filter((item) => item.id !== player.id),
             player,
         ]);
-
-        setSlotSearch((current) => ({
-            ...current,
-            [slotIndex]: '',
-        }));
-
-        setSlotResults((current) => ({
-            ...current,
-            [slotIndex]: [],
-        }));
     }
 
     async function handleSubmit(event) {
         event.preventDefault();
-        if (disabled || isSaving || !team) return;
-        clearFeedback();
+        if (isSaving || !team) return;
+        setError('');
 
         const playerIds = team.slots.map((slot) => slot.playerId);
 
@@ -219,7 +199,6 @@ export default function TeamSettings({
         }));
 
         setIsSaving(true);
-        onSavingChange?.(true);
 
         try {
             const response = await updateDefaultTeam({
@@ -229,7 +208,7 @@ export default function TeamSettings({
             });
 
             setTeam(loadTeam(response));
-            setSuccess('Equipo guardado correctamente.');
+            onSaveSuccess('Equipo guardado correctamente.');
         } catch (err) {
             const fields = Object.values(err.fields ?? {}).join(' ');
             setError(
@@ -237,7 +216,6 @@ export default function TeamSettings({
             );
         } finally {
             setIsSaving(false);
-            onSavingChange?.(false);
         }
     }
 
@@ -248,11 +226,7 @@ export default function TeamSettings({
         return <p role="alert">{error}</p>;
     }
 
-    const firstSlot = activeGroup === 'starters' ? 0 : 3;
-    const visibleSlots = team.slots
-        .map((slot, index) => ({ slot, index }))
-        .slice(firstSlot, firstSlot + 3);
-
+    const slots = team.slots.map((slot, index) => ({slot, index}));
     const selectedFormation = formations.find((formation) => String(formation.id) === team.formation);
 
     return (
@@ -264,24 +238,48 @@ export default function TeamSettings({
                 </CardTitle>
                 <CardDescription>
                     Elegí la formación, los 3 titulares y los 3 suplentes
-                    para tus próximos partidos.
+                    para tus próximos partidos. Si elegís un jugador que ya ocupa otro lugar,
+                    ambos intercambian sus puestos y conservan sus comportamientos.
                 </CardDescription>
             </CardHeader>
 
             <CardContent>
                 <form aria-label="Equipo para próximos partidos" onSubmit={handleSubmit} noValidate className="space-y-4">
                     <div className="space-y-1">
-                        <label htmlFor="team-formation" className="text-sm font-medium">
-                            Formación
-                        </label>
+                        <div className="flex items-center gap-1">
+                            <label htmlFor={`${inputPrefix}-formation`} className="text-sm font-medium">
+                                Formación
+                            </label>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger
+                                        render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" />}
+                                        type="button"
+                                        aria-label="Información sobre la formación"
+                                        aria-describedby={`${inputPrefix}-formation-help`}
+                                    >
+                                        <Info aria-hidden="true" />
+                                    </TooltipTrigger>
+                                    <TooltipContent id={`${inputPrefix}-formation-help`} role="tooltip" align="start">
+                                        <div className="space-y-2">
+                                            <p>La formación define la posición inicial de los tres titulares en la cancha.</p>
+                                            {selectedFormation?.description && (
+                                                <p><strong>{selectedFormation.name}</strong> · {selectedFormation.description}</p>
+                                            )}
+                                            <p>Los cambios se aplican a los próximos partidos. Los partidos ya iniciados conservan su formación.</p>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
 
                         <select
-                            id="team-formation"
-                            disabled={disabled || isSaving}
+                            id={`${inputPrefix}-formation`}
+                            disabled={isSaving}
                             className={SELECT_CLASSES}
                             value={team.formation}
                             onChange={(event) => {
-                                clearFeedback();
+                                setError('');
                                 setTeam((current) => ({
                                     ...current,
                                     formation: event.target.value,
@@ -294,144 +292,57 @@ export default function TeamSettings({
                                 </option>
                             ))}
                         </select>
-
-                        <p className="text-sm text-muted-foreground">
-                            {selectedFormation?.description}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                            Se aplica a los próximos partidos. Los partidos ya
-                            iniciados conservan su formación.
-                        </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button
-                            type="button"
-                            variant={activeGroup === 'starters' ? 'default' : 'outline'}
-                            onClick={() => setActiveGroup('starters')}
-                            aria-pressed={activeGroup === 'starters'}
-                        >
-                            Titulares
-                        </Button>
+                    <div className="space-y-6">
+                        {LINEUP_GROUPS.map(({name, firstSlot}) => (
+                            <section key={name} className="space-y-3">
+                                <h3 className="text-sm font-semibold">{name}</h3>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {slots.slice(firstSlot, firstSlot + 3).map(({slot, index}) => (
+                                        <fieldset
+                                            key={index}
+                                            disabled={isSaving}
+                                            className="min-w-0 space-y-4 rounded-xl border bg-card p-5 shadow-xs"
+                                        >
+                                            <legend className="rounded-md border bg-secondary px-3 py-1 text-sm font-semibold text-primary">
+                                                {index < 3
+                                                    ? `Titular ${index + 1}${selectedFormation?.slots?.[index]?.label
+                                                        ? ` — ${selectedFormation.slots[index].label}` : ''}`
+                                                    : `Suplente ${index - 2}`}
+                                            </legend>
 
-                        <Button
-                            type="button"
-                            variant={activeGroup === 'substitutes' ? 'default' : 'outline'}
-                            onClick={() => setActiveGroup('substitutes')}
-                            aria-pressed={activeGroup === 'substitutes'}
-                        >
-                            Suplentes
-                        </Button>
-                    </div>
-                    {visibleSlots.map(({ slot, index }) => (
-                        <fieldset
-                            key={index}
-                            disabled={disabled || isSaving}
-                            className="min-w-0 space-y-2 rounded-md border p-2"
-                        >
-                            <legend className="px-1 text-sm font-semibold">
-                                {index < 3
-                                    ? `Titular ${index + 1}${selectedFormation?.slots?.[index]?.label
-                                        ? ` — ${selectedFormation.slots[index].label}` : ''}`
-                                    : `Suplente ${index - 2}`}
-                            </legend>
+                                            <div>
+                                                <label htmlFor={`${inputPrefix}-player-${index}`} className="mb-1 block text-sm font-medium">
+                                                    Jugador{' '}<span className="sr-only">del lugar {index + 1}</span>
+                                                </label>
+                                                <TeamPlayerCombobox
+                                                    id={`${inputPrefix}-player-${index}`}
+                                                    player={selectedPlayers.find(player => String(player.id) === slot.playerId) ?? null}
+                                                    disabled={isSaving}
+                                                    onSelect={(player) => selectPlayer(index, player)}
+                                                />
+                                            </div>
 
-                            <div>
-                                <label htmlFor={`team-player-${index}`} className="sr-only">
-                                    Jugador del lugar {index + 1}
-                                </label>
+                                            <div>
+                                                <label htmlFor={`${inputPrefix}-behaviour-${index}`} className="mb-1 block text-sm font-medium">
+                                                    Comportamiento{' '}<span className="sr-only">del lugar {index + 1}</span>
+                                                </label>
 
-                                <div className="space-y-2">
-                                    <p className="text-sm">
-                                        Seleccionado:{' '}
-                                        <strong>
-                                            {selectedPlayers.find(
-                                                (player) => String(player.id) === slot.playerId
-                                            )?.name ?? 'Ninguno'}
-                                        </strong>
-                                    </p>
-
-                                    <label htmlFor={`team-player-search-${index}`} className="sr-only">
-                                        Buscar jugador para el lugar {index + 1}
-                                    </label>
-
-                                    <input
-                                        id={`team-player-search-${index}`}
-                                        type="search"
-                                        className={SELECT_CLASSES}
-                                        value={slotSearch[index] ?? ''}
-                                        onChange={(event) => {
-                                            const value = event.target.value;
-
-                                            setSlotSearch((current) => ({
-                                                ...current,
-                                                [index]: value,
-                                            }));
-
-                                            if (!value.trim()) {
-                                                setSlotResults((current) => ({
-                                                    ...current,
-                                                    [index]: [],
-                                                }));
-                                            }
-                                        }}
-                                        placeholder="Buscar jugador por nombre"
-                                    />
-
-                                    {slotSearchErrors[index] && (
-                                        <p role="alert" className="text-sm text-destructive">
-                                            {slotSearchErrors[index]}
-                                        </p>
-                                    )}
-
-                                    <ul className="space-y-1">
-                                        {(slotResults[index] ?? [])
-                                            .filter((player) =>
-                                                !team.slots.some(
-                                                    (other, otherIndex) =>
-                                                        otherIndex !== index &&
-                                                        other.playerId === String(player.id)
-                                                )
-                                            )
-                                            .map((player) => (
-                                                <li key={player.id}>
-                                                    <button
-                                                        type="button"
-                                                        className="w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
-                                                        onClick={() => selectPlayer(index, player)}
-                                                    >
-                                                        {player.name}
-                                                    </button>
-                                                </li>
-                                            ))}
-                                    </ul>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label htmlFor={`team-behaviour-${index}`} className="sr-only">
-                                    Comportamiento del lugar {index + 1}
-                                </label>
-
-                                <select
-                                    id={`team-behaviour-${index}`}
-                                    className={SELECT_CLASSES}
-                                    value={slot.behaviourId}
-                                    onChange={(event) =>
-                                        changeSlot(index, 'behaviourId', event.target.value)
-                                    }
-                                >
-                                    <option value="">Elegir comportamiento</option>
-
-                                    {behaviours.map((behaviour) => (
-                                        <option key={behaviour.id} value={behaviour.id}>
-                                            {behaviour.name}
-                                        </option>
+                                                <TeamBehaviourCombobox
+                                                    id={`${inputPrefix}-behaviour-${index}`}
+                                                    behaviour={behaviours.find(item => String(item.id) === slot.behaviourId) ?? null}
+                                                    behaviours={behaviours}
+                                                    disabled={isSaving}
+                                                    onSelect={(behaviour) => changeBehaviour(index, behaviour)}
+                                                />
+                                            </div>
+                                        </fieldset>
                                     ))}
-                                </select>
-                            </div>
-                        </fieldset>
-                    ))}
+                                </div>
+                            </section>
+                        ))}
+                    </div>
 
                     {behaviours.length === 0 && (
                         <p className="text-sm text-destructive">
@@ -450,12 +361,6 @@ export default function TeamSettings({
                     {error && (
                         <p role="alert" className="text-sm text-destructive">
                             {error}
-                        </p>
-                    )}
-
-                    {success && (
-                        <p role="status" className="text-sm">
-                            {success}
                         </p>
                     )}
                 </form>

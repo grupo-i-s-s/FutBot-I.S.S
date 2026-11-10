@@ -20,6 +20,7 @@ from app.main import app_error_handler, validation_error_handler
 from app.models.auth_model import Club, User
 from app.models.behaviour_model import Behavior
 from app.models.dt_model import Dt, DtBehaviour
+from app.models.league_model import League, LeagueRound
 from app.models.matches_model import Matches
 from app.models.player_model import Player
 from app.models.planned_substitution_model import PlannedSubstitution
@@ -50,7 +51,8 @@ def lineup(club_id, formation_id=1):
 def context():
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     tables = [model.__table__ for model in (
-        User, Club, Behavior, Player, DefaultTeam, Matches, Dt, DtBehaviour, PlannedSubstitution, Stats,
+        User, Club, Behavior, Player, DefaultTeam, League, LeagueRound,
+        Matches, PlannedSubstitution, Dt, DtBehaviour, Stats,
     )]
     Base.metadata.create_all(engine, tables=tables)
     with Session(engine) as db:
@@ -119,6 +121,17 @@ def test_invalid_save_does_not_replace_the_persisted_team(context, invalid):
         data["starters"][0]["behaviourId"] = 2
     assert context.client.put("/team/default", json=data).status_code == 400
     assert context.client.get("/team/default").json()["lineUp"] == lineup(1)
+
+
+def test_reading_a_legacy_invalid_team_reports_incomplete_account(context):
+    with Session(context.engine) as db:
+        db.get(DefaultTeam, 1).line_up = {"formationId": 1, "starters": []}
+        db.commit()
+
+    response = context.client.get("/team/default")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ACCOUNT_INCOMPLETE"
 
 
 def test_configuration_changes_apply_to_future_matches_and_not_resumed_matches(context, monkeypatch):

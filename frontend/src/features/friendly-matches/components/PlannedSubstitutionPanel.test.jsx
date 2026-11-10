@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import {act, cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router';
+import {SessionProvider} from '../../session/SessionProvider.jsx';
 import PlannedSubstitutionPanel from './PlannedSubstitutionPanel.jsx';
 import MatchPage from '../MatchPage.jsx';
 import {useMatchConnection} from '../hooks/useMatchConnection.js';
@@ -23,7 +24,10 @@ beforeEach(() => {
     state = {
         status: 'RUNNING', phase: 'PLAYING', nextPause: {pauseId: '42:1', number: 1}, events: [],
         clockMs: 100, durationMs: 1000,
-        teams: [{id: 1, name: 'Mi club', side: 'LEFT', score: 0}, {id: 2, name: 'Rival', side: 'RIGHT', score: 0}],
+        teams: [
+            {id: 1, name: 'Mi club', side: 'LEFT', score: 0, dtActive: false},
+            {id: 2, name: 'Rival', side: 'RIGHT', score: 0, dtActive: false},
+        ],
         players: [1, 2, 3, 7, 8, 9].map(id => ({id, name: `Jugador ${id}`, teamId: id < 7 ? 1 : 2})),
         lineups: [
             {clubId: 1, starters: [player(1, 'Titular A'), player(2, 'Titular B'), player(3, 'Titular C')],
@@ -35,11 +39,11 @@ beforeEach(() => {
         ],
     };
     fetchMock = vi.fn(async (url, options) => {
-        if (url === '/api/club/me') return reply({id: 1});
+        if (url === '/api/clubs/me') return reply({id: 1});
         if (url === '/api/behaviours') return reply({items: []});
         const manual = url === '/api/matches/42/substitutions';
         if (!manual) expect(url).toBe('/api/matches/42/planned-substitution');
-        return reply({pauseId: '42:1', ...JSON.parse(options.body), status: 'PENDING', sequence: ++responseSequence}, manual ? 202 : 200);
+        return reply({...JSON.parse(options.body), status: 'PENDING', sequence: ++responseSequence}, manual ? 202 : 200);
     });
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce('command-1').mockReturnValueOnce('command-2').mockReturnValue('command-3');
@@ -48,7 +52,16 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function panel(overrides = {}) {
-    return <PlannedSubstitutionPanel matchId="42" state={state} sequence={1} clubId={1} connected {...overrides}/>;
+    return <PlannedSubstitutionPanel matchId="42" state={state} sequence={1} clubId={1}
+                                     connected allowManualActions {...overrides}/>;
+}
+
+function matchPage() {
+    return <MemoryRouter initialEntries={['/partidos/42']}>
+        <SessionProvider>
+            <Routes><Route path="/partidos/:matchId" element={<MatchPage/>}/></Routes>
+        </SessionProvider>
+    </MemoryRouter>;
 }
 
 function choose(inId = '4') {
@@ -83,7 +96,9 @@ it('guarda una vez, espera la respuesta y muestra planificado sin alterar la can
     expect(options.method).toBe('PUT');
     expect(options.credentials).toBe('same-origin');
     expect(options.headers['X-FutBot-Request']).toBe('1');
-    expect(JSON.parse(options.body)).toEqual({outPlayerId: 1, inPlayerId: 4, commandId: 'command-1'});
+    expect(JSON.parse(options.body)).toEqual({
+        outPlayerId: 1, inPlayerId: 4, commandId: 'command-1', pauseId: '42:1',
+    });
     await act(async () => finish(reply({...pending(4, 'command-1'), sequence: 2})));
     expect(screen.getByText(/Cambio planificado: sale Titular A y entra Suplente A/)).toHaveTextContent('todavía no se realizó');
     expect(state.players).toEqual(before);
@@ -112,6 +127,42 @@ it('reutiliza commandId al reintentar después de un fallo de red', async () => 
     fireEvent.click(screen.getByRole('button', {name: 'Guardar cambio'}));
     await screen.findByText(/Cambio planificado:/);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(JSON.parse(fetchMock.mock.calls[1][1].body));
+});
+
+it('informa que venció la pausa elegida y espera una nueva confirmación para la siguiente', async () => {
+    fetchMock.mockResolvedValueOnce(reply({error: {
+        code: 'PAUSE_CLOSED', message: 'La pausa elegida ya no está disponible para planificar.',
+    }}, 409));
+    const view = render(panel());
+    choose();
+    fireEvent.click(screen.getByRole('button', {name: 'Guardar cambio'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('La pausa elegida ya no está disponible');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({pauseId: '42:1', commandId: 'command-1'});
+    expect(screen.queryByText(/Cambio planificado:/)).not.toBeInTheDocument();
+
+    state = {...state, nextPause: {pauseId: '42:2', number: 2}};
+    responseSequence = 3;
+    view.rerender(panel({sequence: 3}));
+    expect(screen.getByText('Próxima pausa: entretiempo.')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', {name: 'Guardar cambio'}));
+    await screen.findByText(/Se aplicará en entretiempo/);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({pauseId: '42:2', commandId: 'command-2'});
+});
+
+it.each([false, true])('un reintento vencido no vuelve a mostrar el cambio como pendiente; manual=%s', async manual => {
+    if (manual) pause();
+    fetchMock.mockRejectedValueOnce(new TypeError('network'));
+    fetchMock.mockResolvedValueOnce(reply({...pending(4, 'command-1'), status: 'EXPIRED', sequence: 2}, manual ? 202 : 200));
+    render(panel());
+    choose();
+    const label = manual ? 'Realizar cambio' : 'Guardar cambio';
+    fireEvent.click(screen.getByRole('button', {name: label}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar');
+    fireEvent.click(screen.getByRole('button', {name: label}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('El cambio quedó sin efecto.');
+    expect(screen.queryByText(/Cambio (planificado|pendiente):/)).not.toBeInTheDocument();
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(JSON.parse(fetchMock.mock.calls[0][1].body));
 });
 
 it.each(['quota', 'no-pause', 'disconnected'])('deshabilita el envío cuando corresponde: %s', reason => {
@@ -312,15 +363,13 @@ it.each([false, true])('integra el panel y sólo cambia la cancha al recibir el 
     if (manual) pause();
     let snapshot = {sequence: 1, state};
     useMatchConnection.mockReturnValue({snapshot, connectionStatus: 'connected', error: '', retry: vi.fn()});
-    const page = () => <MemoryRouter initialEntries={['/matches/42']}>
-        <Routes><Route path="/matches/:matchId" element={<MatchPage/>}/></Routes>
-    </MemoryRouter>;
-    const view = render(page());
+    const view = render(matchPage());
     await screen.findByRole('region', {name: manual ? 'Sustitución durante la pausa' : 'Sustitución programada'});
     choose();
     fireEvent.click(screen.getByRole('button', {name: manual ? 'Realizar cambio' : 'Guardar cambio'}));
     await screen.findByText(manual ? /Cambio pendiente:/ : /Cambio planificado:/);
     expect(screen.getByTestId('cancha')).toHaveTextContent('1,2,3,7,8,9');
+    expect(within(screen.getByRole('region', {name: 'Banco de Mi club'})).getByText('Suplente A')).toBeInTheDocument();
     state = {...state, players: state.players.map(p => p.id === 1 ? {...p, id: 4} : p),
         lineups: [{...state.lineups[0], remainingSubstitutions: 0,
             starters: [player(4, 'Suplente A'), ...state.lineups[0].starters.slice(1)],
@@ -328,37 +377,33 @@ it.each([false, true])('integra el panel y sólo cambia la cancha al recibir el 
         events: [{eventId: 'applied-1', type: 'SUBSTITUTION_APPLIED', clubId: 1, outPlayerId: 1, inPlayerId: 4}]};
     snapshot = {sequence: 3, state};
     useMatchConnection.mockReturnValue({snapshot, connectionStatus: 'connected', error: '', retry: vi.fn()});
-    view.rerender(page());
+    view.rerender(matchPage());
     expect(screen.getByTestId('cancha')).toHaveTextContent('4,2,3,7,8,9');
+    const bench = within(screen.getByRole('region', {name: 'Banco de Mi club'}));
+    expect(bench.getByText('Titular A')).toBeInTheDocument();
+    expect(bench.queryByText('Suplente A')).not.toBeInTheDocument();
     expect(screen.getByText(/Cambio aplicado:/)).toBeInTheDocument();
 });
 
-it('muestra el estado del DT desde el snapshot y espera la confirmación del motor al desactivarlo', async () => {
-    const fetchDefault = fetchMock.getMockImplementation();
-    fetchMock.mockImplementation(async (url, options) => {
-        if (url === '/api/friendly-matches/42/dt') {
-            expect(options.method).toBe('POST');
-            expect(JSON.parse(options.body)).toEqual({dt_active: false});
-            return reply({dt_active: false});
-        }
-        return fetchDefault(url, options);
-    });
-    state.teams[0].dtActive = true;
-    state.teams[0].dtConfigured = true;
+it.each([false, true])('muestra las sustituciones del DT sin controles de cambio; pausa=%s', async paused => {
+    if (paused) pause();
+    state.teams[0] = {...state.teams[0], dtActive: true, dtConfigured: true,
+        dtError: paused ? 'El programa del DT se interrumpió.' : null};
+    state.lineups[0].pendingSubstitution = pending();
+    state.events = [{eventId: 'dt-1', type: 'SUBSTITUTION_APPLIED', source: 'DT',
+        clubId: 1, outPlayerId: 1, inPlayerId: 4}];
     useMatchConnection.mockReturnValue({snapshot: {sequence: 1, state}, connectionStatus: 'connected', error: '', retry: vi.fn()});
-    const page = () => <MemoryRouter initialEntries={['/matches/42']}>
-        <Routes><Route path="/matches/:matchId" element={<MatchPage/>}/></Routes>
-    </MemoryRouter>;
-    const view = render(page());
-    fireEvent.click(await screen.findByRole('button', {name: 'Desactivar DT'}));
-    await waitFor(() => expect(screen.getByRole('button', {name: 'Desactivar DT'})).toBeEnabled());
-    expect(fetchMock).toHaveBeenCalledWith('/api/friendly-matches/42/dt', expect.anything());
-    expect(screen.getByText('DT activo')).toBeInTheDocument();
-    expect(screen.getByLabelText('Titular que sale')).toBeEnabled();
+    render(matchPage());
 
-    state.teams[0].dtActive = false;
-    useMatchConnection.mockReturnValue({snapshot: {sequence: 2, state}, connectionStatus: 'connected', error: '', retry: vi.fn()});
-    view.rerender(page());
-    expect(screen.getByRole('button', {name: 'Activar DT'})).toBeEnabled();
-    expect(screen.getByText('DT inactivo')).toBeInTheDocument();
+    const substitutions = await screen.findByRole('region', {name: 'Sustituciones'});
+    expect(substitutions).toHaveTextContent('El DT hizo un cambio. Salió Titular A y entró Suplente A.');
+    expect(screen.getByRole('region', {name: 'Marcador del partido'})).toBeInTheDocument();
+    expect(screen.getByTestId('cancha')).toBeInTheDocument();
+    expect(screen.getByText(paused ? 'DT con error' : 'DT activo')).toBeInTheDocument();
+    if (paused) expect(screen.getByRole('alert')).toHaveTextContent('El programa del DT se interrumpió.');
+    expect(screen.queryByRole('button', {name: /activar DT/i})).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Titular que sale')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Suplente que entra')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cambio planificado:/)).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/matches/42/dt');
 });

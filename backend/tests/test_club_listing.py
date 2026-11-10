@@ -214,6 +214,16 @@ def test_paginates_filtered_results_and_preserves_total(client):
     assert len(set(collected_ids)) == 2
 
 
+def test_canonical_listing_adds_total_pages_without_changing_legacy_envelope(client):
+    params = {"name": "river", "page": 2, "pageSize": 1}
+    legacy = client.get(URL, params=params)
+    canonical = client.get("/clubs", params=params)
+
+    assert legacy.status_code == canonical.status_code == 200
+    assert "totalPages" not in legacy.json()
+    assert canonical.json() == {**legacy.json(), "totalPages": 2}
+
+
 @pytest.mark.parametrize(
     "search, page, expected_total",
     [

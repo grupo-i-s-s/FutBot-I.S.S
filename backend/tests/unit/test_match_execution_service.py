@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.errors import AppError
+from app.models.matches_model import CHECKPOINT_UNRECOVERABLE
 from app.services import match_execution_service as service
 from app.services.match_request_handler import enqueue_request, pending_requests
 
@@ -13,7 +14,10 @@ from app.services.match_request_handler import enqueue_request, pending_requests
 class Simulation:
     def __init__(self, steps=1):
         self.finished = steps == 0
+        self.match_id = 42
         self.duration_ms = 1000
+        self.local_team = SimpleNamespace(club_id=1, dt_active=False)
+        self.visitor_team = SimpleNamespace(club_id=7, dt_active=False)
         self.time = 0
         self.steps_left = steps
         self.steps = []
@@ -44,7 +48,8 @@ def execution(monkeypatch, db, now, freeze_time):
     service.clear_requests(42)
     freeze_time(service)
     simulation = Simulation()
-    row = SimpleNamespace(match_id=42, league_round_id=None, status="SCHEDULED", duration_ms=1000,
+    row = SimpleNamespace(match_id=42, league_round_id=None, creator_id=1, visitor_id=7,
+                          status="SCHEDULED", duration_ms=1000,
                           sequence=8, snapshot=None, runtime_state=None)
     repo = Mock()
     repo.get_by_id_for_update.return_value = row
@@ -57,9 +62,11 @@ def execution(monkeypatch, db, now, freeze_time):
     repo.save_progress.side_effect = save
     monkeypatch.setattr(service, "matches_repository", repo)
     monkeypatch.setattr(service, "prepare_match_start", Mock(return_value=simulation))
-    monkeypatch.setattr(service, "process_match_for_global_ranking", Mock())
     monkeypatch.setattr(service, "Match", Mock())
     service.Match.from_checkpoint.return_value = simulation
+    monkeypatch.setattr(service, "empty_match_snapshot", Mock(side_effect=lambda db, row, now, *, status: {
+        "sequence": row.sequence, "state": {"status": status, "cancellationReason": row.cancellation_reason},
+    }))
     monkeypatch.setattr(service, "monotonic", Mock(return_value=0))
     monkeypatch.setattr(service, "sleep", Mock())
     yield SimpleNamespace(row=row, repo=repo, simulation=simulation)
@@ -84,7 +91,6 @@ def test_finished_league_match_updates_fixture_before_committing(db, execution, 
     def update(db, round_id):
         assert round_id == 7
         assert execution.row.status == "FINISHED"
-        service.process_match_for_global_ranking.assert_called_once_with(db, execution.row)
         assert db.commit.call_count == 1
 
     update_schedule = Mock(side_effect=update)
@@ -145,12 +151,15 @@ def test_cancelled_start_commits_cancellation_snapshot(db, execution):
     execution.repo.save_progress.assert_not_called()
 
 
-def test_running_match_requires_checkpoint(db, execution):
+def test_running_match_without_checkpoint_is_closed(db, execution, now):
     execution.row.status = "RUNNING"
-    with pytest.raises(AppError) as error:
-        service._execute(db, 42, None)
-    assert error.value.code == "MATCH_STATE_INVALID"
+    result = service._execute(db, 42, None)
+    assert result is execution.row.snapshot
+    assert result["sequence"] == 9
+    assert result["state"] == {"status": "CANCELLED", "cancellationReason": CHECKPOINT_UNRECOVERABLE}
+    assert execution.row.finished_at == now
     service.Match.from_checkpoint.assert_not_called()
+    db.commit.assert_called_once()
 
 
 def test_resume_uses_saved_checkpoint_without_rebuilding_lineup(db, execution):
@@ -175,6 +184,19 @@ def test_resume_cannot_change_duration(db, execution):
     execution.repo.save_progress.assert_not_called()
     db.commit.assert_not_called()
     assert execution.simulation.close_calls == 1
+
+
+def test_completed_checkpoint_finalizes_a_running_row_without_simulating_again(db, execution):
+    execution.row.status = "RUNNING"
+    execution.row.runtime_state = {"checkpoint": True}
+    execution.simulation.finished = True
+
+    result = service._execute(db, 42, None)
+
+    assert result["state"]["status"] == "FINISHED"
+    assert execution.simulation.steps == []
+    execution.repo.save_progress.assert_called_once()
+    db.commit.assert_called_once()
 
 
 def test_stop_during_execution_returns_last_persisted_snapshot(db, execution):
@@ -214,17 +236,28 @@ def test_commit_failure_never_advances_simulation(db, execution):
     assert execution.simulation.close_calls == 1
 
 
-@pytest.mark.parametrize("error_type", [ValueError, TypeError, KeyError])
-def test_invalid_checkpoint_becomes_domain_error(db, execution, error_type):
+@pytest.mark.parametrize("error_type", [ValueError, TypeError, KeyError, AttributeError, OverflowError])
+def test_invalid_checkpoint_closes_match_and_discards_queued_orders(db, execution, error_type):
     execution.row.status = "RUNNING"
     execution.row.runtime_state = {"invalid": True}
     service.Match.from_checkpoint.side_effect = error_type("invalid checkpoint")
 
-    with pytest.raises(AppError) as error:
+    enqueue_request(42, {"action": "CHANGE_BEHAVIOUR"})
+    assert service._execute(db, 42, None)["state"]["status"] == "CANCELLED"
+    assert pending_requests(42) == []
+    execution.repo.save_progress.assert_not_called()
+    db.commit.assert_called_once()
+
+
+def test_transient_restore_failure_does_not_close_match(db, execution):
+    execution.row.status = "RUNNING"
+    execution.row.runtime_state = {"checkpoint": True}
+    service.Match.from_checkpoint.side_effect = RuntimeError("worker unavailable")
+
+    with pytest.raises(RuntimeError, match="worker unavailable"):
         service._execute(db, 42, None)
 
-    assert error.value.code == "MATCH_STATE_INVALID"
-    execution.repo.save_progress.assert_not_called()
+    assert execution.row.status == "RUNNING"
     db.commit.assert_not_called()
 
 

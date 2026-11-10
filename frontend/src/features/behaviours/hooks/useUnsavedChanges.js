@@ -1,11 +1,19 @@
 import {useCallback, useEffect, useRef} from 'react';
 import {useBeforeUnload, useBlocker} from 'react-router';
+import {DISCARD_MESSAGE, useSession} from '../../session/SessionProvider.jsx';
 
-export const DISCARD_MESSAGE =
-    'Tenés cambios sin guardar. ¿Querés descartarlos?';
+export {DISCARD_MESSAGE};
 
 export function useUnsavedChanges(isDirty) {
     const allowLeaving = useRef(false);
+    const registerUnsavedChanges = useSession()?.registerUnsavedChanges;
+    const allowNavigation = useCallback(() => {
+        allowLeaving.current = true;
+    }, []);
+
+    useEffect(() => {
+        if (isDirty) return registerUnsavedChanges?.(allowNavigation);
+    }, [isDirty, registerUnsavedChanges, allowNavigation]);
 
     const blocker = useBlocker(
         () => isDirty && !allowLeaving.current
@@ -30,9 +38,7 @@ export function useUnsavedChanges(isDirty) {
         }, [isDirty])
     );
 
-    return () => {
-        allowLeaving.current = true;
-    };
+    return allowNavigation;
 }
 
 export function UnsavedChangesGuard({dirty}) {

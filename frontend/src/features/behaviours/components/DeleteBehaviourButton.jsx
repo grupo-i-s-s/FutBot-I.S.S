@@ -1,5 +1,6 @@
 import {useRef, useState} from 'react';
 import {LoaderCircle, Trash2} from 'lucide-react';
+import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger} from '@/components/ui/dialog';
 import {deleteBehaviour} from '../api';
@@ -13,8 +14,9 @@ export default function DeleteBehaviourButton({behaviour, onDeleted}) {
     const isInUse =
         error?.status === 409 &&
         error?.code === 'BEHAVIOUR_IN_USE';
+    const isDtPreset = isInUse && Boolean(error.fields?.dtPreset);
 
-    const references = isInUse
+    const references = isInUse && !isDtPreset
         ? Object.entries(error.fields ?? {})
         : [];
 
@@ -29,6 +31,10 @@ export default function DeleteBehaviourButton({behaviour, onDeleted}) {
             await deleteBehaviour(behaviour.id);
         } catch (requestError) {
             setError(requestError);
+            toast.error('No se pudo eliminar el comportamiento', {
+                description: requestError.message,
+                position: 'top-right',
+            });
             return;
         } finally {
             pending.current = false;
@@ -92,13 +98,13 @@ export default function DeleteBehaviourButton({behaviour, onDeleted}) {
                         className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"
                     >
                         <p className="font-semibold">
-                            {isInUse
-                                ? 'Este comportamiento está en uso.'
-                                : 'No se pudo eliminar el comportamiento.'}
+                            {isDtPreset ? 'Este comportamiento base del DT está protegido.'
+                                : isInUse ? 'Este comportamiento está en uso.'
+                                    : 'No se pudo eliminar el comportamiento.'}
                         </p>
 
                         <p>
-                            {isInUse
+                            {isInUse && !isDtPreset
                                 ? 'Debés reasignarlo antes de poder eliminarlo.'
                                 : error.message || 'Intentá nuevamente.'}
                         </p>
@@ -129,7 +135,7 @@ export default function DeleteBehaviourButton({behaviour, onDeleted}) {
                     <Button
                         type="button"
                         variant="destructive"
-                        disabled={isDeleting}
+                        disabled={isDeleting || isDtPreset}
                         onClick={handleConfirm}
                     >
                         {isDeleting && (

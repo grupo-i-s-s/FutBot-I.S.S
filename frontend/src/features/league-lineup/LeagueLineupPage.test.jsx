@@ -27,10 +27,10 @@ let saved;
 
 async function openPage() {
     render(
-        <MemoryRouter initialEntries={['/leagues/7/lineup']}>
+        <MemoryRouter initialEntries={['/ligas/7/plantel']}>
             <Routes>
                 <Route
-                    path="/leagues/:id/lineup"
+                    path="/ligas/:id/plantel"
                     element={<LeagueLineupPage/>}
                 />
             </Routes>
@@ -246,12 +246,19 @@ it('permite configurar una inscripción inicial con versión cero', async () => 
 });
 
 
-it('muestra una liga terminada como solo lectura', async () => {
+it('muestra una liga terminada como solo lectura y conserva el ID de un comportamiento archivado', async () => {
+    saved.lineUp.substitutes[0].behaviourId = 25;
     getLeagueLineup.mockResolvedValueOnce({...saved, editable: false});
 
     const formation = await openPage();
+    const archived = screen.getByLabelText('Comportamiento suplente 1');
 
     expect(formation).toBeDisabled();
+    expect(archived).toBeDisabled();
+    expect(archived).toHaveValue('25');
+    expect(archived).toHaveDisplayValue('Comportamiento guardado #25');
+    expect(screen.getByLabelText('Comportamiento titular 1')).toHaveDisplayValue('Equilibrado');
+    expect(screen.queryByText('Elegí un comportamiento validado para cada jugador.')).not.toBeInTheDocument();
     expect(
         screen.getByRole('button', {name: 'Guardar plantel'}),
     ).toBeDisabled();
